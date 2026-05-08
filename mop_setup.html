@@ -3709,11 +3709,9 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
         <div>
           <div class="ct" style="margin:0">🎵 종목별 신호음 라이브러리</div>
-          <div style="font-size:12px;color:var(--mu);margin-top:3px">통합 트랙 (시작~종료가 한 mp3에 들어있는 음원) · 운영앱에서 자동 재생됩니다</div>
+          <div style="font-size:12px;color:var(--mu);margin-top:3px">통합 트랙 (시작~종료가 한 mp3에 들어있는 음원) · GitHub 자동 호스팅</div>
         </div>
         <div style="display:flex;gap:6px">
-          <button class="btn se" onclick="document.getElementById('sl-bulk-inp').click()">📁 일괄 업로드</button>
-          <input type="file" id="sl-bulk-inp" accept=".mp3,.wav,.m4a" multiple style="display:none" onchange="bulkUploadSounds(this.files)">
           <button class="btn se" onclick="loadSoundLibrary()">⟳ 새로고침</button>
         </div>
       </div>
@@ -3734,10 +3732,13 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
       <div id="sl-list" style="display:flex;flex-direction:column;gap:6px;max-height:500px;overflow-y:auto"></div>
 
       <!-- 안내 -->
-      <div style="font-size:11px;color:var(--mu2);margin-top:10px;padding:8px;background:var(--sur3);border-radius:6px;line-height:1.6">
-        💡 <strong>일괄 업로드 팁:</strong> 파일명에 종목 코드(예: <code>SRSS</code>) 또는 종목명(예: <code>Single_Rope_Speed_1X30</code>)이 포함되면 자동 매칭됩니다.<br>
-        예) <code>Single_Rope_Speed_1X30.mp3</code> → SRSS · <code>Double_Dutch_Speed_1X60.mp3</code> → DDSS<br>
-        ⚠ Firebase Storage 활성화 필요 (Console → Build → Storage → 시작하기)
+      <div style="font-size:11px;color:var(--mu2);margin-top:10px;padding:10px;background:var(--sur3);border-radius:6px;line-height:1.7">
+        💡 <strong>새 음원 추가하려면:</strong><br>
+        1. <a href="https://github.com/today119/mop-jumprope" target="_blank" style="color:var(--ac);text-decoration:underline">GitHub Repo</a> 접속<br>
+        2. <code>Add file</code> → <code>Upload files</code> → mp3 드래그<br>
+        3. <code>Commit changes</code> 클릭<br>
+        4. 이 페이지에서 <strong>⟳ 새로고침</strong> 클릭<br>
+        🎯 파일명에 종목 코드(예: <code>SRSS</code>) 또는 영문 종목명(예: <code>Single_Rope_Speed_1X30</code>)이 포함되면 자동 매칭됩니다.
       </div>
     </div>
 
@@ -6890,52 +6891,117 @@ function exportCSV(type){
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);a.download=fn;a.click();
 }
 
-/* ══════════ 종목별 신호음 라이브러리 ══════════ */
-let soundLibrary = {}; // {eventCode: {url, name, size, uploadedAt}}
+/* ══════════ 종목별 신호음 라이브러리 (GitHub 호스팅) ══════════ */
+let soundLibrary = {}; // {eventCode: {url, name, source: 'github'|'custom'}}
+
+// GitHub Repo 기본 URL
+const GITHUB_SOUND_BASE = 'https://today119.github.io/mop-jumprope/';
+
+// GitHub에 올라간 mp3 파일 목록 (자동 감지용)
+const GITHUB_SOUND_FILES = [
+  'DDSC_30sSpeed.mp3',
+  'Double Dutch Speed 1X60.mp3',
+  'Double Dutch Speed 2X60.mp3',
+  'Double Dutch Speed 3X40.mp3',
+  'Double Dutch Triad Freestyle.mp3',
+  'Double Sutch Speed 1X120.mp3',
+  'Freestyle Event.mp3',
+  'Single Rope Speed 1X120_8자마라톤.mp3',
+  'Single Rope Speed 1X180.mp3',
+  'Single Rope Speed 1X30.mp3',
+  'Single Rope Speed 2X30.mp3',
+  'Single Rope Speed 4X30.mp3',
+];
 
 // 파일명에서 종목 코드 자동 추출
 function detectEventCodeFromFilename(filename){
-  const f=filename.toLowerCase().replace(/\.[^.]+$/,''); // 확장자 제거
+  const f=filename.toLowerCase().replace(/\.[^.]+$/,'').replace(/\s+/g,'');
   // 1순위: 종목 코드 직접 매칭 (SRSS, DDSS 등)
   for(const ev of EVENTS){
-    if(f.includes(ev.code.split(' ')[0].toLowerCase())) return ev.code;
+    const code=ev.code.split(/\s+/)[0].toLowerCase();
+    if(f.includes(code)) return ev.code;
   }
-  // 2순위: 영문 종목명 키워드 매칭
+  // 2순위: 영문 종목명 키워드 매칭 (정확도 향상)
   const patterns = [
-    {kw:['single_rope_speed_1x30','single_rope_speed_30','sr_speed_30','speed_30s','1x30'], code:'SRSS 1×30'},
-    {kw:['single_rope_speed_2x30','sr_speed_relay_2','2x30','double_under_2'], code:'SRSR 2×30'},
-    {kw:['single_rope_speed_4x30','sr_speed_relay_4','4x30'], code:'SRRE 4×30'},
-    {kw:['single_rope_speed_1x180','sr_endurance_3min','3min','180s'], code:'SRSE 3min'},
-    {kw:['single_rope_speed_1x120_8자','8자마라톤','figure8'], code:'LR-8M'},
-    {kw:['single_rope_speed_1x120','speed_endurance'], code:'SRSE'},
-    {kw:['double_dutch_speed_1x60','dd_speed_60','dd_1x60'], code:'DDSS 1×60'},
-    {kw:['double_dutch_speed_2x60','dd_speed_relay_2','dd_2x60'], code:'DDSR 2×60'},
-    {kw:['double_dutch_speed_3x40','dd_speed_relay_3','dd_3x40'], code:'DDRE 3×40'},
-    {kw:['double_sutch_speed_1x120','double_dutch_endurance','dd_endurance'], code:'DDSE 2min'},
-    {kw:['ddsc','dd_speed_contest'], code:'DDSC'},
-    {kw:['double_dutch_triad_freestyle','dd_triad','ddtf'], code:'DDTF'},
-    {kw:['freestyle_event','single_rope_freestyle'], code:'SRIF'},
+    {kw:['singleropespeed1x30','single_rope_speed_1x30'], pref:'SRSS'},
+    {kw:['singleropespeed2x30','single_rope_speed_2x30'], pref:'SRSR'},
+    {kw:['singleropespeed4x30','single_rope_speed_4x30'], pref:'SRRE'},
+    {kw:['singleropespeed1x180','single_rope_speed_1x180'], pref:'SRSE 3min'},
+    {kw:['1x120_8자마라톤','8자마라톤','figure8'], pref:'LR-8M'},
+    {kw:['singleropespeed1x120','single_rope_speed_1x120'], pref:'SRSE'},
+    {kw:['doubledutchspeed1x60','double_dutch_speed_1x60'], pref:'DDSS'},
+    {kw:['doubledutchspeed2x60','double_dutch_speed_2x60'], pref:'DDSR'},
+    {kw:['doubledutchspeed3x40','double_dutch_speed_3x40'], pref:'DDRE'},
+    {kw:['doublesutchspeed1x120','double_sutch_speed_1x120','double_dutch_speed_1x120'], pref:'DDSE'},
+    {kw:['ddsc'], pref:'DDSC'},
+    {kw:['doubledutchtriadfreestyle','double_dutch_triad'], pref:'DDTF'},
+    {kw:['freestyleevent','freestyle_event'], pref:'SRIF'},
   ];
   for(const p of patterns){
-    if(p.kw.some(k=>f.includes(k.replace(/_/g,'')) || f.includes(k))){
-      // 매칭된 코드 → 실제 EVENTS의 코드와 매칭
-      const target=p.code.split(' ')[0];
-      const ev=EVENTS.find(e=>e.code.startsWith(target));
+    if(p.kw.some(k=>f.includes(k))){
+      const ev=EVENTS.find(e=>e.code.startsWith(p.pref));
       if(ev)return ev.code;
     }
   }
   return null;
 }
 
-// 사운드 라이브러리 Firebase에서 로드
+// GitHub URL 자동 생성
+function getGithubSoundUrl(filename){
+  return GITHUB_SOUND_BASE + encodeURIComponent(filename);
+}
+
+// 사운드 라이브러리 자동 매핑 (GitHub 파일을 종목 코드에 자동 연결)
+function autoMapGithubSounds(){
+  let mapped=0;
+  for(const filename of GITHUB_SOUND_FILES){
+    const code=detectEventCodeFromFilename(filename);
+    if(code && !soundLibrary[code]){
+      soundLibrary[code] = {
+        url: getGithubSoundUrl(filename),
+        name: filename,
+        size: 0, // GitHub은 파일 크기 정보 없음
+        source: 'github',
+        uploadedAt: Date.now()
+      };
+      mapped++;
+    }
+  }
+  return mapped;
+}
+
+// 사운드 라이브러리 Firebase에서 로드 (GitHub 매핑도 함께)
 async function loadSoundLibrary(){
-  if(!cfg.roomId){toast('Room ID 먼저 설정하세요',true);return;}
   try{
-    const snap=await db.ref(`${cfg.roomId}/soundLibrary`).once('value');
-    soundLibrary=snap.val()||{};
+    // Firebase에 저장된 커스텀 음원이 있으면 로드
+    if(cfg.roomId){
+      const snap=await db.ref(`${cfg.roomId}/soundLibrary`).once('value');
+      const fbData=snap.val()||{};
+      // GitHub 자동 매핑 + Firebase 커스텀 음원 병합
+      soundLibrary = {};
+      autoMapGithubSounds();
+      Object.assign(soundLibrary, fbData);
+    } else {
+      soundLibrary = {};
+      autoMapGithubSounds();
+    }
     renderSoundLibrary();
-    toast(`✓ ${Object.keys(soundLibrary).length}개 음원 로드`);
-  }catch(e){toast('로드 실패: '+e.message,true);}
+    
+    // GitHub 매핑 정보를 Firebase에도 동기화 (운영앱이 읽을 수 있도록)
+    if(cfg.roomId){
+      const githubMapped={};
+      for(const [code,info] of Object.entries(soundLibrary)){
+        if(info.source==='github'){
+          githubMapped[code]=info;
+        }
+      }
+      if(Object.keys(githubMapped).length>0){
+        await db.ref(`${cfg.roomId}/soundLibrary`).update(githubMapped);
+      }
+    }
+    
+    toast(`✓ ${Object.keys(soundLibrary).length}개 음원 로드 (GitHub 자동 매핑)`);
+  }catch(e){toast('로드 실패: '+e.message,true);console.error(e);}
 }
 
 // 사운드 라이브러리 렌더
@@ -6963,80 +7029,56 @@ function renderSoundLibrary(){
     const sound=soundLibrary[ev.code];
     const code=ev.code.split(' ')[0];
     const label=evLabel(ev);
+    const fullCode=ev.code;
     if(sound){
-      const sizeKB=Math.round(sound.size/1024);
-      return`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#fff;border:1.5px solid var(--gn);border-radius:8px">
-        <div style="display:flex;flex-direction:column;flex-shrink:0;width:80px">
-          <span style="font-family:monospace;font-weight:700;font-size:12px;color:var(--ac)">${code}</span>
-          <span style="font-size:9px;color:var(--mu2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
+      const isGithub=sound.source==='github';
+      const sizeInfo=sound.size?Math.round(sound.size/1024)+'KB':(isGithub?'GitHub 호스팅':'Custom');
+      const badgeBg=isGithub?'rgba(59,130,246,.1)':'rgba(0,255,136,.1)';
+      const badgeColor=isGithub?'#3b82f6':'var(--gn)';
+      const badgeText=isGithub?'🌐 GitHub':'☁ Custom';
+      return`<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:#fff;border:1.5px solid var(--gn);border-radius:9px">
+        <div style="display:flex;flex-direction:column;flex-shrink:0;width:130px">
+          <span style="font-family:monospace;font-weight:800;font-size:15px;color:var(--ac);line-height:1.2">${code}</span>
+          <span style="font-size:11px;color:var(--mu2);line-height:1.4;margin-top:2px;word-break:keep-all">${fullCode}</span>
+          <span style="font-size:11px;color:var(--mu);line-height:1.4;margin-top:1px;word-break:keep-all">${label}</span>
         </div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:11px;font-weight:600;color:var(--gn);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📎 ${sound.name}</div>
-          <div style="font-size:10px;color:var(--mu);font-family:monospace">${sizeKB}KB</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
+            <span style="font-size:9px;padding:2px 6px;border-radius:4px;background:${badgeBg};color:${badgeColor};font-weight:700">${badgeText}</span>
+            <span style="font-size:13px;font-weight:600;color:var(--gn);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📎 ${sound.name}</span>
+          </div>
+          <div style="font-size:11px;color:var(--mu);font-family:monospace">${sizeInfo}</div>
         </div>
         <button onclick="playSound('${ev.code}')"
-          style="font-size:11px;padding:5px 10px;border-radius:5px;border:1px solid var(--ac);color:var(--ac);background:transparent;cursor:pointer;white-space:nowrap">▶ 재생</button>
-        <button onclick="deleteSoundFile('${ev.code}')"
-          style="font-size:11px;padding:5px 8px;border-radius:5px;border:1px solid var(--ac2);color:var(--ac2);background:transparent;cursor:pointer">✕</button>
+          style="font-size:13px;padding:7px 14px;border-radius:6px;border:1.5px solid var(--ac);color:var(--ac);background:transparent;cursor:pointer;white-space:nowrap;font-weight:600">▶ 재생</button>
+        ${!isGithub?`<button onclick="deleteSoundFile('${ev.code}')"
+          style="font-size:13px;padding:7px 11px;border-radius:6px;border:1.5px solid var(--ac2);color:var(--ac2);background:transparent;cursor:pointer">✕</button>`:''}
       </div>`;
     } else {
-      return`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--sur3);border:1.5px dashed var(--bdr);border-radius:8px">
-        <div style="display:flex;flex-direction:column;flex-shrink:0;width:80px">
-          <span style="font-family:monospace;font-weight:700;font-size:12px;color:var(--mu)">${code}</span>
-          <span style="font-size:9px;color:var(--mu2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
+      return`<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--sur3);border:1.5px dashed var(--bdr);border-radius:9px">
+        <div style="display:flex;flex-direction:column;flex-shrink:0;width:130px">
+          <span style="font-family:monospace;font-weight:800;font-size:15px;color:var(--mu);line-height:1.2">${code}</span>
+          <span style="font-size:11px;color:var(--mu2);line-height:1.4;margin-top:2px;word-break:keep-all">${fullCode}</span>
+          <span style="font-size:11px;color:var(--mu);line-height:1.4;margin-top:1px;word-break:keep-all">${label}</span>
         </div>
-        <div style="flex:1;font-size:11px;color:var(--mu)">음원 없음 (운영앱에서 합성음 사용)</div>
-        <label style="cursor:pointer">
-          <span style="font-size:11px;padding:5px 10px;border-radius:5px;border:1px solid var(--ac);color:var(--ac);background:transparent;display:inline-block;white-space:nowrap">+ 업로드</span>
-          <input type="file" accept=".mp3,.wav,.m4a" style="display:none" 
-            onchange="uploadSoundFile('${ev.code}', this.files[0]); this.value='';">
-        </label>
+        <div style="flex:1;font-size:13px;color:var(--mu)">음원 없음 (운영앱에서 합성음 사용)</div>
+        <span style="font-size:11px;color:var(--mu2);font-style:italic">GitHub에 업로드 후 새로고침</span>
       </div>`;
     }
   }).join('');
 }
 
-// 단일 파일 업로드
+// 단일 파일 업로드 (Firebase Storage 사용 - 보조용)
 async function uploadSoundFile(eventCode, file){
-  if(!file) return;
-  if(!cfg.roomId){toast('Room ID 먼저 설정하세요',true);return;}
-  if(file.size > 10*1024*1024){toast('파일 크기 10MB 초과',true);return;}
-  toast(`📤 ${file.name} 업로드 중...`);
-  try{
-    const path=`${cfg.roomId}/sounds/${eventCode.replace(/[^a-zA-Z0-9]/g,'_')}_${Date.now()}.${file.name.split('.').pop()}`;
-    const ref=storage.ref(path);
-    const uploadTask=await ref.put(file);
-    const url=await uploadTask.ref.getDownloadURL();
-    const data={url, name:file.name, size:file.size, path, uploadedAt:Date.now()};
-    await db.ref(`${cfg.roomId}/soundLibrary/${eventCode}`).set(data);
-    soundLibrary[eventCode]=data;
-    renderSoundLibrary();
-    toast(`✓ ${eventCode} 업로드 완료`);
-  }catch(e){
-    console.error(e);
-    toast('업로드 실패: '+e.message,true);
-  }
+  toast('💡 GitHub 호스팅 방식으로 변경되었습니다. mp3를 GitHub Repo에 업로드 후 새로고침하세요.', true);
+  alert('Firebase Storage 업로드는 비활성화되었습니다.\n\nmp3 파일을 GitHub Repo에 직접 업로드하세요:\n1. https://github.com/today119/mop-jumprope\n2. Add file → Upload files → mp3 드래그\n3. Commit\n4. 이 페이지에서 "새로고침" 버튼 클릭\n\n파일명에 종목 코드(SRSS 등) 또는 영문 종목명이 포함되면 자동 매칭됩니다.');
 }
 
-// 일괄 업로드
+// 일괄 업로드 (안내만)
 async function bulkUploadSounds(files){
   if(!files||!files.length)return;
-  if(!cfg.roomId){toast('Room ID 먼저 설정하세요',true);return;}
-  let matched=0, unmatched=[];
-  for(const f of files){
-    const code=detectEventCodeFromFilename(f.name);
-    if(code){
-      await uploadSoundFile(code, f);
-      matched++;
-    } else {
-      unmatched.push(f.name);
-    }
-  }
-  toast(`✓ ${matched}개 업로드 완료${unmatched.length?`, ${unmatched.length}개 미매칭`:''}`);
-  if(unmatched.length){
-    console.log('미매칭 파일:', unmatched);
-    alert(`다음 파일은 종목 자동 매칭에 실패했습니다:\n\n${unmatched.join('\n')}\n\n각 종목 칸에서 개별 업로드 해주세요.`);
-  }
+  toast('💡 GitHub 호스팅 방식으로 변경되었습니다',true);
+  alert(`mp3 ${files.length}개를 GitHub에 직접 업로드해주세요.\n\n방법:\n1. https://github.com/today119/mop-jumprope 접속\n2. Add file → Upload files → mp3 모두 드래그\n3. Commit changes\n4. 이 페이지에서 "새로고침" 버튼 클릭\n\n자동으로 종목과 매칭됩니다.`);
 }
 
 // 음원 재생 (미리듣기)
@@ -7050,18 +7092,23 @@ function playSound(eventCode){
     .catch(e=>toast('재생 실패: '+e.message,true));
 }
 
-// 삭제
+// 삭제 (Custom만)
 async function deleteSoundFile(eventCode){
   if(!confirm(`${eventCode} 음원을 삭제할까요?`))return;
-  const sound=soundLibrary[eventCode];
-  if(!sound)return;
   try{
-    if(sound.path) await storage.ref(sound.path).delete().catch(()=>{});
     await db.ref(`${cfg.roomId}/soundLibrary/${eventCode}`).remove();
     delete soundLibrary[eventCode];
     renderSoundLibrary();
     toast(`✓ ${eventCode} 삭제됨`);
   }catch(e){toast('삭제 실패: '+e.message,true);}
+}
+
+// 초기 자동 매핑 (탭 진입 시)
+function initSoundLibrary(){
+  if(Object.keys(soundLibrary).length===0){
+    autoMapGithubSounds();
+    renderSoundLibrary();
+  }
 }
 
 
@@ -7150,7 +7197,7 @@ function showTab(n){
   document.getElementById('tab-'+n)?.classList.add('active');
   if(n==='qr'){updateFilterOpts();generateBibCards();}
   if(n==='heats')updateHeatEvOpts();
-  if(n==='export')renderAppLinks();
+  if(n==='export'){renderAppLinks();loadSoundLibrary();}
   if(n==='info'){renderInfoSummary();renderDayAssign();}
 }
 /* ── 날짜별 종목 배정 ── */
