@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>모두의 플레이 운영 앱 v2 — Phase 1</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+<style>
+  html, body { margin: 0; padding: 0; min-height: 100vh; background: #0A0E1A; font-family: 'Pretendard', sans-serif; color: white; overflow-x: hidden; }
+  .font-display { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.04em; }
+  .font-mono { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+
+  .bg-mesh {
+    background:
+      radial-gradient(800px 400px at 0% 0%, rgba(0, 200, 255, 0.06), transparent 60%),
+      radial-gradient(700px 500px at 100% 100%, rgba(255, 200, 60, 0.04), transparent 60%),
+      #0A0E1A;
+  }
+
+  .big-btn { transition: transform 0.1s ease, box-shadow 0.2s ease, filter 0.2s ease; user-select: none; }
+  .big-btn:active { transform: scale(0.96); filter: brightness(1.2); }
+
+  @keyframes blinkRed {
+    0%, 100% { background-color: rgba(239, 68, 68, 0.2); }
+    50%      { background-color: rgba(239, 68, 68, 0.5); }
+  }
+  .blink-red { animation: blinkRed 1s ease-in-out infinite; }
+
+  @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .scale-in { animation: scaleIn 0.2s ease-out; }
+
+  @keyframes toastSlide { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .toast-anim { animation: toastSlide 0.3s ease-out; }
+
+  /* 코트 박스 */
+  .court-box {
+    background: rgba(255,255,255,0.03);
+    border: 1.5px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 8px;
+    transition: all 0.2s;
+  }
+  .court-box.active { border-color: rgba(34, 197, 94, 0.6); background: rgba(34, 197, 94, 0.08); }
+  .court-box.current-heat { border-color: rgba(6, 182, 212, 0.7); box-shadow: 0 0 20px rgba(6, 182, 212, 0.2); }
+
+  /* 스테이션 그룹 */
+  .station-box {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 8px;
+  }
+  .station-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 11px;
+    color: rgba(6, 182, 212, 0.7);
+    letter-spacing: 0.15em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+// =================================================================
+// Firebase 초기화 (Setup과 동일한 프로젝트)
+// =================================================================
+firebase.initializeApp({
+  apiKey: "AIzaSyDOrKZDSNiA4sLnkNBiLVehE8xtrU-2JLY",
+  authDomain: "mop-jumprope.firebaseapp.com",
+  databaseURL: "https://mop-jumprope-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "mop-jumprope",
+  storageBucket: "mop-jumprope.firebasestorage.app",
+  messagingSenderId: "875740425909",
+  appId: "1:875740425909:web:59768e633b7a42733918fc"
+});
+const db = firebase.database();
+
+// =================================================================
+// Court ID 변환 (alpha/num)
+// =================================================================
+const COURT_ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+function courtId(idx, mode = 'alpha') {
+  if (mode === 'alpha') return COURT_ALPHA[idx] || String(idx + 1);
+  return String(idx + 1);
+}
+
+// =================================================================
+// 메인 앱
+// =================================================================
+function App() {
+  const [config, setConfig] = useState(() => ({
+    roomId: localStorage.getItem('mop_op_roomid') || '',
+    operatorName: localStorage.getItem('mop_op_name') || '운영자',
+    showConfig: !localStorage.getItem('mop_op_roomid'),
+  }));
+
+  const [meta, setMeta] = useState(null);              // 대회 정보
+  const [athletes, setAthletes] = useState({});        // bib → athlete
+  const [heats, setHeats] = useState([]);              // 정렬된 히트 배열
+  const [currentHeatNo, setCurrentHeatNo] = useState(1);
+  const [stationLayout, setStationLayout] = useState(null);
+  const [courtMode, setCourtMode] = useState('alpha');
+  const [connected, setConnected] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  const showToast = useCallback((msg, type = 'info') => {
+    setToast({ msg, type, key: Date.now() });
+    setTimeout(() => setToast(null), 2500);
+  }, []);
+
+  // ── Firebase 구독: roomId 변경 시 모든 데이터 동기화 ──
+  useEffect(() => {
+    if (!config.roomId) return;
+
+    const refs = [];
+    const room = config.roomId;
+
+    // meta
+    const metaRef = db.ref(`${room}/meta`);
+    metaRef.on('value', snap => {
+      const v = snap.val();
+      setMeta(v);
+      setConnected(!!v);
+      if (v?.stationLayout) setStationLayout(v.stationLayout);
+      if (v?.courtMode) setCourtMode(v.courtMode);
+    });
+    refs.push(['meta', metaRef]);
+
+    // athletes
+    const athRef = db.ref(`${room}/athletes`);
+    athRef.on('value', snap => {
+      setAthletes(snap.val() || {});
+    });
+    refs.push(['athletes', athRef]);
+
+    // heats
+    const heatsRef = db.ref(`${room}/heats`);
+    heatsRef.on('value', snap => {
+      const v = snap.val() || {};
+      const arr = Object.values(v).sort((a, b) => {
+        const an = parseFloat(String(a.no || a.heatNo).replace('-', '.'));
+        const bn = parseFloat(String(b.no || b.heatNo).replace('-', '.'));
+        return an - bn;
+      });
+      setHeats(arr);
+    });
+    refs.push(['heats', heatsRef]);
+
+    // 운영자 상태 (이 운영앱이 업데이트)
+    const opRef = db.ref(`${room}/operator`);
+    opRef.on('value', snap => {
+      const v = snap.val();
+      if (v?.currentHeatNo) setCurrentHeatNo(v.currentHeatNo);
+    });
+    refs.push(['operator', opRef]);
+
+    return () => refs.forEach(([_, r]) => r.off());
+  }, [config.roomId]);
+
+  // ── 현재 히트 ──
+  const currentHeat = useMemo(() => {
+    return heats.find(h => (h.no || h.heatNo) === currentHeatNo) || heats[0] || null;
+  }, [heats, currentHeatNo]);
+
+  const heatIndex = useMemo(() => {
+    return heats.findIndex(h => (h.no || h.heatNo) === currentHeatNo);
+  }, [heats, currentHeatNo]);
+
+  // ── 히트 이동 ──
+  const goHeat = useCallback((delta) => {
+    if (!heats.length) return;
+    const idx = Math.max(0, Math.min(heats.length - 1, heatIndex + delta));
+    const target = heats[idx];
+    const heatNo = target.no || target.heatNo;
+    setCurrentHeatNo(heatNo);
+    if (config.roomId) {
+      db.ref(`${config.roomId}/operator/currentHeatNo`).set(heatNo);
+      db.ref(`${config.roomId}/operator/currentEvent`).set(target.event);
+      db.ref(`${config.roomId}/operator/operatorName`).set(config.operatorName);
+      db.ref(`${config.roomId}/operator/updatedAt`).set(Date.now());
+    }
+    showToast(`HEAT ${heatNo} 이동`, 'info');
+  }, [heats, heatIndex, config, showToast]);
+
+  return (
+    <div className="bg-mesh min-h-screen">
+      <Header config={config} meta={meta} connected={connected}
+              onOpenConfig={() => setConfig(c => ({ ...c, showConfig: true }))} />
+
+      <main className="px-4 pb-12 pt-3 max-w-[1400px] mx-auto">
+        {!config.roomId || !connected ? (
+          <NoConnectionView onOpenConfig={() => setConfig(c => ({ ...c, showConfig: true }))} />
+        ) : (
+          <>
+            {/* 현재 히트 컨트롤 */}
+            <section className="mb-4">
+              <CurrentHeatPanel
+                currentHeat={currentHeat}
+                heatIndex={heatIndex}
+                totalHeats={heats.length}
+                onPrev={() => goHeat(-1)}
+                onNext={() => goHeat(1)}
+                onJump={(no) => { setCurrentHeatNo(no); db.ref(`${config.roomId}/operator/currentHeatNo`).set(no); }}
+                heats={heats}
+              />
+            </section>
+
+            {/* 코트 보드 (스테이션 레이아웃) */}
+            <section className="mb-4">
+              <SectionTitle small="COURT BOARD" big="코트 진행 보드" />
+              <div className="mt-2">
+                <CourtLayout
+                  currentHeat={currentHeat}
+                  stationLayout={stationLayout}
+                  courtMode={courtMode}
+                  athletes={athletes}
+                />
+              </div>
+            </section>
+
+            {/* 데이터 요약 */}
+            <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <DataCard label="대회" value={meta?.competition || '—'} />
+              <DataCard label="총 선수" value={`${Object.keys(athletes).length}명`} />
+              <DataCard label="총 히트" value={`${heats.length}히트`} />
+              <DataCard label="현재 위치" value={`${heatIndex + 1} / ${heats.length}`} />
+            </section>
+          </>
+        )}
+      </main>
+
+      {toast && <Toast {...toast} />}
+      {config.showConfig && (
+        <ConfigModal config={config} setConfig={setConfig}
+                     onClose={() => setConfig(c => ({ ...c, showConfig: false }))} />
+      )}
+
+      {/* Phase 표시 */}
+      <div className="fixed bottom-2 left-2 text-[9px] tracking-widest text-white/20 font-mono">
+        OPERATOR v2 · PHASE 1
+      </div>
+    </div>
+  );
+}
+
+// =================================================================
+// 헤더
+// =================================================================
+function Header({ config, meta, connected, onOpenConfig }) {
+  const [time, setTime] = useState(new Date());
+  useEffect(() => { const id = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(id); }, []);
+  return (
+    <header className="px-4 pt-4 pb-3 flex items-center justify-between border-b border-white/10">
+      <div className="flex items-baseline gap-3">
+        <div className="font-display text-2xl">
+          모두의 <span className="text-cyan-400">플레이</span>
+        </div>
+        <div className="hidden md:block text-[10px] text-white/40 tracking-widest uppercase">
+          운영 앱 v2
+        </div>
+      </div>
+      <div className="flex items-center gap-3 text-right">
+        <div className="hidden sm:block">
+          <div className="text-[10px] tracking-[0.25em] text-white/50 uppercase">{meta?.competition || '대회 미연결'}</div>
+          <div className="text-xs text-white/60 font-mono">{config.roomId || 'NO ROOM'}</div>
+        </div>
+        <div className="font-mono text-xl text-cyan-300">{time.toLocaleTimeString('ko-KR', { hour12: false })}</div>
+        <div className={`text-[10px] tracking-widest px-2 py-1 rounded font-bold ${connected ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
+          {connected ? '🔗 ONLINE' : '⚠ OFFLINE'}
+        </div>
+        <button onClick={onOpenConfig}
+                className="text-[11px] uppercase tracking-widest border border-white/20 px-3 py-1.5 rounded hover:bg-white/10">
+          ⚙
+        </button>
+      </div>
+    </header>
+  );
+}
+
+// =================================================================
+// 섹션 타이틀
+// =================================================================
+function SectionTitle({ small, big }) {
+  return (
+    <div>
+      <div className="text-[10px] tracking-[0.3em] text-cyan-400 uppercase font-medium">{small}</div>
+      <div className="font-display text-xl text-white">{big}</div>
+    </div>
+  );
+}
+
+// =================================================================
+// 미연결 화면
+// =================================================================
+function NoConnectionView({ onOpenConfig }) {
+  return (
+    <div className="text-center py-20">
+      <div className="text-6xl mb-4">📡</div>
+      <div className="font-display text-2xl text-white/80 mb-2">방 코드를 입력하세요</div>
+      <div className="text-sm text-white/50 mb-6">Setup에서 사용한 Room ID로 데이터를 불러옵니다</div>
+      <button onClick={onOpenConfig}
+              className="bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold px-8 py-3 rounded tracking-widest">
+        설정 열기 ⚙
+      </button>
+    </div>
+  );
+}
+
+// =================================================================
+// 현재 히트 패널
+// =================================================================
+function CurrentHeatPanel({ currentHeat, heatIndex, totalHeats, onPrev, onNext, onJump, heats }) {
+  if (!currentHeat) return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-6 text-center text-white/40">
+      히트가 편성되지 않았습니다
+    </div>
+  );
+
+  const isFirst = heatIndex <= 0;
+  const isLast = heatIndex >= totalHeats - 1;
+
+  return (
+    <div className="rounded-xl border border-cyan-400/40 bg-gradient-to-br from-cyan-500/10 to-blue-600/5 p-5">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-baseline gap-4">
+          <div>
+            <div className="text-[10px] tracking-[0.3em] text-cyan-300 uppercase">CURRENT</div>
+            <div className="font-display text-5xl text-white">HEAT {currentHeat.no || currentHeat.heatNo}</div>
+          </div>
+          <div>
+            <div className="text-sm text-white/70">{currentHeat.event_name || currentHeat.event}</div>
+            <div className="text-xs text-white/50">{currentHeat.division || '—'}</div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button onClick={onPrev} disabled={isFirst}
+            className={`big-btn px-6 py-3 rounded-lg border text-sm font-bold tracking-wider
+              ${isFirst ? 'border-white/10 bg-white/[0.02] text-white/30 cursor-not-allowed' :
+                          'border-white/20 bg-white/5 hover:bg-white/10 text-white'}`}>
+            ← 이전
+          </button>
+          <select
+            value={currentHeat.no || currentHeat.heatNo}
+            onChange={e => onJump(parseInt(e.target.value))}
+            className="bg-black/40 border border-white/20 text-white px-3 py-3 rounded-lg text-sm font-mono">
+            {heats.map(h => <option key={h.no || h.heatNo} value={h.no || h.heatNo}>HEAT {h.no || h.heatNo} · {h.event}</option>)}
+          </select>
+          <button onClick={onNext} disabled={isLast}
+            className={`big-btn px-6 py-3 rounded-lg border text-sm font-bold tracking-wider
+              ${isLast ? 'border-white/10 bg-white/[0.02] text-white/30 cursor-not-allowed' :
+                         'border-cyan-400/40 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-100'}`}>
+            다음 →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =================================================================
+// 코트 레이아웃 (Setup의 스테이션 구조 그대로)
+// =================================================================
+function CourtLayout({ currentHeat, stationLayout, courtMode, athletes }) {
+  // 현재 히트의 코트 → 선수 매핑
+  const courtAthleteMap = useMemo(() => {
+    const m = {};
+    if (!currentHeat || !currentHeat.courts) return m;
+    Object.entries(currentHeat.courts).forEach(([cid, c]) => {
+      m[cid] = c.athlete || null;
+    });
+    return m;
+  }, [currentHeat]);
+
+  // 레이아웃 결정
+  const cl = stationLayout || { mode: 'station', stations: 6, cps: 4, stationCols: 2, sides: 2, gridCols: 4, gridRows: 2 };
+  const totalCourts = cl.mode === 'station' ? cl.stations * cl.cps : cl.gridCols * cl.gridRows;
+
+  // 코트 ID 생성
+  const courts = [];
+  for (let i = 0; i < totalCourts; i++) courts.push(courtId(i, courtMode));
+
+  if (cl.mode === 'station') {
+    const cpsRow = cl.stationCols;
+    const cpsRows = Math.ceil(cl.cps / cpsRow);
+
+    if (cl.sides === 2) {
+      // 양측: 우측 ST 1, 2, 3 / 좌측 ST 4, 5, 6
+      const stPerSide = Math.ceil(cl.stations / 2);
+      const right = [], left = [];
+      let idx = 0;
+      for (let s = 0; s < stPerSide; s++) {
+        const rows = [];
+        for (let r = 0; r < cpsRows; r++) {
+          const row = [];
+          for (let c = 0; c < cpsRow; c++) row.push(courts[idx++]);
+          rows.push(row);
+        }
+        right.push(rows);
+      }
+      for (let s = 0; s < (cl.stations - stPerSide); s++) {
+        const rows = [];
+        for (let r = 0; r < cpsRows; r++) {
+          const row = [];
+          for (let c = 0; c < cpsRow; c++) row.push(courts[idx++]);
+          rows.push(row);
+        }
+        left.push(rows);
+      }
+      return (
+        <div className="grid grid-cols-[1fr_4px_1fr] gap-3 items-start">
+          <div className="flex flex-col gap-2">
+            {left.map((st, si) => (
+              <div key={si} className="station-box">
+                <div className="station-label">ST {right.length + si + 1}</div>
+                {st.map((row, ri) => (
+                  <div key={ri} className={`grid gap-1.5 mb-1.5 ${row.length === 2 ? 'grid-cols-2' : row.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
+                    {row.map(c => <CourtCell key={c} cid={c} athlete={courtAthleteMap[c]} />)}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+          <div className="bg-white/10 rounded-full"></div>
+          <div className="flex flex-col gap-2">
+            {right.map((st, si) => (
+              <div key={si} className="station-box">
+                <div className="station-label">ST {si + 1}</div>
+                {st.map((row, ri) => (
+                  <div key={ri} className={`grid gap-1.5 mb-1.5 ${row.length === 2 ? 'grid-cols-2' : row.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
+                    {row.map(c => <CourtCell key={c} cid={c} athlete={courtAthleteMap[c]} />)}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    } else {
+      // 단측
+      const stations = [];
+      let idx = 0;
+      for (let s = 0; s < cl.stations; s++) {
+        const rows = [];
+        for (let r = 0; r < cpsRows; r++) {
+          const row = [];
+          for (let c = 0; c < cpsRow; c++) row.push(courts[idx++]);
+          rows.push(row);
+        }
+        stations.push(rows);
+      }
+      return (
+        <div className="flex flex-col gap-2">
+          {stations.map((st, si) => (
+            <div key={si} className="station-box">
+              <div className="station-label">ST {si + 1}</div>
+              {st.map((row, ri) => (
+                <div key={ri} className={`grid gap-1.5 mb-1.5 ${row.length === 2 ? 'grid-cols-2' : row.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
+                  {row.map(c => <CourtCell key={c} cid={c} athlete={courtAthleteMap[c]} />)}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      );
+    }
+  } else {
+    // 그리드 모드
+    const rows = [];
+    let idx = 0;
+    for (let r = 0; r < cl.gridRows; r++) {
+      const row = [];
+      for (let c = 0; c < cl.gridCols; c++) row.push(courts[idx++]);
+      rows.push(row);
+    }
+    return (
+      <div className="flex flex-col gap-1.5">
+        {rows.map((row, ri) => (
+          <div key={ri} className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${cl.gridCols}, 1fr)` }}>
+            {row.map(c => <CourtCell key={c} cid={c} athlete={courtAthleteMap[c]} />)}
+          </div>
+        ))}
+      </div>
+    );
+  }
+}
+
+// =================================================================
+// 코트 셀
+// =================================================================
+function CourtCell({ cid, athlete }) {
+  const active = !!athlete;
+  return (
+    <div className={`court-box ${active ? 'active' : ''} min-h-[68px] flex flex-col`}>
+      <div className="font-display text-base text-cyan-300 leading-none mb-1">{cid}</div>
+      {athlete ? (
+        <div className="flex-1">
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-mono text-[9px] text-white/50">#{athlete.bib}</span>
+            <span className="text-[11px] font-bold truncate">{athlete.name}</span>
+          </div>
+          {athlete.club && <div className="text-[9px] text-white/40 truncate">{athlete.club}</div>}
+        </div>
+      ) : (
+        <div className="flex-1 flex items-center justify-center text-2xl text-white/15">✕</div>
+      )}
+    </div>
+  );
+}
+
+// =================================================================
+// 데이터 카드
+// =================================================================
+function DataCard({ label, value }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+      <div className="text-[10px] tracking-widest text-white/50 uppercase">{label}</div>
+      <div className="font-display text-2xl text-white mt-1 truncate">{value}</div>
+    </div>
+  );
+}
+
+// =================================================================
+// 토스트
+// =================================================================
+function Toast({ msg, type, key }) {
+  return (
+    <div key={key} className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 toast-anim">
+      <div className={`px-5 py-3 rounded-full backdrop-blur-md border text-sm shadow-2xl ${
+        type === 'success' ? 'bg-emerald-500/20 border-emerald-400/60 text-emerald-100' :
+        type === 'warning' ? 'bg-amber-500/20 border-amber-400/60 text-amber-100' :
+        type === 'error' ? 'bg-red-500/20 border-red-400/60 text-red-100' :
+        'bg-white/10 border-white/30 text-white'
+      }`}>
+        {msg}
+      </div>
+    </div>
+  );
+}
+
+// =================================================================
+// 설정 모달
+// =================================================================
+function ConfigModal({ config, setConfig, onClose }) {
+  const [tmp, setTmp] = useState({ ...config });
+  const save = () => {
+    localStorage.setItem('mop_op_roomid', tmp.roomId || '');
+    localStorage.setItem('mop_op_name', tmp.operatorName || '');
+    setConfig({ ...tmp, showConfig: false });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-6 overflow-y-auto">
+      <div className="max-w-md w-full rounded-2xl border border-white/15 bg-gradient-to-br from-slate-900 to-slate-950 p-6 my-8">
+        <div className="flex items-baseline justify-between">
+          <div>
+            <div className="text-[10px] tracking-[0.3em] text-cyan-400">SETTINGS</div>
+            <div className="font-display text-2xl">운영 앱 설정</div>
+          </div>
+          <button onClick={onClose} className="text-white/50 hover:text-white text-xl">✕</button>
+        </div>
+
+        <div className="mt-6 space-y-4">
+          <Field label="Firebase Room ID"
+                 hint="Setup에서 사용한 Room ID와 동일하게 입력. 모든 데이터(선수/히트/코트)가 자동 동기화됩니다.">
+            <input value={tmp.roomId || ''} onChange={e => setTmp(t => ({ ...t, roomId: e.target.value.trim() }))}
+                   placeholder="예: room_001"
+                   className="w-full rounded bg-black/30 border border-white/10 px-3 py-2 text-sm font-mono"/>
+          </Field>
+
+          <Field label="운영자 이름">
+            <input value={tmp.operatorName || ''} onChange={e => setTmp(t => ({ ...t, operatorName: e.target.value }))}
+                   className="w-full rounded bg-black/30 border border-white/10 px-3 py-2 text-sm"/>
+          </Field>
+
+          <div className="rounded-xl border border-cyan-400/30 bg-cyan-500/5 p-3 text-xs leading-relaxed text-cyan-100/80">
+            <div className="font-bold text-cyan-300 mb-1">📌 Phase 1 진행 상태</div>
+            <ul className="list-disc list-inside space-y-1">
+              <li>✅ Firebase 연결</li>
+              <li>✅ Setup 데이터 자동 로드</li>
+              <li>✅ 스테이션 레이아웃 표시</li>
+              <li>✅ 히트 이동 (이전/다음)</li>
+              <li>⏳ Phase 2: 히트 진행 워크플로우</li>
+              <li>⏳ Phase 3: TTS 음성 안내</li>
+              <li>⏳ Phase 4: 종목별 신호음 업로드</li>
+              <li>⏳ Phase 5: 모니터링 대시보드</li>
+              <li>⏳ Phase 6: 코트별 개별 진행</li>
+            </ul>
+          </div>
+        </div>
+
+        <button onClick={save}
+                className="mt-6 w-full py-3 rounded bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold tracking-widest">
+          저장 및 연결
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, hint, children }) {
+  return (
+    <div>
+      <div className="text-xs text-white/70 tracking-wider uppercase mb-1">{label}</div>
+      {hint && <div className="text-[11px] text-white/40 mb-1.5 leading-relaxed">{hint}</div>}
+      {children}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>

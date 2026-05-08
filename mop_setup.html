@@ -3185,13 +3185,26 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
   .bib-bib-tag{font-size:9pt!important}
   .bib-flag{font-size:16pt!important}
 
+  /* ── 히트 목록/코트뷰 인쇄 ── */
+  #heat-sidebar,#heat-search-bar,.no-print{display:none!important}
+  #view-heats>div{grid-template-columns:1fr!important}
+  /* 고정 높이 컨테이너 해제 - 인쇄 시 전체 높이 노출 */
+  #heat-flex-container{height:auto!important;display:block!important;min-height:0!important}
+  #heat-content-scroll{overflow:visible!important;height:auto!important;flex:none!important}
+  /* 기본: 둘 다 숨김 */
+  #court-view,#heat-list{display:none!important}
+  /* 인쇄 대상만 표시 (ID 선택자와 동일 우선순위로) */
+  #heat-list.print-target,#court-view.print-target{display:block!important}
+  .heat-block{break-inside:avoid;page-break-inside:avoid;margin-bottom:8px}
+  mark{background:#ffe066!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
   @page{size:A4 landscape;margin:6mm}
 }
 </style>
 </head>
 <body>
 <header>
-  <div class="logo">MOP <span style="color:#fff;font-size:13px;letter-spacing:.02em">Setup</span> <span style="font-size:12px;color:var(--mu2);letter-spacing:.05em">v3</span></div>
+  <div class="logo">MOP <span style="color:#fff;font-size:13px;letter-spacing:.02em">Setup</span> <span style="font-size:12px;color:var(--mu2);letter-spacing:.05em">v3.1 ✓</span></div>
   <div class="hdr-r">
     <span style="font-size:12px;display:flex;align-items:center;gap:4px">
       <span class="fb-dot" id="fb-dot"></span>
@@ -3451,7 +3464,7 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
 <!-- ══════ TAB 2: 히트편성 ══════ -->
 <div class="view" id="view-heats">
   <div style="display:grid;grid-template-columns:280px 1fr;gap:12px">
-    <div>
+    <div id="heat-sidebar" class="no-print">
       <div class="card">
         <div class="ct" id="lbl-heat-cfg">⚙ 편성 설정</div>
         <div class="fld"><label id="lbl-h-ev">종목</label><select class="inp" id="heat-event" onchange="updateHeatDivs()"></select></div>
@@ -3483,6 +3496,50 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
           </div>
         </div>
         <div id="heat-summary" style="margin-top:8px;font-size:13px;color:var(--mu2)"></div>
+
+        <!-- 코트 레이아웃 설정 -->
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bdr)">
+          <div class="ct" style="margin-bottom:6px">🏟 코트 레이아웃</div>
+          <div style="display:flex;gap:5px;margin-bottom:8px">
+            <button class="btn sm" id="btn-layout-st" onclick="setLayoutMode('station')"
+              style="flex:1;background:var(--ac);color:#fff;border-color:var(--ac);font-size:11px">스테이션</button>
+            <button class="btn sm se" id="btn-layout-gr" onclick="setLayoutMode('grid')"
+              style="flex:1;font-size:11px">그리드</button>
+          </div>
+          <!-- 스테이션 모드 -->
+          <div id="layout-station-opts">
+            <div class="row2">
+              <div class="fld"><label style="font-size:11px">스테이션 수</label>
+                <input class="inp fm" id="layout-stations" type="number" value="6" min="1" max="20"
+                  oninput="courtLayout.stations=parseInt(this.value)||6;renderCourtView()"></div>
+              <div class="fld"><label style="font-size:11px">코트/스테이션</label>
+                <input class="inp fm" id="layout-cps" type="number" value="4" min="1" max="16"
+                  oninput="courtLayout.cps=parseInt(this.value)||4;renderCourtView()"></div>
+            </div>
+            <div class="row2">
+              <div class="fld"><label style="font-size:11px">스테이션 내 열</label>
+                <input class="inp fm" id="layout-scols" type="number" value="2" min="1" max="8"
+                  oninput="courtLayout.stationCols=parseInt(this.value)||2;renderCourtView()"></div>
+              <div class="fld"><label style="font-size:11px">좌우 구분</label>
+                <select class="inp fm" id="layout-sides" style="font-size:12px"
+                  onchange="courtLayout.sides=parseInt(this.value);renderCourtView()">
+                  <option value="2">양측 (좌/우)</option>
+                  <option value="1">단측</option>
+                </select></div>
+            </div>
+          </div>
+          <!-- 그리드 모드 -->
+          <div id="layout-grid-opts" style="display:none">
+            <div class="row2">
+              <div class="fld"><label style="font-size:11px">열 수</label>
+                <input class="inp fm" id="layout-gcols" type="number" value="4" min="1" max="20"
+                  oninput="courtLayout.gridCols=parseInt(this.value)||4;renderCourtView()"></div>
+              <div class="fld"><label style="font-size:11px">행 수</label>
+                <input class="inp fm" id="layout-grows" type="number" value="2" min="1" max="10"
+                  oninput="courtLayout.gridRows=parseInt(this.value)||2;renderCourtView()"></div>
+            </div>
+          </div>
+        </div>
         <!-- 히트 확정 영역 -->
         <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bdr)">
           <button class="btn pr" onclick="confirmHeats()" style="width:100%" id="btn-confirm-heat">🏁 히트 확정</button>
@@ -3505,16 +3562,66 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
         <button class="btn sm da" onclick="clearHeats()">🗑</button>
       </div>
     </div>
-    <div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div id="heat-flex-container" style="display:flex;flex-direction:column;height:calc(100vh - 120px);min-height:400px">
+      <!-- 고정 헤더 영역 -->
+      <div style="flex-shrink:0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
         <div class="fd" style="font-size:18px">HEAT DRAW</div>
-        <button class="btn sm se no-print" onclick="window.print()">🖨</button>
-      </div>
-      <div id="heat-list">
-        <div style="text-align:center;padding:40px;color:var(--mu2);font-size:12px">
-          <div style="font-size:32px;margin-bottom:8px">🏁</div>
-          <span id="heat-empty">좌측에서 설정 후 자동 편성하세요</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <!-- 목록 + 목록 PDF/Excel 묶음 -->
+          <div style="display:flex;gap:3px;align-items:center;background:var(--sur3);border:1px solid var(--bdr);border-radius:7px;padding:3px">
+            <button id="btn-view-list" onclick="setHeatView('list')"
+              style="font-size:11px;padding:4px 10px;border-radius:5px;border:none;cursor:pointer;background:var(--ac);color:#fff;font-weight:600">
+              ☰ 목록</button>
+            <div style="position:relative;display:inline-block">
+              <button class="btn sm se no-print" onclick="togglePdfMenu('list',event)" 
+                style="font-size:11px;padding:4px 8px" title="목록 PDF">🖨 PDF ▾</button>
+              <div id="pdf-menu-list" style="display:none;position:absolute;top:100%;right:0;margin-top:3px;background:#fff;border:1px solid var(--bdr);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:100;min-width:120px;overflow:hidden">
+                <button onclick="printListView('portrait');closePdfMenus()" style="display:block;width:100%;padding:8px 12px;border:none;background:transparent;text-align:left;cursor:pointer;font-size:12px" onmouseover="this.style.background='var(--sur3)'" onmouseout="this.style.background='transparent'">📄 세로 (Portrait)</button>
+                <button onclick="printListView('landscape');closePdfMenus()" style="display:block;width:100%;padding:8px 12px;border:none;background:transparent;text-align:left;cursor:pointer;font-size:12px;border-top:1px solid var(--bdr)" onmouseover="this.style.background='var(--sur3)'" onmouseout="this.style.background='transparent'">📃 가로 (Landscape)</button>
+              </div>
+            </div>
+            <button class="btn sm se no-print" onclick="exportHeatExcel()" 
+              style="font-size:11px;padding:4px 8px" title="목록 Excel">📊 Excel</button>
+          </div>
+          <!-- 코트뷰 + 코트뷰 PDF 묶음 -->
+          <div style="display:flex;gap:3px;align-items:center;background:var(--sur3);border:1px solid var(--bdr);border-radius:7px;padding:3px">
+            <button id="btn-view-court" onclick="setHeatView('court')"
+              style="font-size:11px;padding:4px 10px;border-radius:5px;border:none;cursor:pointer;background:transparent;color:var(--mu);font-weight:600">
+              🏟 코트뷰</button>
+            <div style="position:relative;display:inline-block">
+              <button class="btn sm se no-print" onclick="togglePdfMenu('court',event)" 
+                style="font-size:11px;padding:4px 8px" title="코트뷰 PDF">🖨 PDF ▾</button>
+              <div id="pdf-menu-court" style="display:none;position:absolute;top:100%;right:0;margin-top:3px;background:#fff;border:1px solid var(--bdr);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:100;min-width:120px;overflow:hidden">
+                <button onclick="printHeatView('portrait');closePdfMenus()" style="display:block;width:100%;padding:8px 12px;border:none;background:transparent;text-align:left;cursor:pointer;font-size:12px" onmouseover="this.style.background='var(--sur3)'" onmouseout="this.style.background='transparent'">📄 세로 (Portrait)</button>
+                <button onclick="printHeatView('landscape');closePdfMenus()" style="display:block;width:100%;padding:8px 12px;border:none;background:transparent;text-align:left;cursor:pointer;font-size:12px;border-top:1px solid var(--bdr)" onmouseover="this.style.background='var(--sur3)'" onmouseout="this.style.background='transparent'">📃 가로 (Landscape)</button>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
+      <!-- 검색바 -->
+      <div id="heat-search-bar" class="no-print" style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:6px 10px;background:var(--sur3);border:1px solid var(--bdr);border-radius:9px">
+        <span style="font-size:14px">🔍</span>
+        <input id="heat-search-inp" type="text" placeholder="이름, 엔트리번호, HEAT번호로 검색..." 
+          style="flex:1;border:none;background:transparent;outline:none;font-size:13px;color:var(--tx)"
+          oninput="applyHeatSearch(this.value)"
+          onkeydown="if(event.key==='Enter')searchNav(event.shiftKey?-1:1)">
+        <span id="heat-search-count" style="font-size:11px;color:var(--mu);white-space:nowrap;min-width:40px;text-align:center"></span>
+        <button onclick="searchNav(-1)" title="이전" style="border:1px solid var(--bdr);background:#fff;border-radius:5px;cursor:pointer;padding:3px 7px;font-size:12px;color:var(--mu)">∧</button>
+        <button onclick="searchNav(1)" title="다음" style="border:1px solid var(--bdr);background:#fff;border-radius:5px;cursor:pointer;padding:3px 7px;font-size:12px;color:var(--mu)">∨</button>
+        <button onclick="clearHeatSearch()" style="border:none;background:none;cursor:pointer;font-size:14px;color:var(--mu);padding:0 2px">✕</button>
+      </div>
+      </div>
+      <!-- 스크롤 가능한 컨텐츠 영역 -->
+      <div id="heat-content-scroll" style="flex:1;overflow-y:auto;padding-right:2px">
+        <div id="heat-list">
+          <div style="text-align:center;padding:40px;color:var(--mu2);font-size:12px">
+            <div style="font-size:32px;margin-bottom:8px">🏁</div>
+            <span id="heat-empty">좌측에서 설정 후 자동 편성하세요</span>
+          </div>
+        </div>
+        <div id="court-view" style="display:none"></div>
       </div>
     </div>
   </div>
@@ -3778,6 +3885,18 @@ const PRESETS={
 const COURT_ALPHA='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const COURT_NUM=Array.from({length:99},(_,i)=>String(i+1));
 let courtMode='alpha'; // 'alpha' | 'num'
+// 코트 레이아웃 설정
+let courtLayout={
+  mode:'station',    // 'station' | 'grid'
+  stations:6,        // 스테이션 수
+  cps:4,             // courts per station
+  stationRows:2,     // 스테이션 내 행 수
+  stationCols:2,     // 스테이션 내 열 수
+  sides:2,           // 좌우 구분 (1=단측, 2=양측)
+  gridCols:4,        // 그리드 모드 열 수
+  gridRows:2,        // 그리드 모드 행 수
+};
+let heatViewMode='list'; // 'list' | 'court'
 function COURT(i){return courtMode==='alpha'?(COURT_ALPHA[i]||String(i+1)):COURT_NUM[i]||String(i+1);}
 
 /* ── State ── */
@@ -5482,29 +5601,57 @@ function renderHeatList(){
   }
   console.log(`[MOP] renderHeatList: ${heats.length}히트 렌더`);
   try{
-  el.innerHTML=heats.map(h=>{
+  const q=_heatSearchQ;
+  // 검색 시 매칭 히트만 필터링
+  const filteredHeats=q?heats.filter(h=>{
+    if(_heatMatchHeatNo(h.heatNo,q))return true;
+    return(h.courts||[]).some(c=>(c.athletes||[]).some(a=>_heatMatchAthleteQ(a,q)));
+  }):heats;
+  // 검색 카운트 표시
+  const cntEl=document.getElementById('heat-search-count');
+  if(cntEl)cntEl.textContent=q?`${filteredHeats.length}개 히트 / ${filteredHeats.reduce((s,h)=>(h.courts||[]).reduce((ss,c)=>ss+(c.athletes||[]).filter(a=>_heatMatchAthleteQ(a,q)).length,0)+s,0)}명 매칭`:'';
+  el.innerHTML=filteredHeats.map(h=>{
     const divLabels=h.mixedDiv
       ? h.mixedDiv.map(d=>divLabel(d)||d).join(' + ')
       : (divLabel(h.division)||h.division||'—');
     const mixedBadge=h.mixedDiv?`<span class="badge b-team" style="margin-left:3px;font-size:11px">⊕ MIX</span>`:'';
     const addedBadge=h.isAdded?`<span class="badge" style="margin-left:3px;font-size:11px;background:var(--yw);color:#fff">➕ 추가</span>`:'';
     const blockStyle=h.isAdded?'background:var(--yw-soft);border-color:var(--yw)':'';
-    return `<div class="heat-block" style="${blockStyle}">
+    const ev=EVENTS.find(e=>e.code===h.event);
+    const q=_heatSearchQ;
+    const heatMatch=q&&_heatMatchHeatNo(h.heatNo,q);
+    return `<div class="heat-block" style="${blockStyle};margin-bottom:14px;${heatMatch?'border:2px solid #f59e0b;background:#fffbeb':''}>
       <div class="heat-hdr">
-        <div class="heat-no" style="${h.isAdded?'color:var(--yw)':''}">HEAT ${h.heatNo}</div>
-        <span class="badge b-ev" title="${h.event}">${(()=>{const ev=EVENTS.find(e=>e.code===h.event);return ev?evFullLabel(ev):h.event;})()}</span>
+        <div class="heat-no" style="${h.isAdded?'color:var(--yw)':''}${heatMatch?';color:#d97706':''}">${heatMatch?`<mark style="background:#ffe066;border-radius:3px;padding:1px 3px">HEAT ${h.heatNo}</mark>`:`HEAT ${h.heatNo}`}</div>
+        <span class="badge b-ev" title="${h.event}">${ev?evFullLabel(ev):h.event}</span>
         <span class="badge b-div" style="margin-left:3px">${divLabels}</span>
         ${mixedBadge}${addedBadge}
-        <span style="font-size:12px;color:var(--mu);margin-left:auto">${h.courts.length}${lang==='ko'?'코트':'cts'}</span>
+        <span style="font-size:12px;color:var(--mu);margin-left:auto">${h.courts.length} 코트</span>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(${Math.min(h.courts.length,6)},1fr);gap:4px">
-        ${h.courts.map(c=>`<div class="court-slot">
-          <div class="court-lbl">${c.courtId}</div>
-          <div>${(c.athletes||[]).map(a=>`<div style="font-size:13px;padding:2px 0">
-            <span class="fm" style="font-size:11px;color:var(--ac);font-weight:700">${a.bib}</span>
-            ${a.name}${a.teamKey?`<span class="badge b-team" style="margin-left:4px;font-size:11px">${a.teamKey}</span>`:''}
-          </div>`).join('')}</div>
-        </div>`).join('')}
+      <div style="display:flex;flex-direction:column;gap:3px;margin-top:4px">
+        ${h.courts.map(c=>{
+          const a=(c.athletes||[])[0];
+          const athleteMatch=q&&a&&_heatMatchAthleteQ(a,q);
+          if(!a)return`<div style="display:flex;align-items:center;gap:10px;padding:5px 8px;border-radius:6px;background:var(--sur3);border:1px solid var(--bdr);opacity:.5">
+            <span style="font-family:'JetBrains Mono',monospace;font-weight:800;font-size:13px;color:var(--mu);width:22px">${c.courtId}</span>
+            <span style="font-size:12px;color:var(--mu2)">—</span>
+          </div>`;
+          const entryNo=a.bib;
+          const flag=a.country?`<span style="font-size:12px">${flagEmoji(a.country)}</span>`:'';
+          const club=a.club?`<span style="font-size:11px;color:var(--mu2)">${athleteMatch?_highlight(a.club,q):a.club}</span>`:'';
+          const team=a.teamKey?`<span class="badge b-team" style="font-size:10px">${a.teamKey}</span>`:'';
+          return`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;
+            background:${athleteMatch?'#fef9c3':'#fff'};
+            border:${athleteMatch?'1.5px solid #f59e0b':'1px solid var(--bdr)'};
+            ${athleteMatch?'box-shadow:0 0 0 2px rgba(245,158,11,.15)':''}">
+            <span style="font-family:'JetBrains Mono',monospace;font-weight:800;font-size:14px;color:var(--ac);width:22px;flex-shrink:0">${c.courtId}</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--or);background:var(--or-soft,#fff4e6);padding:1px 5px;border-radius:4px;flex-shrink:0">${athleteMatch&&q&&entryNo.toString().includes(q)?`<mark style="background:#ffe066;border-radius:2px">${entryNo}</mark>`:entryNo}</span>
+            ${flag}
+            <span style="font-size:13px;font-weight:600;color:var(--tx);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${athleteMatch?_highlight(a.name||'—',q):a.name||'—'}</span>
+            ${club}
+            ${team}
+          </div>`;
+        }).join('')}
       </div>
     </div>`;
   }).join('');
@@ -5515,7 +5662,442 @@ function renderHeatList(){
       <small>F12 콘솔을 확인해주세요</small>
     </div>`;
   }
+  // 코트뷰도 자동 갱신
+  if(heatViewMode==='court')renderCourtView();
+  // 검색 매칭 요소 수집 (스크롤 네비용)
+  setTimeout(_buildSearchMatchEls,50);
 }
+/* ── 레이아웃 모드 ── */
+function setLayoutMode(m){
+  courtLayout.mode=m;
+  document.getElementById('btn-layout-st').style.cssText=
+    m==='station'?'flex:1;background:var(--ac);color:#fff;border-color:var(--ac);font-size:11px'
+                 :'flex:1;font-size:11px;background:transparent;color:var(--mu)';
+  document.getElementById('btn-layout-gr').style.cssText=
+    m==='grid'?'flex:1;background:var(--ac);color:#fff;border-color:var(--ac);font-size:11px'
+              :'flex:1;font-size:11px;background:transparent;color:var(--mu)';
+  document.getElementById('layout-station-opts').style.display=m==='station'?'':'none';
+  document.getElementById('layout-grid-opts').style.display=m==='grid'?'':'none';
+  if(heatViewMode==='court')renderCourtView();
+}
+
+/* ── 히트뷰 토글 ── */
+function setHeatView(v){
+  heatViewMode=v;
+  document.getElementById('heat-list').style.display=v==='list'?'':'none';
+  document.getElementById('court-view').style.display=v==='court'?'':'none';
+  const bl=document.getElementById('btn-view-list');
+  const bc=document.getElementById('btn-view-court');
+  bl.style.cssText=v==='list'?'font-size:11px;padding:4px 10px;border-radius:5px;border:none;cursor:pointer;background:var(--ac);color:#fff;font-weight:600'
+    :'font-size:11px;padding:4px 10px;border-radius:5px;border:none;cursor:pointer;background:transparent;color:var(--mu);font-weight:600';
+  bc.style.cssText=v==='court'?'font-size:11px;padding:4px 10px;border-radius:5px;border:none;cursor:pointer;background:var(--ac);color:#fff;font-weight:600'
+    :'font-size:11px;padding:4px 10px;border-radius:5px;border:none;cursor:pointer;background:transparent;color:var(--mu);font-weight:600';
+  if(v==='court')renderCourtView();
+}
+
+/* ── 코트뷰 렌더 ── */
+function renderCourtView(){
+  const el=document.getElementById('court-view');
+  if(!el)return;
+  if(!heats.length){
+    el.innerHTML=`<div style="text-align:center;padding:40px;color:var(--mu2)"><div style="font-size:32px;margin-bottom:8px">🏟</div>히트를 먼저 편성하세요</div>`;
+    return;
+  }
+
+  const cl=courtLayout;
+  const totalCourts=cl.mode==='station'?cl.stations*cl.cps:cl.gridCols*cl.gridRows;
+  let html='';
+  const q=_heatSearchQ;
+
+  // 검색 시 매칭 히트만 표시
+  const filteredHeatNos=q?[...new Set(heats.map(h=>h.heatNo))].filter(hn=>{
+    if(_heatMatchHeatNo(hn,q))return true;
+    return heats.filter(h=>h.heatNo===hn).some(h=>(h.courts||[]).some(c=>(c.athletes||[]).some(a=>_heatMatchAthleteQ(a,q))));
+  }):[...new Set(heats.map(h=>h.heatNo))];
+
+  const heatNos=filteredHeatNos.sort((a,b)=>{
+    const an=parseFloat(String(a).replace('-','.'));
+    const bn=parseFloat(String(b).replace('-','.'));
+    return an-bn;
+  });
+  // 카운트
+  const cntEl=document.getElementById('heat-search-count');
+  if(cntEl&&q)cntEl.textContent=`${heatNos.length}개 히트 매칭`;
+
+  heatNos.forEach(hn=>{
+    const heatGroup=heats.filter(h=>h.heatNo===hn);
+    if(!heatGroup.length)return;
+    const ev=EVENTS.find(e=>e.code===heatGroup[0].event);
+    const divs=[...new Set(heatGroup.map(h=>h.division))].join(' · ');
+
+    // 코트 슬롯 맵 만들기
+    const courtMap={};
+    heatGroup.forEach(h=>{
+      (h.courts||[]).forEach(c=>{
+        const cid=c.courtId||c.id||c.court;
+        courtMap[cid]={
+          athletes:(c.athletes||[]).map(a=>({name:a.name||a.bib||'',bib:a.bib||'',club:a.club||'',country:a.country||''})),
+          heat:hn,event:h.event,div:h.division
+        };
+      });
+    });
+
+    // 레이아웃 결정
+    let layout=[];
+    if(cl.mode==='station'){
+      const stPerSide=Math.ceil(cl.stations/(cl.sides===2?2:1));
+      const cpsRow=cl.stationCols;
+      const cpsRows=Math.ceil(cl.cps/cpsRow);
+      let idx=0;
+      if(cl.sides===2){
+        // 양측: 오른쪽 스테이션들 먼저 (코트 1부터), 왼쪽 뒤
+        const right=[],left=[];
+        for(let s=0;s<stPerSide;s++){
+          const rows=[];
+          for(let r=0;r<cpsRows;r++){
+            const row=[];
+            for(let c=0;c<cpsRow;c++){
+              row.push(COURT(idx++));
+            }
+            rows.push(row);
+          }
+          right.push(rows);
+        }
+        for(let s=0;s<(cl.stations-stPerSide);s++){
+          const rows=[];
+          for(let r=0;r<cpsRows;r++){
+            const row=[];
+            for(let c=0;c<cpsRow;c++){
+              row.push(COURT(idx++));
+            }
+            rows.push(row);
+          }
+          left.push(rows);
+        }
+        layout={type:'sides',right,left,cpsRow,cpsRows};
+      } else {
+        const stations=[];
+        for(let s=0;s<cl.stations;s++){
+          const rows=[];
+          for(let r=0;r<cpsRows;r++){
+            const row=[];
+            for(let c=0;c<cpsRow;c++){
+              row.push(COURT(idx++));
+            }
+            rows.push(row);
+          }
+          stations.push(rows);
+        }
+        layout={type:'single',stations,cpsRow,cpsRows};
+      }
+    } else {
+      // 그리드 모드
+      const rows=[];
+      let idx=0;
+      for(let r=0;r<cl.gridRows;r++){
+        const row=[];
+        for(let c=0;c<cl.gridCols;c++) row.push(COURT(idx++));
+        rows.push(row);
+      }
+      layout={type:'grid',rows};
+    }
+
+    // 코트 박스 렌더 함수
+    const courtBox=(cid)=>{
+      const info=courtMap[cid];
+      const active=!!info;
+      const athletes=active?(info.athletes||[]):[];
+      const matched=q&&active&&athletes.some(a=>_heatMatchAthleteQ(a,q));
+      const heatMatched=q&&_heatMatchHeatNo(hn,q);
+      const highlight=matched||heatMatched;
+      return`<div style="
+        border:${highlight?'2.5px solid #f59e0b':active?'2px solid var(--ac)':'1.5px solid var(--bdr)'};
+        border-radius:8px;
+        background:${highlight?'#fef9c3':active?'#fff':'var(--sur3)'};
+        padding:8px 7px;min-width:130px;min-height:90px;
+        display:flex;flex-direction:column;gap:4px;box-sizing:border-box;
+        ${highlight?'box-shadow:0 0 0 3px rgba(245,158,11,.25)':active?'box-shadow:0 1px 5px rgba(74,144,226,.15)':'opacity:.38'}">
+        <div style="font-family:'JetBrains Mono',monospace;font-weight:800;font-size:16px;
+          color:${highlight?'#d97706':active?'var(--ac)':'var(--mu)'};text-align:center;line-height:1;margin-bottom:2px">${cid}</div>
+        ${active&&athletes.length?athletes.slice(0,4).map(a=>{
+            const am=q&&_heatMatchAthleteQ(a,q);
+            return`<div style="background:${am?'#ffe066':'var(--ac-soft)'};border-radius:5px;padding:4px 6px;box-sizing:border-box;text-align:center;${am?'border:1.5px solid #f59e0b':'border:1px solid transparent'}">
+              <div style="display:flex;align-items:center;justify-content:center;gap:5px;margin-bottom:2px">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:800;color:var(--or,#f97316);flex-shrink:0">${a.bib||''}</span>
+                <span style="font-size:13px;font-weight:700;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${am?_highlight(a.name||'',q):a.name||''}</span>
+              </div>
+              ${a.club?`<div style="font-size:11px;color:var(--mu);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.club}</div>`:''}
+            </div>`;}).join('')+
+          (athletes.length>4?`<div style="font-size:10px;color:var(--mu);text-align:center;padding:2px">+${athletes.length-4}명</div>`:'')
+        :`<div style="font-size:26px;color:var(--bdr2);text-align:center;margin:auto">✕</div>`}
+      </div>`;
+    };
+
+    // 레이아웃 HTML 생성
+    let courtHtml='';
+    if(layout.type==='sides'){
+      courtHtml=`<div style="display:grid;grid-template-columns:1fr 12px 1fr;gap:8px;align-items:start">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${layout.left.map((st,si)=>`
+            <div style="border:1px solid var(--bdr2);border-radius:8px;padding:6px;background:var(--sur3)">
+              <div style="font-size:9px;font-weight:700;color:var(--mu2);text-align:center;margin-bottom:4px;letter-spacing:.08em">
+                ST ${layout.right.length+si+1}</div>
+              ${st.map(row=>`<div style="display:grid;grid-template-columns:repeat(${layout.cpsRow},1fr);gap:3px;margin-bottom:3px">
+                ${row.map(c=>courtBox(c)).join('')}</div>`).join('')}
+            </div>`).join('')}
+        </div>
+        <div style="height:100%;background:var(--bdr);width:2px;margin:auto;border-radius:2px"></div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${layout.right.map((st,si)=>`
+            <div style="border:1px solid var(--bdr2);border-radius:8px;padding:6px;background:var(--sur3)">
+              <div style="font-size:9px;font-weight:700;color:var(--mu2);text-align:center;margin-bottom:4px;letter-spacing:.08em">
+                ST ${si+1}</div>
+              ${st.map(row=>`<div style="display:grid;grid-template-columns:repeat(${layout.cpsRow},1fr);gap:3px;margin-bottom:3px">
+                ${row.map(c=>courtBox(c)).join('')}</div>`).join('')}
+            </div>`).join('')}
+        </div>
+      </div>`;
+    } else if(layout.type==='single'){
+      courtHtml=`<div style="display:flex;flex-direction:column;gap:6px">
+        ${layout.stations.map((st,si)=>`
+          <div style="border:1px solid var(--bdr2);border-radius:8px;padding:6px;background:var(--sur3)">
+            <div style="font-size:9px;font-weight:700;color:var(--mu2);text-align:center;margin-bottom:4px">ST ${si+1}</div>
+            ${st.map(row=>`<div style="display:grid;grid-template-columns:repeat(${layout.cpsRow},1fr);gap:3px;margin-bottom:3px">
+              ${row.map(c=>courtBox(c)).join('')}</div>`).join('')}
+          </div>`).join('')}
+      </div>`;
+    } else {
+      courtHtml=`<div style="display:flex;flex-direction:column;gap:4px">
+        ${layout.rows.map(row=>`
+          <div style="display:grid;grid-template-columns:repeat(${cl.gridCols},1fr);gap:4px">
+            ${row.map(c=>courtBox(c)).join('')}
+          </div>`).join('')}
+      </div>`;
+    }
+
+    html+=`<div style="background:#fff;border:1px solid var(--bdr);border-radius:10px;margin-bottom:10px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--sur4);border-bottom:1px solid var(--bdr)">
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:800;font-size:14px;color:var(--ac)">HEAT ${hn}</span>
+        <span class="badge b-ev" style="font-size:11px">${evFullLabel(ev)||heatGroup[0].event}</span>
+        <span style="font-size:11px;color:var(--mu)">${divs}</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--mu2)">${heatGroup.reduce((s,h)=>(h.courts||[]).reduce((ss,c)=>ss+(c.athletes||[]).length,0)+s,0)}명</span>
+      </div>
+      <div style="padding:8px">${courtHtml}</div>
+    </div>`;
+  });
+
+  el.innerHTML=html||`<div style="text-align:center;padding:30px;color:var(--mu2)">배정된 히트가 없습니다</div>`;
+  setTimeout(_buildSearchMatchEls,50);
+}
+
+/* ── 히트 검색 ── */
+let _heatSearchQ='';
+let _searchMatchEls=[];
+let _searchIdx=0;
+
+function applyHeatSearch(q){
+  _heatSearchQ=(q||'').trim().toLowerCase();
+  _searchIdx=0;
+  if(heatViewMode==='list')renderHeatList();
+  else renderCourtView();
+  _buildSearchMatchEls();
+}
+
+function _buildSearchMatchEls(){
+  // 마크된 요소들 수집
+  _searchMatchEls=Array.from(document.querySelectorAll('#heat-list mark, #court-view mark'));
+  const cntEl=document.getElementById('heat-search-count');
+  if(cntEl&&_heatSearchQ){
+    const total=_searchMatchEls.length;
+    cntEl.textContent=total?`${Math.min(_searchIdx+1,total)}/${total}`:'0건';
+  }
+  if(_searchMatchEls.length>0)_scrollToMatch(0);
+}
+
+function searchNav(dir){
+  if(!_searchMatchEls.length)return;
+  _searchIdx=(_searchIdx+dir+_searchMatchEls.length)%_searchMatchEls.length;
+  _scrollToMatch(_searchIdx);
+  const cntEl=document.getElementById('heat-search-count');
+  if(cntEl)cntEl.textContent=`${_searchIdx+1}/${_searchMatchEls.length}`;
+}
+
+function _scrollToMatch(idx){
+  const el=_searchMatchEls[idx];
+  if(!el)return;
+  _searchMatchEls.forEach(e=>e.style.outline='');
+  el.style.outline='2px solid #f59e0b';
+  // 컨테이너 내부 스크롤 (헤더/검색바는 고정 유지)
+  const container=document.getElementById('heat-content-scroll');
+  if(container){
+    const elTop=el.getBoundingClientRect().top;
+    const containerTop=container.getBoundingClientRect().top;
+    const offset=elTop-containerTop+container.scrollTop-60;
+    container.scrollTo({top:offset,behavior:'smooth'});
+  }else{
+    el.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+}
+
+function clearHeatSearch(){
+  _heatSearchQ='';
+  _searchMatchEls=[];
+  _searchIdx=0;
+  const inp=document.getElementById('heat-search-inp');
+  if(inp)inp.value='';
+  const cntEl=document.getElementById('heat-search-count');
+  if(cntEl)cntEl.textContent='';
+  if(heatViewMode==='list')renderHeatList();
+  else renderCourtView();
+}
+
+/* ── 히트 Excel 내보내기 ── */
+async function exportHeatExcel(){
+  if(!heats.length){toast('히트가 없습니다',true);return;}
+  toast('Excel 생성 중...');
+  try{
+    const wb=new ExcelJS.Workbook();
+    const ws=wb.addWorksheet('HEAT DRAW');
+    ws.columns=[
+      {header:'HEAT',key:'heat',width:8},
+      {header:'종목',key:'event',width:12},
+      {header:'참가부',key:'div',width:20},
+      {header:'코트',key:'court',width:8},
+      {header:'배번',key:'bib',width:8},
+      {header:'이름',key:'name',width:20},
+      {header:'소속',key:'club',width:20},
+      {header:'국가',key:'country',width:8},
+      {header:'엔트리#',key:'entry',width:10},
+    ];
+    // 헤더 스타일
+    ws.getRow(1).eachCell(cell=>{
+      cell.font={bold:true,color:{argb:'FFFFFFFF'}};
+      cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF4A90E2'}};
+      cell.alignment={horizontal:'center'};
+    });
+    let prevHeat=null;
+    heats.forEach(h=>{
+      const ev=EVENTS.find(e=>e.code===h.event);
+      const divLabel=h.mixedDiv?h.mixedDiv.join('+'):h.division;
+      (h.courts||[]).forEach(c=>{
+        const a=(c.athletes||[])[0];
+        const row=ws.addRow({
+          heat:h.heatNo,
+          event:ev?evCodeShort(ev):h.event,
+          div:divLabel,
+          court:c.courtId,
+          bib:a?a.bib:'',
+          name:a?a.name:'',
+          club:a?a.club:'',
+          country:a?a.country:'',
+          entry:a?(a.entryNums&&a.entryNums[h.event])||'':'',
+        });
+        if(h.heatNo!==prevHeat){
+          // HEAT 행 배경
+          row.getCell('heat').fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFDBEAFE'}};
+          row.getCell('heat').font={bold:true,color:{argb:'FF1D4ED8'}};
+          prevHeat=h.heatNo;
+        }
+      });
+    });
+    // 테두리
+    ws.eachRow((row,rn)=>{
+      row.eachCell(cell=>{
+        cell.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+      });
+    });
+    const buf=await wb.xlsx.writeBuffer();
+    const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=`HEAT_DRAW_${new Date().toISOString().slice(0,10)}.xlsx`;
+    a.click();URL.revokeObjectURL(url);
+    toast('✓ Excel 내보내기 완료');
+  }catch(e){toast('Excel 생성 실패: '+e.message,true);console.error(e);}
+}
+
+function _heatMatchAthleteQ(a,q){
+  if(!q)return false;
+  return (a.name||'').toLowerCase().includes(q)||(a.bib||'').toString().includes(q);
+}
+function _heatMatchHeatNo(hn,q){
+  if(!q)return false;
+  const s=String(hn).toLowerCase();
+  const qq=q.replace(/\s/g,'');
+  return s===q||('heat '+s===q)||('heat'+s===qq);
+}
+function _highlight(text,q){
+  if(!q||!text)return String(text);
+  const idx=String(text).toLowerCase().indexOf(q);
+  if(idx<0)return String(text);
+  return String(text).slice(0,idx)+`<mark style="background:#ffe066;border-radius:2px;padding:0 1px">`+String(text).slice(idx,idx+q.length)+`</mark>`+String(text).slice(idx+q.length);
+}
+
+/* ── 인쇄 메뉴 토글 ── */
+function togglePdfMenu(view,evt){
+  evt&&evt.stopPropagation();
+  const id='pdf-menu-'+view;
+  const otherId='pdf-menu-'+(view==='list'?'court':'list');
+  const el=document.getElementById(id);
+  const other=document.getElementById(otherId);
+  if(other)other.style.display='none';
+  if(el)el.style.display=el.style.display==='block'?'none':'block';
+}
+function closePdfMenus(){
+  document.querySelectorAll('[id^="pdf-menu-"]').forEach(el=>el.style.display='none');
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('[onclick^="togglePdfMenu"]')&&!e.target.closest('[id^="pdf-menu-"]'))closePdfMenus();
+});
+
+/* ── 인쇄: 별도 윈도우에 복제해서 인쇄 (CSS 충돌 회피) ── */
+function _printContent(targetId, title, orientation='landscape'){
+  const src=document.getElementById(targetId);
+  if(!src||!src.innerHTML.trim()){toast('인쇄할 내용이 없습니다',true);return;}
+  const win=window.open('','_blank','width=1200,height=800');
+  if(!win){toast('팝업 차단을 해제해주세요',true);return;}
+  const styles=Array.from(document.querySelectorAll('style,link[rel="stylesheet"]'))
+    .map(el=>el.outerHTML).join('\n');
+  const compName=document.getElementById('sch-comp')?.value||'대회';
+  const compDate=document.getElementById('sch-date')?.value||'';
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>${title}</title>
+    ${styles}
+    <style>
+      @page{size:A4 ${orientation};margin:8mm}
+      body{margin:0;padding:8px;background:#fff;font-family:'Pretendard',sans-serif}
+      .print-hdr{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #4a90e2}
+      .print-hdr h1{font-family:'Bebas Neue',sans-serif;font-size:22px;color:#4a90e2;margin:0;letter-spacing:.05em}
+      .print-hdr .meta{font-size:12px;color:#666}
+      .heat-block{break-inside:avoid;page-break-inside:avoid;margin-bottom:8px}
+      mark{background:#ffe066!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+    </style>
+  </head><body>
+    <div class="print-hdr">
+      <h1>HEAT DRAW — ${title}</h1>
+      <div class="meta">${compName}${compDate?' · '+compDate:''} · ${orientation==='portrait'?'세로':'가로'}</div>
+    </div>
+    ${src.innerHTML}
+  </body></html>`);
+  win.document.close();
+  setTimeout(()=>{
+    win.focus();
+    win.print();
+    setTimeout(()=>win.close(),500);
+  },600);
+}
+
+function printListView(orientation='landscape'){
+  setHeatView('list');
+  setTimeout(()=>_printContent('heat-list','목록뷰',orientation),100);
+}
+function printHeatView(orientation='landscape'){
+  setHeatView('court');
+  renderCourtView();
+  setTimeout(()=>_printContent('court-view','코트뷰',orientation),300);
+}
+
 function setCourtMode(mode){
   courtMode=mode;
   localStorage.setItem('mop_court_mode',mode);
@@ -6180,8 +6762,17 @@ async function saveToFirebase(){
   try{
     const m={};athletes.forEach(a=>{m[a.bib]={...a,birthdate_iso:a.birthdate?parseYYMMDD(a.birthdate):''}});
     await db.ref(`${cfg.roomId}/athletes`).set(m);
-    await db.ref(`${cfg.roomId}/meta`).update({competition:cfg.competition,athletes_count:athletes.length,updated_at:new Date().toISOString()});
-    toast(lang==='ko'?`✓ ${athletes.length}명 저장됨`:`✓ ${athletes.length} saved`);
+    await db.ref(`${cfg.roomId}/meta`).update({
+      competition:cfg.competition,
+      date:document.getElementById('sch-date')?.value||'',
+      venue:document.getElementById('sch-venue')?.value||'',
+      mode:competitionMode,
+      stationLayout:courtLayout,
+      courtMode:courtMode,
+      athletes_count:athletes.length,
+      updated_at:new Date().toISOString()
+    });
+    toast(lang==='ko'?`✓ ${athletes.length}명 + 메타정보 저장됨`:`✓ ${athletes.length} saved`);
   }catch(e){toast('오류: '+e.message,true);}
 }
 async function saveHeatsToFirebase(){
