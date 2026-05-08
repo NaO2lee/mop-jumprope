@@ -52,35 +52,64 @@ const SIG={
   recall:()=>{for(let i=0;i<4;i++)tone(i%2?880:660,.2,'square',.45,i*.28);},
 };
 
-// ── TTS 엔진 (큐 방식 + 문장 분할) ──
+// ── TTS 엔진 (큐 방식 + 자연스러운 음성 선택) ──
 let _ttsQueue=[];
 let _ttsBusy=false;
+let _ttsActive=false; // 외부에서 상태 확인용
+
+// 최적 한국어 음성 선택 (자연스러운 목소리 우선)
+function _bestVoice(lang){
+  if(!window.speechSynthesis)return null;
+  const voices=window.speechSynthesis.getVoices();
+  const isKo=lang==='ko';
+  const langCode=isKo?'ko':'en';
+
+  // 우선순위: 자연스러운 Neural/Premium 음성
+  const preferred=isKo
+    ? ['Yuna','유나','나라','Nara','Google 한국의','Korean Female','ko-KR-Neural','SunHi','Heami']
+    : ['Samantha','Google US English','en-US-Neural','Karen','Moira','Fiona'];
+
+  for(const name of preferred){
+    const v=voices.find(v=>v.name.includes(name)&&v.lang.startsWith(langCode));
+    if(v)return v;
+  }
+  // fallback: 해당 언어 첫 번째 음성
+  return voices.find(v=>v.lang.startsWith(langCode))||null;
+}
+
 function _ttsNext(){
-  if(_ttsQueue.length===0){_ttsBusy=false;return;}
-  _ttsBusy=true;
+  if(_ttsQueue.length===0){_ttsBusy=false;_ttsActive=false;return;}
+  _ttsBusy=true;_ttsActive=true;
   const {text,lang}=_ttsQueue.shift();
   if(!window.speechSynthesis||!text){_ttsBusy=false;_ttsNext();return;}
   const u=new SpeechSynthesisUtterance(text);
   u.lang=lang==='ko'?'ko-KR':'en-US';
-  u.rate=lang==='ko'?0.95:0.9;
-  u.pitch=1;u.volume=1;
+  u.rate=lang==='ko'?0.92:0.9;
+  u.pitch=lang==='ko'?1.05:1;
+  u.volume=1;
+  // 자연스러운 음성 선택
+  const voice=_bestVoice(lang);
+  if(voice)u.voice=voice;
   let done=false;
   const finish=()=>{if(done)return;done=true;_ttsNext();};
-  u.onend=finish;
-  u.onerror=finish;
-  // 안전장치: speech가 멈춘 채로 안 끝나는 경우 대비 (브라우저 버그 우회)
-  setTimeout(()=>{if(!done){console.warn('[TTS] timeout fallback');finish();}}, text.length*200+5000);
+  u.onend=finish;u.onerror=finish;
+  setTimeout(()=>{if(!done){finish();}},text.length*180+5000);
   window.speechSynthesis.speak(u);
 }
 function _ttsEnqueue(text,lang){if(text&&text.trim())_ttsQueue.push({text:text.trim(),lang});if(!_ttsBusy)_ttsNext();}
-function _ttsClear(){_ttsQueue=[];window.speechSynthesis?.cancel();_ttsBusy=false;}
+function _ttsClear(){_ttsQueue=[];window.speechSynthesis?.cancel();_ttsBusy=false;_ttsActive=false;}
 
-// 긴 텍스트를 문장 단위로 분할 (브라우저 TTS는 긴 문장에서 끊김)
+// 문장 단위 분할
 function _splitSentences(text){
   if(!text)return[];
-  return text.split(/(?<=[.!?。])\s+|(?<=[.!?])$/g)
-    .map(s=>s.trim())
-    .filter(s=>s.length>0);
+  return text.split(/(?<=[.!?。바랍니다])\s+|(?<=[.!?])$/g)
+    .map(s=>s.trim()).filter(s=>s.length>0);
+}
+
+// 음성 목록 로드 (비동기)
+if(window.speechSynthesis){
+  window.speechSynthesis.onvoiceschanged=()=>window.speechSynthesis.getVoices();
+  window.speechSynthesis.getVoices();
 }
 
 function speakBoth(ko,en,mode){
@@ -129,6 +158,7 @@ function App(){
   const [mentTxt,setMentTxt]=useState('');
   const [customMent,setCustomMent]=useState('');
   const [athletes,setAthletes]=useState({});
+  const [ttsActive,setTtsActive]=useState(false);
   const [soundLib,setSoundLib]=useState({}); // {eventCode: {url, name, ...}}
   const [trackPlaying,setTrackPlaying]=useState(false);
   const trackAudioRef=useRef(null);
@@ -166,12 +196,28 @@ function App(){
 
   const goHeat=useCallback((no)=>{setHeatNo(no);setHState('idle');fbOp({currentHeatNo:no,heatStatus:'idle'});setMentTxt('');});
 
+  // TTS 강제 종료
+  const doStopTTS=()=>{
+    _ttsClear();
+    setTtsActive(false);
+    toast('⏹ 안내 방송 종료');
+  };
+
+  // TTS 래퍼 (상태 추적)
+  const tts=(ko,en)=>{
+    setTtsActive(true);
+    tts(ko,en);
+    // 종료 감지용 폴링
+    const id=setInterval(()=>{if(!_ttsActive){setTtsActive(false);clearInterval(id);}},500);
+    setTimeout(()=>{setTtsActive(false);clearInterval(id);},60000);
+  };
+
   const doCall=()=>{
     const no=curHeat?.no||curHeat?.heatNo||heatNo;
     const ev=curHeat?.event_name||curHeat?.event||'';
     const m=ment('call',{comp,heatNo:no,event:ev});
     setMentTxt(m.ko);setHState('calling');fbOp({heatStatus:'calling'});
-    fbAnn(m.ko,m.en);speakBoth(m.ko,m.en,lang);SIG.recall();toast('📢 소집 안내 송출');
+    fbAnn(m.ko,m.en);tts(m.ko,m.en);SIG.recall();toast('📢 소집 안내 송출');
   };
   // 종목 음원 검색 (강력한 매칭: 정확/접두/코드/공백제거)
   const findEventSound=(heat)=>{
@@ -223,7 +269,7 @@ function App(){
       setHState('finished');
       fbOp({heatStatus:'finished'});
       const em=ment('end',{comp});
-      setMentTxt(em.ko);fbAnn(em.ko,em.en);speakBoth(em.ko,em.en,lang);
+      setMentTxt(em.ko);fbAnn(em.ko,em.en);tts(em.ko,em.en);
       toast('✓ 종목 음원 재생 완료');
     };
     audio.onerror=()=>{
@@ -249,13 +295,13 @@ function App(){
     // 없으면 합성음 fallback
     const m=ment('start',{comp});setMentTxt(m.ko);setHState('racing');
     fbOp({heatStatus:'racing'});fbSig('start');fbAnn(m.ko,m.en);
-    SIG.start();speakBoth(m.ko,m.en,lang);toast('▶ 시작 신호음 (합성음)');
+    SIG.start();tts(m.ko,m.en);toast('▶ 시작 신호음 (합성음)');
   };
   const do30=()=>{fbSig('warn30');SIG.warn30();toast('⏰ 30초 경고음');};
   const doEnd=()=>{
     const m=ment('end',{comp});setMentTxt(m.ko);setHState('finished');
     fbOp({heatStatus:'finished'});fbSig('end');fbAnn(m.ko,m.en);
-    SIG.end();speakBoth(m.ko,m.en,lang);toast('■ 종료 신호음');
+    SIG.end();tts(m.ko,m.en);toast('■ 종료 신호음');
   };
   const doRecall=()=>{fbSig('recall');SIG.recall();toast('🔔 재호출음');};
   const doNext=()=>{
@@ -264,7 +310,7 @@ function App(){
     goHeat(no);
     setTimeout(()=>{
       const m=ment('call',{comp,heatNo:no,event:nxt.event_name||nxt.event||''});
-      setMentTxt(m.ko);fbAnn(m.ko,m.en);speakBoth(m.ko,m.en,lang);
+      setMentTxt(m.ko);fbAnn(m.ko,m.en);tts(m.ko,m.en);
       fbOp({heatStatus:'calling',currentHeatNo:no});setHState('calling');
     },600);
   };
@@ -272,14 +318,14 @@ function App(){
     const fst=heats[0];const ev=fst?.event_name||fst?.event||'';
     const m1=ment('open',{comp});const m2=ment('firstcall',{comp,event:ev});
     const ko=m1.ko+' '+m2.ko;const en=m1.en+' '+m2.en;
-    setMentTxt(ko);fbAnn(ko,en);speakBoth(ko,en,lang);toast('🏆 대회 개회 선언');
+    setMentTxt(ko);fbAnn(ko,en);tts(ko,en);toast('🏆 대회 개회 선언');
   };
   const doClose=()=>{
-    const m=ment('close',{comp});setMentTxt(m.ko);fbAnn(m.ko,m.en);speakBoth(m.ko,m.en,lang);toast('🏁 대회 폐회');
+    const m=ment('close',{comp});setMentTxt(m.ko);fbAnn(m.ko,m.en);tts(m.ko,m.en);toast('🏁 대회 폐회');
   };
   const doCustom=()=>{
     if(!customMent.trim())return;
-    setMentTxt(customMent);fbAnn(customMent,'');speakBoth(customMent,'',lang);setCustomMent('');toast('📢 안내 방송 송출');
+    setMentTxt(customMent);fbAnn(customMent,'');tts(customMent,'');setCustomMent('');toast('📢 안내 방송 송출');
   };
 
   const readyCnt=Object.values(judges).filter(j=>j.ready).length;
@@ -411,6 +457,14 @@ function App(){
             <div style={{padding:'8px 10px',background:'rgba(255,214,10,.05)',border:'1px solid rgba(255,214,10,.15)',borderRadius:7,fontSize:11,lineHeight:1.7,color:'#fef9c3',minHeight:50}}>
               {mentTxt||<span style={{color:'rgba(255,255,255,.25)'}}>진행 버튼을 누르면 자동 생성</span>}
             </div>
+
+            {/* 안내 방송 강제 종료 */}
+            {ttsActive&&(
+              <button onClick={doStopTTS}
+                style={{width:'100%',padding:'8px',background:'rgba(255,61,113,.15)',border:'1.5px solid rgba(255,61,113,.5)',borderRadius:7,color:'#ff3d71',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                <span>⏹</span> 안내 방송 강제 종료
+              </button>
+            )}
 
             {/* 직접 입력 */}
             <textarea value={customMent} onChange={e=>setCustomMent(e.target.value)} rows={2}
