@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>모두의 플레이 — 운영 앱 v2</title>
+<title>모두의 플레이 — 운영 앱 v3</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <script src="https://cdn.tailwindcss.com"></script>
@@ -16,18 +16,15 @@
 html,body{margin:0;padding:0;min-height:100vh;background:#080C18;font-family:'Pretendard',sans-serif;color:#E8EAF2;}
 .fd{font-family:'Bebas Neue',sans-serif;letter-spacing:.04em;}
 .fm{font-family:'JetBrains Mono',monospace;}
-.court-card{background:rgba(255,255,255,.03);border:1.5px solid rgba(255,255,255,.08);border-radius:8px;padding:10px;transition:all .2s;}
-.court-card.has-ath{border-color:rgba(0,229,255,.35);background:rgba(0,229,255,.05);}
-.court-card.ready{border-color:rgba(0,255,136,.5);background:rgba(0,255,136,.08);}
-.court-card.submitted{border-color:rgba(0,255,136,.8);background:rgba(0,255,136,.12);}
-.wf-btn{width:100%;text-align:left;border-radius:9px;padding:11px 14px;border:1.5px solid;cursor:pointer;transition:all .12s;user-select:none;}
+.wf-btn{width:100%;text-align:left;border-radius:9px;padding:10px 14px;border:1.5px solid;cursor:pointer;transition:all .12s;user-select:none;background:transparent;}
 .wf-btn:active{transform:scale(.96);filter:brightness(1.3);}
+.wf-btn:disabled{opacity:.38;cursor:not-allowed;}
 .st-box{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:8px;margin-bottom:8px;}
 .st-lbl{font-family:'Bebas Neue',sans-serif;font-size:11px;color:rgba(0,229,255,.6);letter-spacing:.15em;text-align:center;margin-bottom:6px;}
 @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 .toast-wrap{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:5px;align-items:center;z-index:60;pointer-events:none;}
 .toast-item{padding:9px 18px;border-radius:20px;font-size:13px;white-space:nowrap;animation:toastIn .25s ease-out;backdrop-filter:blur(8px);}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}.pulse{animation:pulse 1.2s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}.pulse-anim{animation:pulse 1.2s ease-in-out infinite;}
 </style>
 </head>
 <body>
@@ -41,42 +38,88 @@ const db=firebase.database();
 const ALPHA='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 function cId(i,m='alpha'){return m==='alpha'?ALPHA[i]||String(i+1):String(i+1);}
 
+// ── IJRU 공식 종목 풀 명칭 ──
+const EVENT_FULL_NAMES={
+  'SRSS':'Single Rope Speed 1 × 30 Seconds',
+  'SRSR':'Single Rope Speed Relay 4 × 30 Seconds',
+  'SRRE':'Single Rope Speed Relay 4 × 30 Seconds Team',
+  'SRSE':'Single Rope Speed Endurance 3 Minutes',
+  'SRTU':'Single Rope Triple Unders',
+  'SRDR':'Single Rope Double Unders Relay',
+  'SRIF':'Single Rope Individual Freestyle',
+  'SRPF':'Single Rope Pair Freestyle',
+  'DDSS':'Double Dutch Single Speed 1 × 60 Seconds',
+  'DDSR':'Double Dutch Speed Relay 2 × 60 Seconds',
+  'DDRE':'Double Dutch Speed Relay Team 3 × 40 Seconds',
+  'DDSE':'Double Dutch Single Speed Endurance 2 Minutes',
+  'DDSC':'Double Dutch Speed Contest 30 Seconds',
+  'DDPF':'Double Dutch Pair Freestyle',
+  'DDTF':'Double Dutch Triad Freestyle',
+  'LR-8M':'Long Rope 8 Athlete Marathon',
+};
+// 종목 코드에서 풀 명칭 가져오기
+function getFullEventName(eventStr){
+  if(!eventStr)return eventStr;
+  const code=eventStr.split(/\s+/)[0];
+  return EVENT_FULL_NAMES[code]||eventStr;
+}
+// TTS용 한국어 종목명
+const EVENT_KO_NAMES={
+  'SRSS':'Single Rope Speed 30초',
+  'SRSR':'Single Rope Speed Relay 30초 4회',
+  'SRRE':'Single Rope Speed Relay 팀전',
+  'SRSE':'Single Rope Speed Endurance 3분',
+  'SRTU':'Single Rope Triple Unders',
+  'SRDR':'Single Rope Double Unders Relay',
+  'SRIF':'Single Rope Individual Freestyle',
+  'SRPF':'Single Rope Pair Freestyle',
+  'DDSS':'Double Dutch Speed 60초',
+  'DDSR':'Double Dutch Speed Relay 60초',
+  'DDRE':'Double Dutch Speed Relay 팀전',
+  'DDSE':'Double Dutch Speed Endurance 2분',
+  'DDSC':'Double Dutch Speed Contest 30초',
+  'DDPF':'Double Dutch Pair Freestyle',
+  'DDTF':'Double Dutch Triad Freestyle',
+  'LR-8M':'Long Rope 8인 마라톤',
+};
+function getEventKo(eventStr){
+  const code=eventStr?.split(/\s+/)[0]||'';
+  return EVENT_KO_NAMES[code]||eventStr||'종목';
+}
+
 // ── 오디오 ──
 let _ac=null;
 function ac(){if(!_ac)_ac=new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_ac.resume();return _ac;}
 function tone(f,d,t='sine',v=.6,o=0){const ctx=ac(),osc=ctx.createOscillator(),g=ctx.createGain();osc.type=t;osc.frequency.value=f;osc.connect(g);g.connect(ctx.destination);const ts=ctx.currentTime+o;g.gain.setValueAtTime(0,ts);g.gain.linearRampToValueAtTime(v,ts+.005);g.gain.linearRampToValueAtTime(v,ts+d-.05);g.gain.linearRampToValueAtTime(0,ts+d);osc.start(ts);osc.stop(ts+d);}
 const SIG={
   start:()=>{tone(880,.12,'sine',.5,0);tone(880,.12,'sine',.5,.35);tone(1320,.6,'sine',.75,.7);},
-  warn30:()=>{tone(1046,.3,'sine',.6,0);},
   end:()=>{tone(440,.9,'sine',.7,0);},
-  recall:()=>{for(let i=0;i<4;i++)tone(i%2?880:660,.2,'square',.45,i*.28);},
 };
 
-// ── TTS 엔진 (큐 방식 + 자연스러운 음성 선택) ──
-let _ttsQueue=[];
-let _ttsBusy=false;
-let _ttsActive=false; // 외부에서 상태 확인용
+// ── TTS 엔진 ──
+let _ttsQueue=[];let _ttsBusy=false;let _ttsActive=false;
+let _selectedVoiceName=null; // 사용자가 선택한 음성
 
-// 최적 한국어 음성 선택 (자연스러운 목소리 우선)
 function _bestVoice(lang){
   if(!window.speechSynthesis)return null;
   const voices=window.speechSynthesis.getVoices();
   const isKo=lang==='ko';
   const langCode=isKo?'ko':'en';
-
-  // 우선순위: 자연스러운 Neural/Premium 음성
+  // 선택된 음성이 있으면 우선 사용
+  if(_selectedVoiceName){
+    const sel=voices.find(v=>v.name===_selectedVoiceName&&v.lang.startsWith(langCode));
+    if(sel)return sel;
+  }
+  // 자연스러운 음성 우선순위
   const preferred=isKo
-    ? ['Yuna','유나','나라','Nara','Google 한국의','Korean Female','ko-KR-Neural','SunHi','Heami']
-    : ['Samantha','Google US English','en-US-Neural','Karen','Moira','Fiona'];
-
-  for(const name of preferred){
-    const v=voices.find(v=>v.name.includes(name)&&v.lang.startsWith(langCode));
+    ?['Yuna','유나','나라','Nara','Google 한국의','SunHi','Heami','Korean']
+    :['Samantha','Google US English','Karen','Moira','Fiona','en-US'];
+  for(const n of preferred){
+    const v=voices.find(v=>v.name.includes(n)&&v.lang.startsWith(langCode));
     if(v)return v;
   }
-  // fallback: 해당 언어 첫 번째 음성
   return voices.find(v=>v.lang.startsWith(langCode))||null;
 }
-
 function _ttsNext(){
   if(_ttsQueue.length===0){_ttsBusy=false;_ttsActive=false;return;}
   _ttsBusy=true;_ttsActive=true;
@@ -84,59 +127,54 @@ function _ttsNext(){
   if(!window.speechSynthesis||!text){_ttsBusy=false;_ttsNext();return;}
   const u=new SpeechSynthesisUtterance(text);
   u.lang=lang==='ko'?'ko-KR':'en-US';
-  u.rate=lang==='ko'?0.92:0.9;
-  u.pitch=lang==='ko'?1.05:1;
-  u.volume=1;
-  // 자연스러운 음성 선택
-  const voice=_bestVoice(lang);
-  if(voice)u.voice=voice;
+  u.rate=lang==='ko'?.92:.9;u.pitch=lang==='ko'?1.05:1;u.volume=1;
+  const v=_bestVoice(lang);if(v)u.voice=v;
   let done=false;
   const finish=()=>{if(done)return;done=true;_ttsNext();};
   u.onend=finish;u.onerror=finish;
-  setTimeout(()=>{if(!done){finish();}},text.length*180+5000);
+  setTimeout(()=>{if(!done)finish();},text.length*180+6000);
   window.speechSynthesis.speak(u);
 }
 function _ttsEnqueue(text,lang){if(text&&text.trim())_ttsQueue.push({text:text.trim(),lang});if(!_ttsBusy)_ttsNext();}
 function _ttsClear(){_ttsQueue=[];window.speechSynthesis?.cancel();_ttsBusy=false;_ttsActive=false;}
-
-// 문장 단위 분할
-function _splitSentences(text){
+function _splitSent(text){
   if(!text)return[];
-  return text.split(/(?<=[.!?。바랍니다])\s+|(?<=[.!?])$/g)
-    .map(s=>s.trim()).filter(s=>s.length>0);
+  return text.split(/(?<=[.!?바랍니다])\s+|(?<=[.!?])$/g).map(s=>s.trim()).filter(Boolean);
 }
-
-// 음성 목록 로드 (비동기)
+function speakBoth(ko,en,mode){
+  _ttsClear();
+  if(mode==='ko'||mode==='both')_splitSent(ko).forEach(s=>_ttsEnqueue(s,'ko'));
+  if(mode==='en'||mode==='both')_splitSent(en).forEach(s=>_ttsEnqueue(s,'en'));
+}
+// 음성 목록 초기화
 if(window.speechSynthesis){
   window.speechSynthesis.onvoiceschanged=()=>window.speechSynthesis.getVoices();
   window.speechSynthesis.getVoices();
 }
 
-function speakBoth(ko,en,mode){
-  _ttsClear();
-  if(mode==='ko'||mode==='both'){
-    _splitSentences(ko).forEach(s=>_ttsEnqueue(s,'ko'));
-  }
-  if(mode==='en'||mode==='both'){
-    _splitSentences(en).forEach(s=>_ttsEnqueue(s,'en'));
-  }
-}
-
-// ── 멘트 템플릿 ──
-function ment(type,{comp='대회',heatNo=1,event=''}={}){
+// ── 멘트 템플릿 (풀 명칭 적용) ──
+function ment(type,{comp='대회',heatNo=1,eventStr=''}={}){
+  const evKo=getEventKo(eventStr);
+  const evEn=getFullEventName(eventStr)||eventStr;
   const T={
-    open:     {ko:`지금부터 ${comp}을 시작하겠습니다. 참가 선수 여러분을 환영합니다.`,en:`Welcome to the ${comp}. The competition is about to begin.`},
-    firstcall:{ko:`${event} 종목에 참가하는 선수들은 소집 장소로 모여 주시기 바랍니다.`,en:`Athletes in ${event}, please proceed to the assembly area.`},
-    call:     {ko:`히트 ${heatNo}번 선수들은 코트로 입장해 주시기 바랍니다.`,en:`Heat number ${heatNo}, please enter the competition floor.`},
-    start:    {ko:`경기를 시작하겠습니다.`,en:`The competition will now begin.`},
-    end:      {ko:`수고하셨습니다. 선수들은 기록을 확인한 후 퇴장해 주시기 바랍니다.`,en:`Well done. Please check your scores and exit the floor.`},
-    next:     {ko:`다음 히트 ${heatNo}번 선수들은 준비해 주시기 바랍니다.`,en:`Heat number ${heatNo}, please get ready.`},
-    close:    {ko:`이상으로 ${comp}의 모든 경기를 마치겠습니다. 수고하셨습니다.`,en:`This concludes the ${comp}. Thank you for participating.`},
+    open:    {ko:`지금부터 ${comp}을 시작하겠습니다. 참가 선수 여러분을 환영합니다.`,
+              en:`Welcome to ${comp}. The competition is about to begin.`},
+    firstcall:{ko:`${evKo} 종목에 참가하는 선수들은 소집 장소로 모여 주시기 바랍니다.`,
+               en:`Athletes competing in ${evEn}, please proceed to the assembly area.`},
+    call:    {ko:`히트 ${heatNo}번 선수들은 코트로 입장해 주시기 바랍니다.`,
+              en:`Heat number ${heatNo}, please enter the competition floor.`},
+    start:   {ko:`경기를 시작하겠습니다.`,en:`The competition will now begin.`},
+    end:     {ko:`수고하셨습니다. 선수들은 기록을 확인한 후 퇴장해 주시기 바랍니다.`,
+              en:`Well done. Please check your scores and exit the competition floor.`},
+    next:    {ko:`다음 히트 ${heatNo}번 선수들은 준비해 주시기 바랍니다.`,
+              en:`Heat number ${heatNo}, please get ready.`},
+    close:   {ko:`이상으로 ${comp}의 모든 경기를 마치겠습니다. 수고하셨습니다.`,
+              en:`This concludes ${comp}. Thank you for participating.`},
   };
   return T[type]||{ko:'',en:''};
 }
 
-// ════════════ 메인 ════════════
+// ════════════ 앱 ════════════
 function App(){
   const [cfg,setCfg]=useState(()=>{
     const ur=new URLSearchParams(window.location.search).get('room')||'';
@@ -153,16 +191,20 @@ function App(){
   const [cMode,setCMode]=useState('alpha');
   const [online,setOnline]=useState(false);
   const [judges,setJudges]=useState({});
+  const [cameras,setCameras]=useState({});
   const [lang,setLang]=useState('both');
   const [toasts,setToasts]=useState([]);
   const [mentTxt,setMentTxt]=useState('');
   const [customMent,setCustomMent]=useState('');
   const [athletes,setAthletes]=useState({});
   const [ttsActive,setTtsActive]=useState(false);
-  const [soundLib,setSoundLib]=useState({}); // {eventCode: {url, name, ...}}
+  const [soundLib,setSoundLib]=useState({});
   const [trackPlaying,setTrackPlaying]=useState(false);
-  const trackAudioRef=useRef(null);
-  const [cameras,setCameras]=useState({}); // 카메라 연결 상태
+  const trackRef=useRef(null);
+  const ttsTimerRef=useRef(null);
+  const [voices,setVoices]=useState([]);
+  const [selVoice,setSelVoice]=useState(null);
+  const [showVoicePicker,setShowVoicePicker]=useState(false);
 
   const toast=useCallback((msg,tp='info')=>{
     const id=Date.now();
@@ -170,6 +212,22 @@ function App(){
     setTimeout(()=>setToasts(p=>p.filter(t=>t.id!==id)),2800);
   },[]);
 
+  // 음성 목록 로드
+  useEffect(()=>{
+    const load=()=>{
+      const vs=window.speechSynthesis?.getVoices()||[];
+      const ko=vs.filter(v=>v.lang.startsWith('ko'));
+      setVoices(ko.length?ko:vs.filter(v=>v.lang.startsWith('en')));
+    };
+    load();
+    window.speechSynthesis&&(window.speechSynthesis.onvoiceschanged=load);
+  },[]);
+
+  useEffect(()=>{
+    _selectedVoiceName=selVoice;
+  },[selVoice]);
+
+  // Firebase 구독
   useEffect(()=>{
     if(!cfg.roomId)return;
     const r=cfg.roomId;
@@ -181,142 +239,99 @@ function App(){
     });
     db.ref(`${r}/operator`).on('value',s=>{const v=s.val();if(!v)return;if(v.currentHeatNo)setHeatNo(v.currentHeatNo);if(v.heatStatus)setHState(v.heatStatus);if(v.lang)setLang(v.lang);});
     db.ref(`${r}/monitoring/judges`).on('value',s=>setJudges(s.val()||{}));
-    db.ref(`${r}/soundLibrary`).on('value',s=>setSoundLib(s.val()||{}));
     db.ref(`${r}/monitoring/cameras`).on('value',s=>setCameras(s.val()||{}));
+    db.ref(`${r}/soundLibrary`).on('value',s=>setSoundLib(s.val()||{}));
     return()=>db.ref(r).off();
   },[cfg.roomId]);
 
   const curHeat=useMemo(()=>heats.find(h=>(h.no||h.heatNo)===heatNo)||heats[0]||null,[heats,heatNo]);
   const hIdx=useMemo(()=>heats.findIndex(h=>(h.no||h.heatNo)===heatNo),[heats,heatNo]);
   const comp=meta?.competition||'대회';
+  const eventStr=curHeat?.event||'';
+  const evKo=getEventKo(eventStr);
+  const evFull=getFullEventName(eventStr);
 
   const fbOp=useCallback((d)=>{if(!cfg.roomId)return;db.ref(`${cfg.roomId}/operator`).update({...d,updatedAt:Date.now()});});
   const fbSig=useCallback((t)=>{if(!cfg.roomId)return;db.ref(`${cfg.roomId}/signals/current`).set({type:t,ts:Date.now()});});
-  const fbAnn=useCallback((ko,en)=>{if(!cfg.roomId)return;db.ref(`${cfg.roomId}/announcements/current`).set({text_ko:ko,text_en:en,lang,ts:Date.now()});});
+  const fbAnn=useCallback((ko,en)=>{
+    if(!cfg.roomId)return;
+    db.ref(`${cfg.roomId}/announcements/current`).set({text_ko:ko,text_en:en,lang,ts:Date.now()});
+  });
 
-  const goHeat=useCallback((no)=>{setHeatNo(no);setHState('idle');fbOp({currentHeatNo:no,heatStatus:'idle'});setMentTxt('');});
+  const goHeat=useCallback((no)=>{
+    setHeatNo(no);setHState('idle');
+    fbOp({currentHeatNo:no,heatStatus:'idle'});setMentTxt('');
+  });
 
-  // TTS 강제 종료
-  const doStopTTS=()=>{
-    _ttsClear();
-    setTtsActive(false);
-    toast('⏹ 안내 방송 종료');
-  };
-
-  // TTS 래퍼 (상태 추적)
-  const tts=(ko,en)=>{
+  // TTS 래퍼
+  const tts=useCallback((ko,en)=>{
     setTtsActive(true);
-    tts(ko,en);
-    // 종료 감지용 폴링
-    const id=setInterval(()=>{if(!_ttsActive){setTtsActive(false);clearInterval(id);}},500);
-    setTimeout(()=>{setTtsActive(false);clearInterval(id);},60000);
-  };
+    speakBoth(ko,en,lang);
+    clearTimeout(ttsTimerRef.current);
+    const check=()=>{if(!_ttsActive){setTtsActive(false);}else{ttsTimerRef.current=setTimeout(check,400);}};
+    ttsTimerRef.current=setTimeout(check,400);
+  },[lang]);
 
+  const doStopTTS=()=>{_ttsClear();setTtsActive(false);clearTimeout(ttsTimerRef.current);toast('⏹ 안내 방송 종료');};
+
+  // 음원 매칭
+  const currentSound=useMemo(()=>{
+    if(!curHeat||!soundLib||!Object.keys(soundLib).length)return null;
+    const ev=curHeat.event||'';
+    const norm=s=>String(s).toLowerCase().replace(/\s+/g,'').replace(/×/g,'x');
+    const evNorm=norm(ev);const evCode=ev.split(/\s+/)[0];
+    if(soundLib[ev])return soundLib[ev];
+    for(const k of Object.keys(soundLib)){if(norm(k)===evNorm)return soundLib[k];}
+    for(const k of Object.keys(soundLib)){if(k.startsWith(evCode))return soundLib[k];}
+    return null;
+  },[curHeat,soundLib]);
+
+  // 워크플로우 액션
   const doCall=()=>{
     const no=curHeat?.no||curHeat?.heatNo||heatNo;
-    const ev=curHeat?.event_name||curHeat?.event||'';
-    const m=ment('call',{comp,heatNo:no,event:ev});
+    const m=ment('call',{comp,heatNo:no,eventStr});
     setMentTxt(m.ko);setHState('calling');fbOp({heatStatus:'calling'});
-    fbAnn(m.ko,m.en);tts(m.ko,m.en);SIG.recall();toast('📢 소집 안내 송출');
+    fbAnn(m.ko,m.en);tts(m.ko,m.en);toast('📢 소집 안내 송출');
   };
-  // 종목 음원 검색 (강력한 매칭: 정확/접두/코드/공백제거)
-  const findEventSound=(heat)=>{
-    if(!heat||!soundLib||Object.keys(soundLib).length===0)return null;
-    const ev=heat.event||'';
-    if(!ev)return null;
-
-    // 1. 완전 일치
-    if(soundLib[ev])return soundLib[ev];
-
-    // 2. 정규화 비교 (공백/대소문자 무시)
-    const norm=s=>String(s).toLowerCase().replace(/\s+/g,'').replace(/×/g,'x');
-    const evNorm=norm(ev);
-    for(const k of Object.keys(soundLib)){
-      if(norm(k)===evNorm)return soundLib[k];
-    }
-
-    // 3. 접두 매칭 (코드 부분만)
-    const evCode=ev.split(/\s+/)[0]; // "SRSS"
-    for(const k of Object.keys(soundLib)){
-      if(k.startsWith(evCode)||k.startsWith(ev))return soundLib[k];
-    }
-
-    // 4. 종목 코드만 매칭 (라이브러리 키도 코드로 시작하는 것)
-    for(const k of Object.keys(soundLib)){
-      const kCode=k.split(/\s+/)[0];
-      if(kCode===evCode)return soundLib[k];
-    }
-
-    return null;
-  };
-  const currentSound=useMemo(()=>findEventSound(curHeat),[curHeat,soundLib]);
-
-  // 종목 음원 통합 재생 (시작~종료가 한 트랙)
-  const doPlayEventTrack=()=>{
-    if(!currentSound){toast('이 종목 음원이 없습니다',true);return;}
-    if(trackAudioRef.current){trackAudioRef.current.pause();trackAudioRef.current=null;}
+  const doPlayTrack=()=>{
+    if(!currentSound){toast('음원 없음',true);return;}
+    if(trackRef.current){trackRef.current.pause();trackRef.current=null;}
     const audio=new Audio(currentSound.url);
-    trackAudioRef.current=audio;
-    setTrackPlaying(true);
-    setHState('racing');
-    fbOp({heatStatus:'racing'});
-    fbSig('start');
-    const m=ment('start',{comp});
-    setMentTxt(m.ko);
-    fbAnn(m.ko,m.en);
+    trackRef.current=audio;setTrackPlaying(true);setHState('racing');
+    fbOp({heatStatus:'racing'});fbSig('start');
+    const m=ment('start',{comp,eventStr});setMentTxt(m.ko);fbAnn(m.ko,m.en);
     audio.onended=()=>{
-      setTrackPlaying(false);
-      setHState('finished');
-      fbOp({heatStatus:'finished'});
-      const em=ment('end',{comp});
-      setMentTxt(em.ko);fbAnn(em.ko,em.en);tts(em.ko,em.en);
-      toast('✓ 종목 음원 재생 완료');
+      setTrackPlaying(false);setHState('finished');fbOp({heatStatus:'finished'});
+      const em=ment('end',{comp,eventStr});setMentTxt(em.ko);fbAnn(em.ko,em.en);
+      tts(em.ko,em.en);toast('✓ 음원 재생 완료');
     };
-    audio.onerror=()=>{
-      setTrackPlaying(false);
-      toast('음원 재생 실패',true);
-    };
-    audio.play().then(()=>{
-      toast(`▶ ${curHeat?.event||''} 음원 재생`);
-    }).catch(e=>{
-      setTrackPlaying(false);
-      toast('재생 실패: '+e.message,true);
-    });
+    audio.onerror=()=>{setTrackPlaying(false);toast('재생 실패',true);};
+    audio.play().then(()=>toast(`▶ ${evKo} 음원 재생`)).catch(e=>toast('재생 실패: '+e.message,true));
   };
-  const doStopTrack=()=>{
-    if(trackAudioRef.current){trackAudioRef.current.pause();trackAudioRef.current=null;}
-    setTrackPlaying(false);
-    toast('⏹ 음원 정지');
-  };
-
   const doStart=()=>{
-    // 종목 음원이 있으면 자동으로 통합 트랙 재생
-    if(currentSound){doPlayEventTrack();return;}
-    // 없으면 합성음 fallback
-    const m=ment('start',{comp});setMentTxt(m.ko);setHState('racing');
+    if(currentSound){doPlayTrack();return;}
+    const m=ment('start',{comp,eventStr});setMentTxt(m.ko);setHState('racing');
     fbOp({heatStatus:'racing'});fbSig('start');fbAnn(m.ko,m.en);
     SIG.start();tts(m.ko,m.en);toast('▶ 시작 신호음 (합성음)');
   };
-  const do30=()=>{fbSig('warn30');SIG.warn30();toast('⏰ 30초 경고음');};
   const doEnd=()=>{
-    const m=ment('end',{comp});setMentTxt(m.ko);setHState('finished');
+    const m=ment('end',{comp,eventStr});setMentTxt(m.ko);setHState('finished');
+    if(trackRef.current){trackRef.current.pause();trackRef.current=null;setTrackPlaying(false);}
     fbOp({heatStatus:'finished'});fbSig('end');fbAnn(m.ko,m.en);
     SIG.end();tts(m.ko,m.en);toast('■ 종료 신호음');
   };
-  const doRecall=()=>{fbSig('recall');SIG.recall();toast('🔔 재호출음');};
   const doNext=()=>{
-    if(hIdx>=heats.length-1){toast('마지막 히트입니다');return;}
+    if(hIdx>=heats.length-1){toast('마지막 히트');return;}
     const nxt=heats[hIdx+1];const no=nxt.no||nxt.heatNo;
     goHeat(no);
     setTimeout(()=>{
-      const m=ment('call',{comp,heatNo:no,event:nxt.event_name||nxt.event||''});
+      const m=ment('call',{comp,heatNo:no,eventStr:nxt.event||''});
       setMentTxt(m.ko);fbAnn(m.ko,m.en);tts(m.ko,m.en);
       fbOp({heatStatus:'calling',currentHeatNo:no});setHState('calling');
     },600);
   };
   const doOpen=()=>{
-    const fst=heats[0];const ev=fst?.event_name||fst?.event||'';
-    const m1=ment('open',{comp});const m2=ment('firstcall',{comp,event:ev});
+    const fst=heats[0];const m1=ment('open',{comp});const m2=ment('firstcall',{comp,eventStr:fst?.event||''});
     const ko=m1.ko+' '+m2.ko;const en=m1.en+' '+m2.en;
     setMentTxt(ko);fbAnn(ko,en);tts(ko,en);toast('🏆 대회 개회 선언');
   };
@@ -330,27 +345,19 @@ function App(){
 
   const readyCnt=Object.values(judges).filter(j=>j.ready).length;
   const onlineCnt=Object.values(judges).filter(j=>j.online&&Date.now()-j.lastSeen<15000).length;
-
-  const ST_COLOR={idle:'#4a5568',calling:'#ffd60a',racing:'#00e5ff',finished:'#00ff88'};
-  const ST_ICON={idle:'⏸',calling:'📢',racing:'▶',finished:'✓'};
-  const ST_LABEL={idle:'대기',calling:'소집',racing:'진행',finished:'완료'};
-  const sc=ST_COLOR[hState]||'#4a5568';
+  const camCnt=Object.values(cameras).filter(c=>c.online&&Date.now()-c.lastSeen<15000).length;
+  const sc={'idle':'#4a5568','calling':'#ffd60a','racing':'#00e5ff','finished':'#00ff88'}[hState]||'#4a5568';
+  const allReady=curHeat&&readyCnt>0&&readyCnt>=Object.keys(curHeat.courts||{}).filter(k=>curHeat.courts[k]?.athlete).length;
 
   return(<div style={{background:'#080C18',minHeight:'100vh'}}>
     {/* 헤더 */}
     <header style={{padding:'10px 16px',borderBottom:'1px solid rgba(255,255,255,.08)',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,position:'sticky',top:0,zIndex:40,background:'rgba(8,12,24,.97)',backdropFilter:'blur(12px)'}}>
       <div style={{display:'flex',alignItems:'baseline',gap:10}}>
         <div className="fd" style={{fontSize:22}}>모두의 <span style={{color:'#00e5ff'}}>플레이</span></div>
-        {/* 대회명 표시 */}
-        {meta?.competition
-          ? <div style={{fontSize:14,fontWeight:700,color:'#ffd60a',letterSpacing:'.02em'}}>{meta.competition}</div>
-          : <div style={{fontSize:10,color:'rgba(255,255,255,.3)',letterSpacing:'.2em'}}>운영 앱 v2</div>
-        }
+        <div style={{fontSize:13,fontWeight:700,color:'#ffd60a'}}>{meta?.competition||'운영 앱 v3'}</div>
       </div>
       <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-        {/* 시계 */}
         <Clock/>
-        {/* 언어 */}
         <div style={{display:'flex',gap:3,background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.1)',borderRadius:7,padding:3}}>
           {['ko','en','both'].map(l=>(
             <button key={l} onClick={()=>{setLang(l);fbOp({lang:l});}}
@@ -359,11 +366,9 @@ function App(){
             </button>
           ))}
         </div>
-        {/* 심판 */}
         <div style={{fontSize:11,padding:'4px 10px',borderRadius:6,background:'rgba(0,255,136,.1)',border:'1px solid rgba(0,255,136,.3)',color:'#00ff88'}}>
-          ⚖ {readyCnt}준비/{onlineCnt}접속
+          ⚖ {readyCnt}/{onlineCnt} &nbsp; 📷 {camCnt}
         </div>
-        {/* 연결 */}
         <div style={{fontSize:11,padding:'4px 10px',borderRadius:6,background:online?'rgba(0,229,255,.1)':'rgba(255,61,113,.1)',border:`1px solid ${online?'rgba(0,229,255,.3)':'rgba(255,61,113,.3)'}`,color:online?'#00e5ff':'#ff3d71'}}>
           {online?'🔗 ONLINE':'⚠ OFFLINE'}
         </div>
@@ -375,247 +380,234 @@ function App(){
       {!cfg.roomId||!online?(
         <div style={{textAlign:'center',padding:'60px 20px'}}>
           <div style={{fontSize:60,marginBottom:16}}>📡</div>
-          <div className="fd" style={{fontSize:28,color:'rgba(255,255,255,.7)',marginBottom:8}}>Setup에서 만든 Room ID로 연결하세요</div>
+          <div className="fd" style={{fontSize:28,color:'rgba(255,255,255,.7)',marginBottom:8}}>Setup과 같은 Room ID로 연결하세요</div>
           <button onClick={()=>setCfg(c=>({...c,showCfg:true}))} style={{background:'#00e5ff',color:'#000',border:'none',borderRadius:10,padding:'12px 28px',fontSize:16,fontWeight:700,cursor:'pointer'}}>설정 열기 ⚙</button>
         </div>
       ):(
         <>
-        {/* ── 현재 히트 ── */}
-        <div style={{borderRadius:12,border:`2px solid ${sc}40`,background:`linear-gradient(135deg,${sc}10,transparent)`,padding:'14px 18px',marginBottom:10}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
+        {/* 히트 헤더 */}
+        <div style={{borderRadius:12,border:`2px solid ${sc}40`,background:`linear-gradient(135deg,${sc}10,transparent)`,padding:'12px 18px',marginBottom:10}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10}}>
             <div style={{display:'flex',alignItems:'baseline',gap:14}}>
               <div>
                 <div style={{fontSize:10,letterSpacing:'.3em',color:sc,textTransform:'uppercase'}}>CURRENT</div>
-                <div className="fd" style={{fontSize:50,lineHeight:.9}}>HEAT {curHeat?.no||curHeat?.heatNo||'—'}</div>
+                <div className="fd" style={{fontSize:46,lineHeight:.9}}>HEAT {curHeat?.no||curHeat?.heatNo||'—'}</div>
               </div>
               <div>
-                <div style={{fontSize:14,fontWeight:700,color:'rgba(255,255,255,.85)'}}>{curHeat?.event_name||curHeat?.event||'—'}</div>
-                <div style={{fontSize:12,color:'rgba(255,255,255,.45)'}}>{curHeat?.division||'—'}</div>
+                {/* IJRU 풀 명칭 표시 */}
+                <div style={{fontSize:13,fontWeight:700,color:'rgba(255,255,255,.9)'}}>{evFull||'—'}</div>
+                <div style={{fontSize:11,color:'rgba(255,255,255,.45)'}}>{curHeat?.division||'—'}</div>
               </div>
-              <div style={{padding:'4px 12px',borderRadius:20,background:`${sc}20`,border:`1px solid ${sc}50`,fontSize:12,color:sc,fontWeight:700}}>
-                {ST_ICON[hState]} {ST_LABEL[hState]}
+              <div style={{padding:'4px 10px',borderRadius:20,background:`${sc}20`,border:`1px solid ${sc}50`,fontSize:12,color:sc,fontWeight:700}}>
+                {{'idle':'⏸ 대기','calling':'📢 소집','racing':'▶ 진행','finished':'✓ 완료'}[hState]}
               </div>
             </div>
             <div style={{display:'flex',gap:8,alignItems:'center'}}>
               <button onClick={()=>{if(hIdx>0)goHeat(heats[hIdx-1].no||heats[hIdx-1].heatNo);}} disabled={hIdx<=0}
-                style={{padding:'9px 16px',borderRadius:8,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.05)',color:'rgba(255,255,255,.7)',fontSize:13,fontWeight:700,cursor:hIdx<=0?'not-allowed':'pointer',opacity:hIdx<=0?.4:1}}>← 이전</button>
+                style={{padding:'8px 14px',borderRadius:8,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.05)',color:'rgba(255,255,255,.7)',fontSize:13,fontWeight:700,cursor:hIdx<=0?'not-allowed':'pointer',opacity:hIdx<=0?.4:1}}>← 이전</button>
               <select value={curHeat?.no||curHeat?.heatNo||1} onChange={e=>goHeat(parseInt(e.target.value))}
-                style={{background:'rgba(0,0,0,.5)',border:'1px solid rgba(255,255,255,.15)',color:'#fff',padding:'9px 12px',borderRadius:8,fontSize:12,fontFamily:'JetBrains Mono,monospace'}}>
+                style={{background:'rgba(0,0,0,.5)',border:'1px solid rgba(255,255,255,.15)',color:'#fff',padding:'8px 10px',borderRadius:8,fontSize:11,fontFamily:'JetBrains Mono,monospace'}}>
                 {heats.map(h=><option key={h.no||h.heatNo} value={h.no||h.heatNo}>HEAT {h.no||h.heatNo} · {h.event}</option>)}
               </select>
               <button onClick={()=>{if(hIdx<heats.length-1)goHeat(heats[hIdx+1].no||heats[hIdx+1].heatNo);}} disabled={hIdx>=heats.length-1}
-                style={{padding:'9px 16px',borderRadius:8,border:`1px solid ${sc}60`,background:`${sc}18`,color:sc,fontSize:13,fontWeight:700,cursor:hIdx>=heats.length-1?'not-allowed':'pointer',opacity:hIdx>=heats.length-1?.4:1}}>다음 →</button>
+                style={{padding:'8px 14px',borderRadius:8,border:`1px solid ${sc}60`,background:`${sc}18`,color:sc,fontSize:13,fontWeight:700,cursor:hIdx>=heats.length-1?'not-allowed':'pointer',opacity:hIdx>=heats.length-1?.4:1}}>다음 →</button>
             </div>
           </div>
         </div>
 
-        {/* ── 워크플로우 + 멘트 + 코트 보드 (통합 레이아웃) ── */}
-        <div style={{display:'grid',gridTemplateColumns:'300px 1fr',gap:10,marginBottom:10}}>
+        {/* 메인 그리드: 컨트롤 | 코트 보드 */}
+        <div style={{display:'grid',gridTemplateColumns:'280px 1fr',gap:10,marginBottom:10}}>
 
-          {/* 왼쪽: 워크플로우 컴팩트 */}
-          <div style={{background:'rgba(255,255,255,.02)',border:'1px solid rgba(255,255,255,.08)',borderRadius:12,padding:12,display:'flex',flexDirection:'column',gap:6}}>
-            <div style={{fontSize:10,letterSpacing:'.2em',color:'rgba(255,255,255,.35)',marginBottom:4,textTransform:'uppercase'}}>진행 워크플로우</div>
+          {/* 왼쪽: 워크플로우 */}
+          <div style={{background:'rgba(255,255,255,.02)',border:'1px solid rgba(255,255,255,.08)',borderRadius:12,padding:12,display:'flex',flexDirection:'column',gap:5}}>
+            <div style={{fontSize:10,letterSpacing:'.2em',color:'rgba(255,255,255,.35)',textTransform:'uppercase',marginBottom:2}}>진행 워크플로우</div>
 
             {/* 개회/폐회 */}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:5}}>
-              <WBtn icon="🏆" label="대회 개회" desc="개회사+첫 소집" color="#ffd60a" onClick={doOpen}/>
-              <WBtn icon="🏁" label="대회 폐회" desc="폐회사" color="#64748b" onClick={doClose}/>
+              <WBtn icon="🏆" label="대회 개회" color="#ffd60a" onClick={doOpen}/>
+              <WBtn icon="🏁" label="대회 폐회" color="#64748b" onClick={doClose}/>
             </div>
+            <hr style={{border:'none',borderTop:'1px solid rgba(255,255,255,.07)',margin:'2px 0'}}/>
 
-            <div style={{borderTop:'1px solid rgba(255,255,255,.07)'}}/>
+            {/* 1줄 1버튼 */}
+            <WBtn icon="📢" label={`소집 안내 · HEAT ${curHeat?.no||curHeat?.heatNo||'—'}`}
+              sub={evKo} color="#ffd60a" big active={hState==='calling'} onClick={doCall}/>
 
-            {/* 소집 */}
-            <WBtn icon="📢" label={`소집 · HEAT ${curHeat?.no||curHeat?.heatNo||'—'}`}
-              desc="선수 입장 안내 + 음성" color="#ffd60a" big active={hState==='calling'} onClick={doCall}/>
-
-            {/* 음원 재생 */}
             <WBtn icon={currentSound?'🎵':'▶'}
-              label={currentSound?`음원 재생 · ${(curHeat?.event||'').split(' ')[0]}`:'시작 신호음'}
-              desc={currentSound?`📎 ${currentSound.name}`:`음원 없음 · 합성음 (${Object.keys(soundLib).length}개)`}
+              label={currentSound?`음원 재생 · ${(curHeat?.event||'').split(' ')[0]}`:'시작 신호음 (합성음)'}
+              sub={currentSound?`📎 ${currentSound.name}`:`음원 없음 (합성음 재생)`}
               color="#00e5ff" big active={hState==='racing'||trackPlaying} onClick={doStart}/>
 
-            {/* 강제 정지 */}
-            {trackPlaying&&(
-              <button onClick={doStopTrack} className="wf-btn"
-                style={{borderColor:'#ff3d71',background:'rgba(255,61,113,.15)',color:'#ff3d71',cursor:'pointer'}}>
-                <div style={{display:'flex',alignItems:'center',gap:6}}>
-                  <span>⏹</span><span style={{fontSize:12,fontWeight:700}}>음원 강제 정지</span>
-                </div>
-              </button>
-            )}
+            {trackPlaying&&<WBtn icon="⏹" label="음원 강제 정지" color="#ff3d71" onClick={()=>{if(trackRef.current){trackRef.current.pause();trackRef.current=null;}setTrackPlaying(false);toast('⏹ 음원 정지');}}/>}
 
-            {/* 종료 + 다음 */}
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:5}}>
-              <WBtn icon="■" label="종료 신호음" desc="퇴장 안내+음성" color="#00ff88" big active={hState==='finished'} onClick={doEnd}/>
-              <WBtn icon="⏭" label="다음 히트" desc={hIdx>=heats.length-1?"마지막":`→ HEAT ${(curHeat?.no||curHeat?.heatNo||0)+1}`}
-                color="#a78bfa" big disabled={hIdx>=heats.length-1} onClick={doNext}/>
+            <WBtn icon="■" label="종료 신호음" sub="퇴장 안내 + 음성" color="#00ff88" big active={hState==='finished'} onClick={doEnd}/>
+
+            <WBtn icon="⏭" label="다음 히트 소집"
+              sub={hIdx>=heats.length-1?'마지막 히트':`→ HEAT ${(curHeat?.no||curHeat?.heatNo||0)+1} 이동 후 소집`}
+              color="#a78bfa" big disabled={hIdx>=heats.length-1} onClick={doNext}/>
+
+            <hr style={{border:'none',borderTop:'1px solid rgba(255,255,255,.07)',margin:'2px 0'}}/>
+
+            {/* 멘트 박스 */}
+            <div style={{padding:'8px 10px',background:'rgba(255,214,10,.06)',border:'1px solid rgba(255,214,10,.2)',borderRadius:7,fontSize:11,lineHeight:1.8,color:'#fef9c3',minHeight:48}}>
+              {mentTxt||<span style={{color:'rgba(255,255,255,.2)'}}>진행 버튼 → 자동 생성</span>}
             </div>
-
-            <div style={{borderTop:'1px solid rgba(255,255,255,.07)'}}/>
-
-            {/* 멘트 표시 */}
-            <div style={{padding:'8px 10px',background:'rgba(255,214,10,.05)',border:'1px solid rgba(255,214,10,.15)',borderRadius:7,fontSize:11,lineHeight:1.7,color:'#fef9c3',minHeight:50}}>
-              {mentTxt||<span style={{color:'rgba(255,255,255,.25)'}}>진행 버튼을 누르면 자동 생성</span>}
-            </div>
-
-            {/* 안내 방송 강제 종료 */}
-            {ttsActive&&(
-              <button onClick={doStopTTS}
-                style={{width:'100%',padding:'8px',background:'rgba(255,61,113,.15)',border:'1.5px solid rgba(255,61,113,.5)',borderRadius:7,color:'#ff3d71',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
-                <span>⏹</span> 안내 방송 강제 종료
-              </button>
-            )}
 
             {/* 직접 입력 */}
             <textarea value={customMent} onChange={e=>setCustomMent(e.target.value)} rows={2}
-              placeholder="직접 안내 멘트..."
-              style={{width:'100%',background:'rgba(0,0,0,.3)',border:'1px solid rgba(255,255,255,.1)',borderRadius:7,padding:'8px 10px',fontSize:12,color:'#fff',resize:'none',fontFamily:'Pretendard,sans-serif'}}/>
-            <button onClick={doCustom}
-              style={{padding:'8px',background:'rgba(0,229,255,.12)',border:'1px solid rgba(0,229,255,.3)',borderRadius:7,color:'#00e5ff',fontSize:12,fontWeight:700,cursor:'pointer'}}>
-              📢 안내 방송 송출
-            </button>
+              placeholder="직접 안내 멘트 입력..."
+              style={{width:'100%',background:'rgba(0,0,0,.3)',border:'1px solid rgba(255,255,255,.1)',borderRadius:7,padding:'7px 10px',fontSize:12,color:'#fff',resize:'none',fontFamily:'Pretendard,sans-serif'}}/>
+
+            {/* 안내 방송 + 강제 종료 나란히 */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:5}}>
+              <button onClick={doCustom}
+                style={{padding:'8px',background:'rgba(0,229,255,.12)',border:'1px solid rgba(0,229,255,.3)',borderRadius:7,color:'#00e5ff',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+                📢 안내 방송 송출
+              </button>
+              {ttsActive&&(
+                <button onClick={doStopTTS}
+                  style={{padding:'8px 12px',background:'rgba(255,61,113,.15)',border:'1.5px solid rgba(255,61,113,.5)',borderRadius:7,color:'#ff3d71',fontSize:12,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>
+                  ⏹ 종료
+                </button>
+              )}
+            </div>
+
+            {/* 음성 선택 */}
+            <div>
+              <button onClick={()=>setShowVoicePicker(v=>!v)}
+                style={{width:'100%',padding:'6px 10px',background:'rgba(255,255,255,.04)',border:'1px solid rgba(255,255,255,.12)',borderRadius:7,color:'rgba(255,255,255,.6)',fontSize:11,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                <span>🎤</span>
+                <span style={{flex:1,textAlign:'left'}}>음성 선택 {selVoice?`· ${selVoice.slice(0,18)}`:''}</span>
+                <span>{showVoicePicker?'▲':'▼'}</span>
+              </button>
+              {showVoicePicker&&(
+                <div style={{marginTop:4,background:'rgba(0,0,0,.8)',border:'1px solid rgba(255,255,255,.15)',borderRadius:7,overflow:'hidden',maxHeight:180,overflowY:'auto'}}>
+                  <button onClick={()=>{setSelVoice(null);_selectedVoiceName=null;setShowVoicePicker(false);toast('기본 음성으로 초기화');}}
+                    style={{display:'block',width:'100%',padding:'8px 12px',background:'transparent',border:'none',color:'rgba(255,255,255,.5)',fontSize:11,cursor:'pointer',textAlign:'left',borderBottom:'1px solid rgba(255,255,255,.07)'}}>
+                    🔄 기본값 (자동 선택)
+                  </button>
+                  {voices.map(v=>(
+                    <button key={v.name} onClick={()=>{setSelVoice(v.name);_selectedVoiceName=v.name;setShowVoicePicker(false);
+                      // 미리듣기
+                      const u=new SpeechSynthesisUtterance('안녕하세요. 테스트입니다.');
+                      u.voice=v;u.lang='ko-KR';u.rate=.92;
+                      window.speechSynthesis.cancel();window.speechSynthesis.speak(u);
+                      toast(`🎤 ${v.name} 선택 · 미리듣기 중`);
+                    }}
+                      style={{display:'block',width:'100%',padding:'8px 12px',background:selVoice===v.name?'rgba(0,229,255,.1)':'transparent',border:'none',color:selVoice===v.name?'#00e5ff':'rgba(255,255,255,.7)',fontSize:11,cursor:'pointer',textAlign:'left',borderBottom:'1px solid rgba(255,255,255,.05)'}}>
+                      {selVoice===v.name?'✓ ':''}{v.name} <span style={{fontSize:9,opacity:.5}}>({v.lang})</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* 오른쪽: 코트 보드 */}
           <div>
-            {/* 상태 요약 바 */}
-            <div style={{display:'flex',gap:8,marginBottom:8,flexWrap:'wrap',alignItems:'center'}}>
-              <div style={{fontSize:10,letterSpacing:'.3em',color:'#00e5ff',textTransform:'uppercase',fontFamily:'Bebas Neue,sans-serif',fontSize:16}}>코트 진행 보드</div>
+            {/* 상태 바 */}
+            <div style={{display:'flex',gap:8,marginBottom:8,alignItems:'center',flexWrap:'wrap'}}>
+              <div className="fd" style={{fontSize:18,color:'#fff'}}>코트 진행 보드</div>
               <div style={{marginLeft:'auto',display:'flex',gap:6}}>
-                {/* 준비 현황 */}
-                <div style={{fontSize:11,padding:'3px 10px',borderRadius:20,background:'rgba(0,255,136,.1)',border:'1px solid rgba(0,255,136,.3)',color:'#00ff88'}}>
-                  ⚖ {readyCnt}명 READY
-                </div>
-                {/* 카메라 현황 */}
-                <div style={{fontSize:11,padding:'3px 10px',borderRadius:20,background:'rgba(0,229,255,.1)',border:'1px solid rgba(0,229,255,.3)',color:'#00e5ff'}}>
-                  📷 {Object.values(cameras).filter(c=>c.online&&Date.now()-c.lastSeen<15000).length}대 연결
-                </div>
-                {/* 모두 준비 시 강조 */}
-                {curHeat&&readyCnt>0&&readyCnt>=Object.keys(curHeat.courts||{}).length&&(
-                  <div style={{fontSize:11,padding:'3px 10px',borderRadius:20,background:'rgba(0,255,136,.25)',border:'1px solid #00ff88',color:'#00ff88',fontWeight:700,animation:'pulse 1s ease-in-out infinite'}}>
-                    ✅ 모두 준비 완료 · 음원 재생 가능
-                  </div>
-                )}
+                <Pill color="#00ff88">⚖ {readyCnt}명 READY</Pill>
+                <Pill color="#00e5ff">📷 {camCnt}대 연결</Pill>
+                {allReady&&<Pill color="#00ff88" pulse>✅ 모두 준비 · 음원 재생 가능</Pill>}
               </div>
             </div>
             <CourtLayout curHeat={curHeat} layout={layout} cMode={cMode} judges={judges} cameras={cameras}/>
           </div>
         </div>
 
-        {/* ── 하단 요약 ── */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:8}}>
-          {[{l:'대회',v:meta?.competition||'—'},{l:'총 선수',v:`${Object.keys(athletes).length}명`},{l:'총 히트',v:`${heats.length}히트`},{l:'현재 위치',v:`${hIdx+1}/${heats.length}`},{l:'접속 심판',v:`${onlineCnt}명`},{l:'준비 완료',v:`${readyCnt}명`}]
-            .map(c=>(<div key={c.l} style={{background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.08)',borderRadius:10,padding:'10px 14px'}}>
+        {/* 하단 요약 */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))',gap:8}}>
+          {[{l:'대회',v:comp},{l:'총 선수',v:`${Object.keys(athletes).length}명`},{l:'총 히트',v:`${heats.length}히트`},{l:'위치',v:`${hIdx+1}/${heats.length}`},{l:'접속 심판',v:`${onlineCnt}명`},{l:'READY',v:`${readyCnt}명`}]
+            .map(c=>(<div key={c.l} style={{background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.08)',borderRadius:10,padding:'8px 12px'}}>
               <div style={{fontSize:10,letterSpacing:'.1em',color:'rgba(255,255,255,.4)',textTransform:'uppercase'}}>{c.l}</div>
-              <div className="fd" style={{fontSize:20,marginTop:2}}>{c.v}</div>
+              <div className="fd" style={{fontSize:20,marginTop:1}}>{c.v}</div>
             </div>))}
         </div>
         </>
       )}
     </main>
 
-    {/* 토스트 */}
     <div className="toast-wrap">
-      {toasts.map(t=>(
-        <div key={t.id} className="toast-item"
-          style={{background:t.tp==='error'?'rgba(255,61,113,.2)':'rgba(0,229,255,.12)',border:`1px solid ${t.tp==='error'?'rgba(255,61,113,.4)':'rgba(0,229,255,.3)'}`,color:t.tp==='error'?'#ff8fa3':'#a5f3fc'}}>
-          {t.msg}
-        </div>
-      ))}
+      {toasts.map(t=>(<div key={t.id} className="toast-item"
+        style={{background:t.tp==='error'?'rgba(255,61,113,.2)':'rgba(0,229,255,.12)',border:`1px solid ${t.tp==='error'?'rgba(255,61,113,.4)':'rgba(0,229,255,.3)'}`,color:t.tp==='error'?'#ff8fa3':'#a5f3fc'}}>
+        {t.msg}</div>))}
     </div>
 
     {cfg.showCfg&&<CfgModal cfg={cfg} setCfg={setCfg}/>}
   </div>);
 }
 
-// ── 시계 ──
-function Clock(){const [t,setT]=useState(new Date());useEffect(()=>{const id=setInterval(()=>setT(new Date()),1000);return()=>clearInterval(id);},[]);return<div className="fm" style={{fontSize:20,color:'#67e8f9'}}>{t.toLocaleTimeString('ko-KR',{hour12:false})};</div>;}
+function Pill({color,children,pulse}){
+  return<div className={pulse?'pulse-anim':''} style={{fontSize:11,padding:'3px 10px',borderRadius:20,background:`${color}18`,border:`1px solid ${color}50`,color:color,fontWeight:600}}>{children}</div>;
+}
 
-// ── 워크플로우 버튼 ──
-function WBtn({icon,label,desc,color,onClick,active,disabled,big}){
+function Clock(){
+  const [t,setT]=useState(new Date());
+  useEffect(()=>{const id=setInterval(()=>setT(new Date()),1000);return()=>clearInterval(id);},[]);
+  return<div className="fm" style={{fontSize:18,color:'#67e8f9'}}>{t.toLocaleTimeString('ko-KR',{hour12:false})}</div>;
+}
+
+function WBtn({icon,label,sub,color,onClick,active,disabled,big}){
   return(<button onClick={!disabled?onClick:undefined} className="wf-btn"
-    style={{marginBottom:big?0:0,borderColor:`${color}${active?'':50}`,background:`${color}${active?25:10}`,color:active?color:`${color}bb`,cursor:disabled?'not-allowed':'pointer',opacity:disabled?.4:1}}>
-    <div style={{display:'flex',alignItems:'center',gap:8}}>
-      <span style={{fontSize:big?17:14}}>{icon}</span>
-      <div>
-        <div style={{fontSize:big?13:12,fontWeight:700}}>{label}</div>
-        {desc&&<div style={{fontSize:10,opacity:.6,marginTop:1}}>{desc}</div>}
+    style={{borderColor:`${color}${active?'':50}`,background:`${color}${active?22:10}`,
+            color:active?color:`${color}cc`,cursor:disabled?'not-allowed':'pointer',opacity:disabled?.4:1,
+            padding:big?'10px 12px':'8px 12px',marginBottom:0}}>
+    <div style={{display:'flex',alignItems:'center',gap:7}}>
+      <span style={{fontSize:big?16:13}}>{icon}</span>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:big?12:11,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{label}</div>
+        {sub&&<div style={{fontSize:10,opacity:.6,marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{sub}</div>}
       </div>
-      {active&&<span style={{marginLeft:'auto',fontSize:9,color,fontWeight:700}} className="pulse">● 진행중</span>}
+      {active&&<span style={{fontSize:8,color,fontWeight:700}} className="pulse-anim">●</span>}
     </div>
   </button>);
 }
 
-// ── 코트 레이아웃 ──
 function CourtLayout({curHeat,layout,cMode,judges,cameras}){
   const athMap=useMemo(()=>{
     const m={};if(!curHeat?.courts)return m;
     Object.entries(curHeat.courts).forEach(([k,c])=>m[k]=c.athlete||null);return m;
   },[curHeat]);
-
   const cl=layout||{mode:'station',stations:6,cps:4,stationCols:2,sides:2};
   const total=cl.mode==='station'?cl.stations*cl.cps:(cl.gridCols||4)*(cl.gridRows||2);
   const courts=Array.from({length:total},(_,i)=>cId(i,cMode));
 
   const CourtBox=({cid})=>{
-    const ath=athMap[cid];
-    const js=judges[cid]||{};
-    const cs=cameras[cid]||{};
+    const ath=athMap[cid];const js=judges[cid]||{};const cs=cameras[cid]||{};
     const now=Date.now();
-    const judgeOnline=js.online&&now-js.lastSeen<15000;
-    const camOnline=cs.online&&now-cs.lastSeen<15000;
-    const isReady=js.ready;
-    const isSubmitted=js.submitted;
-
-    // 배경색 결정
-    let bg='rgba(255,255,255,.03)';
-    let border='rgba(255,255,255,.08)';
-    if(isSubmitted){bg='rgba(0,255,136,.1)';border='rgba(0,255,136,.6)';}
-    else if(isReady){bg='rgba(0,255,136,.06)';border='rgba(0,255,136,.4)';}
-    else if(ath){bg='rgba(0,229,255,.05)';border='rgba(0,229,255,.3)';}
-
+    const jOnline=js.online&&now-js.lastSeen<15000;
+    const cOnline=cs.online&&now-cs.lastSeen<15000;
+    const submitted=js.submitted;const ready=js.ready;
+    let bg='rgba(255,255,255,.03)',bdr='rgba(255,255,255,.08)';
+    if(submitted){bg='rgba(0,255,136,.1)';bdr='rgba(0,255,136,.6)';}
+    else if(ready){bg='rgba(0,255,136,.06)';bdr='rgba(0,255,136,.35)';}
+    else if(ath){bg='rgba(0,229,255,.04)';bdr='rgba(0,229,255,.25)';}
     return(
-      <div style={{background:bg,border:`1.5px solid ${border}`,borderRadius:8,padding:'8px',minHeight:80,transition:'all .2s'}}>
-        {/* 코트 번호 + 상태 아이콘 */}
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
-          <div className="fd" style={{fontSize:17,color:'#00e5ff',lineHeight:1}}>{cid}</div>
-          <div style={{display:'flex',gap:4,alignItems:'center'}}>
-            {/* 카메라 */}
-            <span title={camOnline?'카메라 연결됨':'카메라 미연결'}
-              style={{fontSize:11,opacity:camOnline?1:.25}}>
-              {camOnline?'📷':'📷'}
+      <div style={{background:bg,border:`1.5px solid ${bdr}`,borderRadius:8,padding:'7px',minHeight:76,transition:'all .2s'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:3}}>
+          <div className="fd" style={{fontSize:16,color:'#00e5ff',lineHeight:1}}>{cid}</div>
+          <div style={{display:'flex',gap:5,alignItems:'center'}}>
+            <span title={cOnline?'카메라 연결':'미연결'} style={{fontSize:12,opacity:cOnline?1:.22}}>📷</span>
+            <span title={jOnline?(ready?'READY':'접속 중'):'미접속'}
+              style={{fontSize:11,fontWeight:700,color:ready?'#00ff88':jOnline?'rgba(255,255,255,.5)':'rgba(255,255,255,.2)'}}>
+              {ready?'✅':jOnline?'⚖':'○'}
             </span>
-            {/* 심판 */}
-            <span title={judgeOnline?(isReady?'심판 준비 완료':'심판 접속 중'):'심판 미접속'}
-              style={{fontSize:11,opacity:judgeOnline?1:.25}}>
-              {judgeOnline?(isReady?'✅':'⚖'):'⚖'}
-            </span>
-            {/* 점수 제출 */}
-            {isSubmitted&&<span style={{fontSize:10,color:'#00ff88',fontWeight:700,fontFamily:'monospace'}}>✓{js.score}</span>}
+            {submitted&&<span style={{fontSize:10,color:'#00ff88',fontWeight:800,fontFamily:'monospace'}}>✓{js.score}</span>}
           </div>
         </div>
-
-        {/* 선수 정보 */}
         {ath?(
           <>
             <div style={{display:'flex',gap:5,alignItems:'baseline'}}>
               <span className="fm" style={{fontSize:9,color:'rgba(255,255,255,.35)'}}>#{ath.bib}</span>
               <span style={{fontSize:11,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{ath.name}</span>
             </div>
-            <div style={{fontSize:9,color:'rgba(255,255,255,.3)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{ath.club||''}</div>
-            {/* 상태 뱃지 */}
-            {(isReady||isSubmitted)&&(
-              <div style={{marginTop:3,fontSize:9,fontWeight:700,
-                color:isSubmitted?'#00ff88':'#ffd60a',
-                background:isSubmitted?'rgba(0,255,136,.1)':'rgba(255,214,10,.1)',
-                padding:'1px 5px',borderRadius:3,display:'inline-block'}}>
-                {isSubmitted?`✓ ${js.score}점 제출`:'✋ READY'}
-              </div>
-            )}
+            <div style={{fontSize:9,color:'rgba(255,255,255,.3)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginTop:1}}>{ath.club||''}</div>
+            {ready&&!submitted&&<div style={{marginTop:3,fontSize:9,fontWeight:700,color:'#ffd60a',background:'rgba(255,214,10,.1)',padding:'1px 5px',borderRadius:3,display:'inline-block'}}>✋ READY</div>}
           </>
-        ):(
-          <div style={{fontSize:18,color:'rgba(255,255,255,.1)',textAlign:'center',marginTop:8}}>✕</div>
-        )}
+        ):(<div style={{fontSize:20,color:'rgba(255,255,255,.1)',textAlign:'center',marginTop:8}}>✕</div>)}
       </div>
     );
   };
@@ -632,7 +624,7 @@ function CourtLayout({curHeat,layout,cMode,judges,cameras}){
   if(cl.mode==='station'){
     const cpsRow=cl.stationCols||2;
     const cpsRows=Math.ceil(cl.cps/cpsRow);
-    const buildSt=(startIdx)=>{const rows=[];let i=startIdx;for(let r=0;r<cpsRows;r++){const row=[];for(let c=0;c<cpsRow;c++){if(i<courts.length)row.push(courts[i++]);}rows.push(row);}return rows;};
+    const buildSt=(si)=>{const rows=[];let i=si;for(let r=0;r<cpsRows;r++){const row=[];for(let c=0;c<cpsRow;c++){if(i<courts.length)row.push(courts[i++]);}rows.push(row);}return rows;};
     if(cl.sides===2){
       const sps=Math.ceil(cl.stations/2);let i=0;
       const R=[],L=[];
@@ -640,50 +632,48 @@ function CourtLayout({curHeat,layout,cMode,judges,cameras}){
       for(let s=0;s<(cl.stations-sps);s++){L.push(buildSt(i));i+=cl.cps;}
       return(<div style={{display:'grid',gridTemplateColumns:'1fr 3px 1fr',gap:10,alignItems:'start'}}>
         <div>{L.map((st,si)=><StBox key={si} label={`ST ${sps+si+1}`} rows={st} cpsRow={cpsRow}/>)}</div>
-        <div style={{background:'rgba(0,229,255,.2)',borderRadius:4,height:'100%'}}/>
+        <div style={{background:'rgba(0,229,255,.2)',borderRadius:4}}/>
         <div>{R.map((st,si)=><StBox key={si} label={`ST ${si+1}`} rows={st} cpsRow={cpsRow}/>)}</div>
       </div>);
     }
-    let i=0;
-    return(<div>{Array.from({length:cl.stations},(_,si)=>{const rows=buildSt(i);i+=cl.cps;return<StBox key={si} label={`ST ${si+1}`} rows={rows} cpsRow={cpsRow}/>;})}</div>);
+    let i=0;return(<div>{Array.from({length:cl.stations},(_,si)=>{const rows=buildSt(i);i+=cl.cps;return<StBox key={si} label={`ST ${si+1}`} rows={rows} cpsRow={cpsRow}/>;})}</div>);
   }
   return(<div style={{display:'flex',flexDirection:'column',gap:6}}>
     {Array.from({length:cl.gridRows||2},(_,ri)=>(
-      <div key={ri} style={{display:'grid',gridTemplateColumns:`repeat(${cl.gridCols||4},1fr)`,gap:6}}>
+      <div key={ri} style={{display:'grid',gridTemplateColumns:`repeat(${cl.gridCols||4},1fr)`,gap:5}}>
         {Array.from({length:cl.gridCols||4},(_,ci)=>{const c=courts[ri*(cl.gridCols||4)+ci];return c?<CourtBox key={c} cid={c}/>:null;})}
       </div>
     ))}
   </div>);
 }
 
-// ── 설정 모달 ──
 function CfgModal({cfg,setCfg}){
   const [tmp,setTmp]=useState({...cfg});
   const save=()=>{localStorage.setItem('mop_op_roomid',tmp.roomId||'');localStorage.setItem('mop_op_name',tmp.name||'');setCfg({...tmp,showCfg:false});};
   return(<div style={{position:'fixed',inset:0,zIndex:50,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,.8)',backdropFilter:'blur(12px)',padding:20}}>
-    <div style={{width:'100%',maxWidth:420,background:'#0d1117',border:'1px solid rgba(255,255,255,.12)',borderRadius:20,padding:24}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
-        <div className="fd" style={{fontSize:24}}>운영 앱 설정</div>
+    <div style={{width:'100%',maxWidth:400,background:'#0d1117',border:'1px solid rgba(255,255,255,.12)',borderRadius:20,padding:24}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:18}}>
+        <div className="fd" style={{fontSize:22}}>운영 앱 설정</div>
         <button onClick={()=>setCfg(c=>({...c,showCfg:false}))} style={{background:'none',border:'none',color:'rgba(255,255,255,.5)',fontSize:20,cursor:'pointer'}}>✕</button>
       </div>
       {[{l:'Firebase Room ID',ph:'Setup의 Room ID',k:'roomId',mono:true},{l:'운영자 이름',ph:'홍길동',k:'name'}].map(f=>(
-        <div key={f.k} style={{marginBottom:14}}>
-          <div style={{fontSize:11,color:'rgba(255,255,255,.5)',letterSpacing:'.1em',marginBottom:6}}>{f.l}</div>
+        <div key={f.k} style={{marginBottom:12}}>
+          <div style={{fontSize:11,color:'rgba(255,255,255,.5)',letterSpacing:'.1em',marginBottom:5}}>{f.l}</div>
           <input value={tmp[f.k]||''} onChange={e=>setTmp(t=>({...t,[f.k]:e.target.value}))} placeholder={f.ph}
-            style={{width:'100%',background:'rgba(0,0,0,.4)',border:'1px solid rgba(255,255,255,.1)',borderRadius:8,padding:'11px 14px',fontSize:14,color:'#fff',fontFamily:f.mono?'monospace':'inherit'}}/>
+            style={{width:'100%',background:'rgba(0,0,0,.4)',border:'1px solid rgba(255,255,255,.1)',borderRadius:8,padding:'10px 14px',fontSize:14,color:'#fff',fontFamily:f.mono?'monospace':'inherit'}}/>
         </div>
       ))}
-      <div style={{padding:12,background:'rgba(0,229,255,.05)',border:'1px solid rgba(0,229,255,.2)',borderRadius:8,fontSize:11,color:'rgba(0,229,255,.8)',lineHeight:1.7,marginBottom:14}}>
-        ✅ Phase 2 기능<br/>
-        · 히트 워크플로우 (소집→시작→종료→다음)<br/>
-        · TTS 음성 안내 (한/영/한+영 선택)<br/>
-        · 신호음 (시작/30초/종료/재호출)<br/>
-        · 심판 준비 상태 실시간 모니터링<br/>
-        · 직접 입력 안내 방송<br/>
-        · 뷰어 announcements 연동<br/>
-        · 대회 개회/폐회 선언
+      <div style={{padding:10,background:'rgba(0,229,255,.05)',border:'1px solid rgba(0,229,255,.2)',borderRadius:8,fontSize:11,color:'rgba(0,229,255,.8)',lineHeight:1.7,marginBottom:14}}>
+        ✅ Phase 2 + 3 + 4<br/>
+        · IJRU 공식 풀 명칭 표시/안내<br/>
+        · 워크플로우 1줄 1버튼<br/>
+        · 안내 방송 강제 종료<br/>
+        · 음성 선택 (미리듣기 포함)<br/>
+        · 종목 음원 자동 재생 (GitHub 호스팅)<br/>
+        · 카메라/심판 실시간 상태 표시<br/>
+        · Firebase announcements → 뷰어 팝업 연동
       </div>
-      <button onClick={save} style={{width:'100%',padding:'13px',background:'#00e5ff',border:'none',borderRadius:10,fontSize:16,fontWeight:700,color:'#000',cursor:'pointer'}}>저장 및 연결</button>
+      <button onClick={save} style={{width:'100%',padding:'12px',background:'#00e5ff',border:'none',borderRadius:10,fontSize:16,fontWeight:700,color:'#000',cursor:'pointer'}}>저장 및 연결</button>
     </div>
   </div>);
 }
