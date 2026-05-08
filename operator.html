@@ -1,641 +1,451 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>모두의 플레이 운영 앱 v2 — Phase 1</title>
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>모두의 플레이 — 운영 앱 v2</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-
 <script src="https://cdn.tailwindcss.com"></script>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-
 <style>
-  html, body { margin: 0; padding: 0; min-height: 100vh; background: #0A0E1A; font-family: 'Pretendard', sans-serif; color: white; overflow-x: hidden; }
-  .font-display { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.04em; }
-  .font-mono { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
-
-  .bg-mesh {
-    background:
-      radial-gradient(800px 400px at 0% 0%, rgba(0, 200, 255, 0.06), transparent 60%),
-      radial-gradient(700px 500px at 100% 100%, rgba(255, 200, 60, 0.04), transparent 60%),
-      #0A0E1A;
-  }
-
-  .big-btn { transition: transform 0.1s ease, box-shadow 0.2s ease, filter 0.2s ease; user-select: none; }
-  .big-btn:active { transform: scale(0.96); filter: brightness(1.2); }
-
-  @keyframes blinkRed {
-    0%, 100% { background-color: rgba(239, 68, 68, 0.2); }
-    50%      { background-color: rgba(239, 68, 68, 0.5); }
-  }
-  .blink-red { animation: blinkRed 1s ease-in-out infinite; }
-
-  @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-  .scale-in { animation: scaleIn 0.2s ease-out; }
-
-  @keyframes toastSlide { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-  .toast-anim { animation: toastSlide 0.3s ease-out; }
-
-  /* 코트 박스 */
-  .court-box {
-    background: rgba(255,255,255,0.03);
-    border: 1.5px solid rgba(255,255,255,0.1);
-    border-radius: 8px;
-    padding: 8px;
-    transition: all 0.2s;
-  }
-  .court-box.active { border-color: rgba(34, 197, 94, 0.6); background: rgba(34, 197, 94, 0.08); }
-  .court-box.current-heat { border-color: rgba(6, 182, 212, 0.7); box-shadow: 0 0 20px rgba(6, 182, 212, 0.2); }
-
-  /* 스테이션 그룹 */
-  .station-box {
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 10px;
-    padding: 8px;
-  }
-  .station-label {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 11px;
-    color: rgba(6, 182, 212, 0.7);
-    letter-spacing: 0.15em;
-    text-align: center;
-    margin-bottom: 6px;
-  }
+html,body{margin:0;padding:0;min-height:100vh;background:#080C18;font-family:'Pretendard',sans-serif;color:#E8EAF2;}
+.fd{font-family:'Bebas Neue',sans-serif;letter-spacing:.04em;}
+.fm{font-family:'JetBrains Mono',monospace;}
+.court-card{background:rgba(255,255,255,.03);border:1.5px solid rgba(255,255,255,.08);border-radius:8px;padding:10px;transition:all .2s;}
+.court-card.has-ath{border-color:rgba(0,229,255,.35);background:rgba(0,229,255,.05);}
+.court-card.ready{border-color:rgba(0,255,136,.5);background:rgba(0,255,136,.08);}
+.court-card.submitted{border-color:rgba(0,255,136,.8);background:rgba(0,255,136,.12);}
+.wf-btn{width:100%;text-align:left;border-radius:9px;padding:11px 14px;border:1.5px solid;cursor:pointer;transition:all .12s;user-select:none;}
+.wf-btn:active{transform:scale(.96);filter:brightness(1.3);}
+.st-box{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:8px;margin-bottom:8px;}
+.st-lbl{font-family:'Bebas Neue',sans-serif;font-size:11px;color:rgba(0,229,255,.6);letter-spacing:.15em;text-align:center;margin-bottom:6px;}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.toast-wrap{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:5px;align-items:center;z-index:60;pointer-events:none;}
+.toast-item{padding:9px 18px;border-radius:20px;font-size:13px;white-space:nowrap;animation:toastIn .25s ease-out;backdrop-filter:blur(8px);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}.pulse{animation:pulse 1.2s ease-in-out infinite;}
 </style>
 </head>
 <body>
 <div id="root"></div>
-
 <script type="text/babel">
-const { useState, useEffect, useRef, useCallback, useMemo } = React;
+const {useState,useEffect,useRef,useCallback,useMemo}=React;
 
-// =================================================================
-// Firebase 초기화 (Setup과 동일한 프로젝트)
-// =================================================================
-firebase.initializeApp({
-  apiKey: "AIzaSyDOrKZDSNiA4sLnkNBiLVehE8xtrU-2JLY",
-  authDomain: "mop-jumprope.firebaseapp.com",
-  databaseURL: "https://mop-jumprope-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "mop-jumprope",
-  storageBucket: "mop-jumprope.firebasestorage.app",
-  messagingSenderId: "875740425909",
-  appId: "1:875740425909:web:59768e633b7a42733918fc"
-});
-const db = firebase.database();
+firebase.initializeApp({apiKey:"AIzaSyDOrKZDSNiA4sLnkNBiLVehE8xtrU-2JLY",authDomain:"mop-jumprope.firebaseapp.com",databaseURL:"https://mop-jumprope-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"mop-jumprope",storageBucket:"mop-jumprope.firebasestorage.app",messagingSenderId:"875740425909",appId:"1:875740425909:web:59768e633b7a42733918fc"});
+const db=firebase.database();
 
-// =================================================================
-// Court ID 변환 (alpha/num)
-// =================================================================
-const COURT_ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-function courtId(idx, mode = 'alpha') {
-  if (mode === 'alpha') return COURT_ALPHA[idx] || String(idx + 1);
-  return String(idx + 1);
+const ALPHA='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+function cId(i,m='alpha'){return m==='alpha'?ALPHA[i]||String(i+1):String(i+1);}
+
+// ── 오디오 ──
+let _ac=null;
+function ac(){if(!_ac)_ac=new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_ac.resume();return _ac;}
+function tone(f,d,t='sine',v=.6,o=0){const ctx=ac(),osc=ctx.createOscillator(),g=ctx.createGain();osc.type=t;osc.frequency.value=f;osc.connect(g);g.connect(ctx.destination);const ts=ctx.currentTime+o;g.gain.setValueAtTime(0,ts);g.gain.linearRampToValueAtTime(v,ts+.005);g.gain.linearRampToValueAtTime(v,ts+d-.05);g.gain.linearRampToValueAtTime(0,ts+d);osc.start(ts);osc.stop(ts+d);}
+const SIG={
+  start:()=>{tone(880,.12,'sine',.5,0);tone(880,.12,'sine',.5,.35);tone(1320,.6,'sine',.75,.7);},
+  warn30:()=>{tone(1046,.3,'sine',.6,0);},
+  end:()=>{tone(440,.9,'sine',.7,0);},
+  recall:()=>{for(let i=0;i<4;i++)tone(i%2?880:660,.2,'square',.45,i*.28);},
+};
+
+// ── TTS ──
+function speak(txt,lang='ko'){if(!window.speechSynthesis)return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(txt);u.lang=lang==='ko'?'ko-KR':'en-US';u.rate=.95;u.volume=1;window.speechSynthesis.speak(u);}
+function speakBoth(ko,en,mode){window.speechSynthesis?.cancel();if(mode==='ko'||mode==='both')speak(ko,'ko');if(mode==='en'||mode==='both')setTimeout(()=>speak(en,'en'),mode==='both'?ko.length*75:0);}
+
+// ── 멘트 템플릿 ──
+function ment(type,{comp='대회',heatNo=1,event=''}={}){
+  const T={
+    open:     {ko:`지금부터 ${comp}을 시작하겠습니다. 참가 선수 여러분을 환영합니다.`,en:`Welcome to the ${comp}. The competition is about to begin.`},
+    firstcall:{ko:`${event} 종목에 참가하는 선수들은 소집 장소로 모여 주시기 바랍니다.`,en:`Athletes in ${event}, please proceed to the assembly area.`},
+    call:     {ko:`히트 ${heatNo}번 선수들은 코트로 입장해 주시기 바랍니다.`,en:`Heat number ${heatNo}, please enter the competition floor.`},
+    start:    {ko:`경기를 시작하겠습니다.`,en:`The competition will now begin.`},
+    end:      {ko:`수고하셨습니다. 선수들은 기록을 확인한 후 퇴장해 주시기 바랍니다.`,en:`Well done. Please check your scores and exit the floor.`},
+    next:     {ko:`다음 히트 ${heatNo}번 선수들은 준비해 주시기 바랍니다.`,en:`Heat number ${heatNo}, please get ready.`},
+    close:    {ko:`이상으로 ${comp}의 모든 경기를 마치겠습니다. 수고하셨습니다.`,en:`This concludes the ${comp}. Thank you for participating.`},
+  };
+  return T[type]||{ko:'',en:''};
 }
 
-// =================================================================
-// 메인 앱
-// =================================================================
-function App() {
-  const [config, setConfig] = useState(() => {
-    // URL ?room= 파라미터 자동 인식
-    const urlRoom = new URLSearchParams(window.location.search).get('room') || '';
-    const savedRoom = localStorage.getItem('mop_op_roomid') || '';
-    const roomId = urlRoom || savedRoom;
-    if (urlRoom) localStorage.setItem('mop_op_roomid', urlRoom);
-    return {
-      roomId,
-      operatorName: localStorage.getItem('mop_op_name') || '운영자',
-      showConfig: !roomId,
-    };
+// ════════════ 메인 ════════════
+function App(){
+  const [cfg,setCfg]=useState(()=>{
+    const ur=new URLSearchParams(window.location.search).get('room')||'';
+    const sv=localStorage.getItem('mop_op_roomid')||'';
+    const rid=ur||sv;
+    if(ur)localStorage.setItem('mop_op_roomid',ur);
+    return{roomId:rid,name:localStorage.getItem('mop_op_name')||'운영자',showCfg:!rid};
   });
+  const [meta,setMeta]=useState(null);
+  const [heats,setHeats]=useState([]);
+  const [heatNo,setHeatNo]=useState(1);
+  const [hState,setHState]=useState('idle');
+  const [layout,setLayout]=useState(null);
+  const [cMode,setCMode]=useState('alpha');
+  const [online,setOnline]=useState(false);
+  const [judges,setJudges]=useState({});
+  const [lang,setLang]=useState('both');
+  const [toasts,setToasts]=useState([]);
+  const [mentTxt,setMentTxt]=useState('');
+  const [customMent,setCustomMent]=useState('');
+  const [athletes,setAthletes]=useState({});
 
-  const [meta, setMeta] = useState(null);              // 대회 정보
-  const [athletes, setAthletes] = useState({});        // bib → athlete
-  const [heats, setHeats] = useState([]);              // 정렬된 히트 배열
-  const [currentHeatNo, setCurrentHeatNo] = useState(1);
-  const [stationLayout, setStationLayout] = useState(null);
-  const [courtMode, setCourtMode] = useState('alpha');
-  const [connected, setConnected] = useState(false);
-  const [toast, setToast] = useState(null);
+  const toast=useCallback((msg,tp='info')=>{
+    const id=Date.now();
+    setToasts(p=>[...p,{id,msg,tp}]);
+    setTimeout(()=>setToasts(p=>p.filter(t=>t.id!==id)),2800);
+  },[]);
 
-  const showToast = useCallback((msg, type = 'info') => {
-    setToast({ msg, type, key: Date.now() });
-    setTimeout(() => setToast(null), 2500);
-  }, []);
-
-  // ── Firebase 구독: roomId 변경 시 모든 데이터 동기화 ──
-  useEffect(() => {
-    if (!config.roomId) return;
-
-    const refs = [];
-    const room = config.roomId;
-
-    // meta
-    const metaRef = db.ref(`${room}/meta`);
-    metaRef.on('value', snap => {
-      const v = snap.val();
-      setMeta(v);
-      setConnected(!!v);
-      if (v?.stationLayout) setStationLayout(v.stationLayout);
-      if (v?.courtMode) setCourtMode(v.courtMode);
-    });
-    refs.push(['meta', metaRef]);
-
-    // athletes
-    const athRef = db.ref(`${room}/athletes`);
-    athRef.on('value', snap => {
-      setAthletes(snap.val() || {});
-    });
-    refs.push(['athletes', athRef]);
-
-    // heats
-    const heatsRef = db.ref(`${room}/heats`);
-    heatsRef.on('value', snap => {
-      const v = snap.val() || {};
-      const arr = Object.values(v).sort((a, b) => {
-        const an = parseFloat(String(a.no || a.heatNo).replace('-', '.'));
-        const bn = parseFloat(String(b.no || b.heatNo).replace('-', '.'));
-        return an - bn;
-      });
+  useEffect(()=>{
+    if(!cfg.roomId)return;
+    const r=cfg.roomId;
+    db.ref(`${r}/meta`).on('value',s=>{const v=s.val();setMeta(v);setOnline(!!v);if(v?.stationLayout)setLayout(v.stationLayout);if(v?.courtMode)setCMode(v.courtMode);});
+    db.ref(`${r}/athletes`).on('value',s=>setAthletes(s.val()||{}));
+    db.ref(`${r}/heats`).on('value',s=>{
+      const arr=Object.values(s.val()||{}).sort((a,b)=>parseFloat(String(a.no||a.heatNo||0).replace('-','.'))-parseFloat(String(b.no||b.heatNo||0).replace('-','.')));
       setHeats(arr);
     });
-    refs.push(['heats', heatsRef]);
+    db.ref(`${r}/operator`).on('value',s=>{const v=s.val();if(!v)return;if(v.currentHeatNo)setHeatNo(v.currentHeatNo);if(v.heatStatus)setHState(v.heatStatus);if(v.lang)setLang(v.lang);});
+    db.ref(`${r}/monitoring/judges`).on('value',s=>setJudges(s.val()||{}));
+    return()=>db.ref(r).off();
+  },[cfg.roomId]);
 
-    // 운영자 상태 (이 운영앱이 업데이트)
-    const opRef = db.ref(`${room}/operator`);
-    opRef.on('value', snap => {
-      const v = snap.val();
-      if (v?.currentHeatNo) setCurrentHeatNo(v.currentHeatNo);
-    });
-    refs.push(['operator', opRef]);
+  const curHeat=useMemo(()=>heats.find(h=>(h.no||h.heatNo)===heatNo)||heats[0]||null,[heats,heatNo]);
+  const hIdx=useMemo(()=>heats.findIndex(h=>(h.no||h.heatNo)===heatNo),[heats,heatNo]);
+  const comp=meta?.competition||cfg.roomId||'대회';
 
-    return () => refs.forEach(([_, r]) => r.off());
-  }, [config.roomId]);
+  const fbOp=useCallback((d)=>{if(!cfg.roomId)return;db.ref(`${cfg.roomId}/operator`).update({...d,updatedAt:Date.now()});});
+  const fbSig=useCallback((t)=>{if(!cfg.roomId)return;db.ref(`${cfg.roomId}/signals/current`).set({type:t,ts:Date.now()});});
+  const fbAnn=useCallback((ko,en)=>{if(!cfg.roomId)return;db.ref(`${cfg.roomId}/announcements/current`).set({text_ko:ko,text_en:en,lang,ts:Date.now()});});
 
-  // ── 현재 히트 ──
-  const currentHeat = useMemo(() => {
-    return heats.find(h => (h.no || h.heatNo) === currentHeatNo) || heats[0] || null;
-  }, [heats, currentHeatNo]);
+  const goHeat=useCallback((no)=>{setHeatNo(no);setHState('idle');fbOp({currentHeatNo:no,heatStatus:'idle'});setMentTxt('');});
 
-  const heatIndex = useMemo(() => {
-    return heats.findIndex(h => (h.no || h.heatNo) === currentHeatNo);
-  }, [heats, currentHeatNo]);
-
-  // ── 히트 이동 ──
-  const goHeat = useCallback((delta) => {
-    if (!heats.length) return;
-    const idx = Math.max(0, Math.min(heats.length - 1, heatIndex + delta));
-    const target = heats[idx];
-    const heatNo = target.no || target.heatNo;
-    setCurrentHeatNo(heatNo);
-    if (config.roomId) {
-      db.ref(`${config.roomId}/operator/currentHeatNo`).set(heatNo);
-      db.ref(`${config.roomId}/operator/currentEvent`).set(target.event);
-      db.ref(`${config.roomId}/operator/operatorName`).set(config.operatorName);
-      db.ref(`${config.roomId}/operator/updatedAt`).set(Date.now());
-    }
-    showToast(`HEAT ${heatNo} 이동`, 'info');
-  }, [heats, heatIndex, config, showToast]);
-
-  return (
-    <div className="bg-mesh min-h-screen">
-      <Header config={config} meta={meta} connected={connected}
-              onOpenConfig={() => setConfig(c => ({ ...c, showConfig: true }))} />
-
-      <main className="px-4 pb-12 pt-3 max-w-[1400px] mx-auto">
-        {!config.roomId || !connected ? (
-          <NoConnectionView onOpenConfig={() => setConfig(c => ({ ...c, showConfig: true }))} />
-        ) : (
-          <>
-            {/* 현재 히트 컨트롤 */}
-            <section className="mb-4">
-              <CurrentHeatPanel
-                currentHeat={currentHeat}
-                heatIndex={heatIndex}
-                totalHeats={heats.length}
-                onPrev={() => goHeat(-1)}
-                onNext={() => goHeat(1)}
-                onJump={(no) => { setCurrentHeatNo(no); db.ref(`${config.roomId}/operator/currentHeatNo`).set(no); }}
-                heats={heats}
-              />
-            </section>
-
-            {/* 코트 보드 (스테이션 레이아웃) */}
-            <section className="mb-4">
-              <SectionTitle small="COURT BOARD" big="코트 진행 보드" />
-              <div className="mt-2">
-                <CourtLayout
-                  currentHeat={currentHeat}
-                  stationLayout={stationLayout}
-                  courtMode={courtMode}
-                  athletes={athletes}
-                />
-              </div>
-            </section>
-
-            {/* 데이터 요약 */}
-            <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              <DataCard label="대회" value={meta?.competition || '—'} />
-              <DataCard label="총 선수" value={`${Object.keys(athletes).length}명`} />
-              <DataCard label="총 히트" value={`${heats.length}히트`} />
-              <DataCard label="현재 위치" value={`${heatIndex + 1} / ${heats.length}`} />
-            </section>
-          </>
-        )}
-      </main>
-
-      {toast && <Toast {...toast} />}
-      {config.showConfig && (
-        <ConfigModal config={config} setConfig={setConfig}
-                     onClose={() => setConfig(c => ({ ...c, showConfig: false }))} />
-      )}
-
-      {/* Phase 표시 */}
-      <div className="fixed bottom-2 left-2 text-[9px] tracking-widest text-white/20 font-mono">
-        OPERATOR v2 · PHASE 1
-      </div>
-    </div>
-  );
-}
-
-// =================================================================
-// 헤더
-// =================================================================
-function Header({ config, meta, connected, onOpenConfig }) {
-  const [time, setTime] = useState(new Date());
-  useEffect(() => { const id = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(id); }, []);
-  return (
-    <header className="px-4 pt-4 pb-3 flex items-center justify-between border-b border-white/10">
-      <div className="flex items-baseline gap-3">
-        <div className="font-display text-2xl">
-          모두의 <span className="text-cyan-400">플레이</span>
-        </div>
-        <div className="hidden md:block text-[10px] text-white/40 tracking-widest uppercase">
-          운영 앱 v2
-        </div>
-      </div>
-      <div className="flex items-center gap-3 text-right">
-        <div className="hidden sm:block">
-          <div className="text-[10px] tracking-[0.25em] text-white/50 uppercase">{meta?.competition || '대회 미연결'}</div>
-          <div className="text-xs text-white/60 font-mono">{config.roomId || 'NO ROOM'}</div>
-        </div>
-        <div className="font-mono text-xl text-cyan-300">{time.toLocaleTimeString('ko-KR', { hour12: false })}</div>
-        <div className={`text-[10px] tracking-widest px-2 py-1 rounded font-bold ${connected ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
-          {connected ? '🔗 ONLINE' : '⚠ OFFLINE'}
-        </div>
-        <button onClick={onOpenConfig}
-                className="text-[11px] uppercase tracking-widest border border-white/20 px-3 py-1.5 rounded hover:bg-white/10">
-          ⚙
-        </button>
-      </div>
-    </header>
-  );
-}
-
-// =================================================================
-// 섹션 타이틀
-// =================================================================
-function SectionTitle({ small, big }) {
-  return (
-    <div>
-      <div className="text-[10px] tracking-[0.3em] text-cyan-400 uppercase font-medium">{small}</div>
-      <div className="font-display text-xl text-white">{big}</div>
-    </div>
-  );
-}
-
-// =================================================================
-// 미연결 화면
-// =================================================================
-function NoConnectionView({ onOpenConfig }) {
-  return (
-    <div className="text-center py-20">
-      <div className="text-6xl mb-4">📡</div>
-      <div className="font-display text-2xl text-white/80 mb-2">방 코드를 입력하세요</div>
-      <div className="text-sm text-white/50 mb-6">Setup에서 사용한 Room ID로 데이터를 불러옵니다</div>
-      <button onClick={onOpenConfig}
-              className="bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold px-8 py-3 rounded tracking-widest">
-        설정 열기 ⚙
-      </button>
-    </div>
-  );
-}
-
-// =================================================================
-// 현재 히트 패널
-// =================================================================
-function CurrentHeatPanel({ currentHeat, heatIndex, totalHeats, onPrev, onNext, onJump, heats }) {
-  if (!currentHeat) return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-6 text-center text-white/40">
-      히트가 편성되지 않았습니다
-    </div>
-  );
-
-  const isFirst = heatIndex <= 0;
-  const isLast = heatIndex >= totalHeats - 1;
-
-  return (
-    <div className="rounded-xl border border-cyan-400/40 bg-gradient-to-br from-cyan-500/10 to-blue-600/5 p-5">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-baseline gap-4">
-          <div>
-            <div className="text-[10px] tracking-[0.3em] text-cyan-300 uppercase">CURRENT</div>
-            <div className="font-display text-5xl text-white">HEAT {currentHeat.no || currentHeat.heatNo}</div>
-          </div>
-          <div>
-            <div className="text-sm text-white/70">{currentHeat.event_name || currentHeat.event}</div>
-            <div className="text-xs text-white/50">{currentHeat.division || '—'}</div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button onClick={onPrev} disabled={isFirst}
-            className={`big-btn px-6 py-3 rounded-lg border text-sm font-bold tracking-wider
-              ${isFirst ? 'border-white/10 bg-white/[0.02] text-white/30 cursor-not-allowed' :
-                          'border-white/20 bg-white/5 hover:bg-white/10 text-white'}`}>
-            ← 이전
-          </button>
-          <select
-            value={currentHeat.no || currentHeat.heatNo}
-            onChange={e => onJump(parseInt(e.target.value))}
-            className="bg-black/40 border border-white/20 text-white px-3 py-3 rounded-lg text-sm font-mono">
-            {heats.map(h => <option key={h.no || h.heatNo} value={h.no || h.heatNo}>HEAT {h.no || h.heatNo} · {h.event}</option>)}
-          </select>
-          <button onClick={onNext} disabled={isLast}
-            className={`big-btn px-6 py-3 rounded-lg border text-sm font-bold tracking-wider
-              ${isLast ? 'border-white/10 bg-white/[0.02] text-white/30 cursor-not-allowed' :
-                         'border-cyan-400/40 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-100'}`}>
-            다음 →
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// =================================================================
-// 코트 레이아웃 (Setup의 스테이션 구조 그대로)
-// =================================================================
-function CourtLayout({ currentHeat, stationLayout, courtMode, athletes }) {
-  // 현재 히트의 코트 → 선수 매핑
-  const courtAthleteMap = useMemo(() => {
-    const m = {};
-    if (!currentHeat || !currentHeat.courts) return m;
-    Object.entries(currentHeat.courts).forEach(([cid, c]) => {
-      m[cid] = c.athlete || null;
-    });
-    return m;
-  }, [currentHeat]);
-
-  // 레이아웃 결정
-  const cl = stationLayout || { mode: 'station', stations: 6, cps: 4, stationCols: 2, sides: 2, gridCols: 4, gridRows: 2 };
-  const totalCourts = cl.mode === 'station' ? cl.stations * cl.cps : cl.gridCols * cl.gridRows;
-
-  // 코트 ID 생성
-  const courts = [];
-  for (let i = 0; i < totalCourts; i++) courts.push(courtId(i, courtMode));
-
-  if (cl.mode === 'station') {
-    const cpsRow = cl.stationCols;
-    const cpsRows = Math.ceil(cl.cps / cpsRow);
-
-    if (cl.sides === 2) {
-      // 양측: 우측 ST 1, 2, 3 / 좌측 ST 4, 5, 6
-      const stPerSide = Math.ceil(cl.stations / 2);
-      const right = [], left = [];
-      let idx = 0;
-      for (let s = 0; s < stPerSide; s++) {
-        const rows = [];
-        for (let r = 0; r < cpsRows; r++) {
-          const row = [];
-          for (let c = 0; c < cpsRow; c++) row.push(courts[idx++]);
-          rows.push(row);
-        }
-        right.push(rows);
-      }
-      for (let s = 0; s < (cl.stations - stPerSide); s++) {
-        const rows = [];
-        for (let r = 0; r < cpsRows; r++) {
-          const row = [];
-          for (let c = 0; c < cpsRow; c++) row.push(courts[idx++]);
-          rows.push(row);
-        }
-        left.push(rows);
-      }
-      return (
-        <div className="grid grid-cols-[1fr_4px_1fr] gap-3 items-start">
-          <div className="flex flex-col gap-2">
-            {left.map((st, si) => (
-              <div key={si} className="station-box">
-                <div className="station-label">ST {right.length + si + 1}</div>
-                {st.map((row, ri) => (
-                  <div key={ri} className={`grid gap-1.5 mb-1.5 ${row.length === 2 ? 'grid-cols-2' : row.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
-                    {row.map(c => <CourtCell key={c} cid={c} athlete={courtAthleteMap[c]} />)}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-          <div className="bg-white/10 rounded-full"></div>
-          <div className="flex flex-col gap-2">
-            {right.map((st, si) => (
-              <div key={si} className="station-box">
-                <div className="station-label">ST {si + 1}</div>
-                {st.map((row, ri) => (
-                  <div key={ri} className={`grid gap-1.5 mb-1.5 ${row.length === 2 ? 'grid-cols-2' : row.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
-                    {row.map(c => <CourtCell key={c} cid={c} athlete={courtAthleteMap[c]} />)}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    } else {
-      // 단측
-      const stations = [];
-      let idx = 0;
-      for (let s = 0; s < cl.stations; s++) {
-        const rows = [];
-        for (let r = 0; r < cpsRows; r++) {
-          const row = [];
-          for (let c = 0; c < cpsRow; c++) row.push(courts[idx++]);
-          rows.push(row);
-        }
-        stations.push(rows);
-      }
-      return (
-        <div className="flex flex-col gap-2">
-          {stations.map((st, si) => (
-            <div key={si} className="station-box">
-              <div className="station-label">ST {si + 1}</div>
-              {st.map((row, ri) => (
-                <div key={ri} className={`grid gap-1.5 mb-1.5 ${row.length === 2 ? 'grid-cols-2' : row.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
-                  {row.map(c => <CourtCell key={c} cid={c} athlete={courtAthleteMap[c]} />)}
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      );
-    }
-  } else {
-    // 그리드 모드
-    const rows = [];
-    let idx = 0;
-    for (let r = 0; r < cl.gridRows; r++) {
-      const row = [];
-      for (let c = 0; c < cl.gridCols; c++) row.push(courts[idx++]);
-      rows.push(row);
-    }
-    return (
-      <div className="flex flex-col gap-1.5">
-        {rows.map((row, ri) => (
-          <div key={ri} className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${cl.gridCols}, 1fr)` }}>
-            {row.map(c => <CourtCell key={c} cid={c} athlete={courtAthleteMap[c]} />)}
-          </div>
-        ))}
-      </div>
-    );
-  }
-}
-
-// =================================================================
-// 코트 셀
-// =================================================================
-function CourtCell({ cid, athlete }) {
-  const active = !!athlete;
-  return (
-    <div className={`court-box ${active ? 'active' : ''} min-h-[68px] flex flex-col`}>
-      <div className="font-display text-base text-cyan-300 leading-none mb-1">{cid}</div>
-      {athlete ? (
-        <div className="flex-1">
-          <div className="flex items-baseline gap-1.5">
-            <span className="font-mono text-[9px] text-white/50">#{athlete.bib}</span>
-            <span className="text-[11px] font-bold truncate">{athlete.name}</span>
-          </div>
-          {athlete.club && <div className="text-[9px] text-white/40 truncate">{athlete.club}</div>}
-        </div>
-      ) : (
-        <div className="flex-1 flex items-center justify-center text-2xl text-white/15">✕</div>
-      )}
-    </div>
-  );
-}
-
-// =================================================================
-// 데이터 카드
-// =================================================================
-function DataCard({ label, value }) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-      <div className="text-[10px] tracking-widest text-white/50 uppercase">{label}</div>
-      <div className="font-display text-2xl text-white mt-1 truncate">{value}</div>
-    </div>
-  );
-}
-
-// =================================================================
-// 토스트
-// =================================================================
-function Toast({ msg, type, key }) {
-  return (
-    <div key={key} className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 toast-anim">
-      <div className={`px-5 py-3 rounded-full backdrop-blur-md border text-sm shadow-2xl ${
-        type === 'success' ? 'bg-emerald-500/20 border-emerald-400/60 text-emerald-100' :
-        type === 'warning' ? 'bg-amber-500/20 border-amber-400/60 text-amber-100' :
-        type === 'error' ? 'bg-red-500/20 border-red-400/60 text-red-100' :
-        'bg-white/10 border-white/30 text-white'
-      }`}>
-        {msg}
-      </div>
-    </div>
-  );
-}
-
-// =================================================================
-// 설정 모달
-// =================================================================
-function ConfigModal({ config, setConfig, onClose }) {
-  const [tmp, setTmp] = useState({ ...config });
-  const save = () => {
-    localStorage.setItem('mop_op_roomid', tmp.roomId || '');
-    localStorage.setItem('mop_op_name', tmp.operatorName || '');
-    setConfig({ ...tmp, showConfig: false });
+  const doCall=()=>{
+    const no=curHeat?.no||curHeat?.heatNo||heatNo;
+    const ev=curHeat?.event_name||curHeat?.event||'';
+    const m=ment('call',{comp,heatNo:no,event:ev});
+    setMentTxt(m.ko);setHState('calling');fbOp({heatStatus:'calling'});
+    fbAnn(m.ko,m.en);speakBoth(m.ko,m.en,lang);SIG.recall();toast('📢 소집 안내 송출');
+  };
+  const doStart=()=>{
+    const m=ment('start',{comp});setMentTxt(m.ko);setHState('racing');
+    fbOp({heatStatus:'racing'});fbSig('start');fbAnn(m.ko,m.en);
+    SIG.start();speakBoth(m.ko,m.en,lang);toast('▶ 시작 신호음');
+  };
+  const do30=()=>{fbSig('warn30');SIG.warn30();toast('⏰ 30초 경고음');};
+  const doEnd=()=>{
+    const m=ment('end',{comp});setMentTxt(m.ko);setHState('finished');
+    fbOp({heatStatus:'finished'});fbSig('end');fbAnn(m.ko,m.en);
+    SIG.end();speakBoth(m.ko,m.en,lang);toast('■ 종료 신호음');
+  };
+  const doRecall=()=>{fbSig('recall');SIG.recall();toast('🔔 재호출음');};
+  const doNext=()=>{
+    if(hIdx>=heats.length-1){toast('마지막 히트입니다');return;}
+    const nxt=heats[hIdx+1];const no=nxt.no||nxt.heatNo;
+    goHeat(no);
+    setTimeout(()=>{
+      const m=ment('call',{comp,heatNo:no,event:nxt.event_name||nxt.event||''});
+      setMentTxt(m.ko);fbAnn(m.ko,m.en);speakBoth(m.ko,m.en,lang);
+      fbOp({heatStatus:'calling',currentHeatNo:no});setHState('calling');
+    },600);
+  };
+  const doOpen=()=>{
+    const fst=heats[0];const ev=fst?.event_name||fst?.event||'';
+    const m1=ment('open',{comp});const m2=ment('firstcall',{comp,event:ev});
+    const ko=m1.ko+' '+m2.ko;const en=m1.en+' '+m2.en;
+    setMentTxt(ko);fbAnn(ko,en);speakBoth(ko,en,lang);toast('🏆 대회 개회 선언');
+  };
+  const doClose=()=>{
+    const m=ment('close',{comp});setMentTxt(m.ko);fbAnn(m.ko,m.en);speakBoth(m.ko,m.en,lang);toast('🏁 대회 폐회');
+  };
+  const doCustom=()=>{
+    if(!customMent.trim())return;
+    setMentTxt(customMent);fbAnn(customMent,'');speakBoth(customMent,'',lang);setCustomMent('');toast('📢 안내 방송 송출');
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-6 overflow-y-auto">
-      <div className="max-w-md w-full rounded-2xl border border-white/15 bg-gradient-to-br from-slate-900 to-slate-950 p-6 my-8">
-        <div className="flex items-baseline justify-between">
-          <div>
-            <div className="text-[10px] tracking-[0.3em] text-cyan-400">SETTINGS</div>
-            <div className="font-display text-2xl">운영 앱 설정</div>
-          </div>
-          <button onClick={onClose} className="text-white/50 hover:text-white text-xl">✕</button>
-        </div>
+  const readyCnt=Object.values(judges).filter(j=>j.ready).length;
+  const onlineCnt=Object.values(judges).filter(j=>j.online&&Date.now()-j.lastSeen<15000).length;
 
-        <div className="mt-6 space-y-4">
-          <Field label="Firebase Room ID"
-                 hint="Setup에서 사용한 Room ID와 동일하게 입력. 모든 데이터(선수/히트/코트)가 자동 동기화됩니다.">
-            <input value={tmp.roomId || ''} onChange={e => setTmp(t => ({ ...t, roomId: e.target.value.trim() }))}
-                   placeholder="예: room_001"
-                   className="w-full rounded bg-black/30 border border-white/10 px-3 py-2 text-sm font-mono"/>
-          </Field>
+  const ST_COLOR={idle:'#4a5568',calling:'#ffd60a',racing:'#00e5ff',finished:'#00ff88'};
+  const ST_ICON={idle:'⏸',calling:'📢',racing:'▶',finished:'✓'};
+  const ST_LABEL={idle:'대기',calling:'소집',racing:'진행',finished:'완료'};
+  const sc=ST_COLOR[hState]||'#4a5568';
 
-          <Field label="운영자 이름">
-            <input value={tmp.operatorName || ''} onChange={e => setTmp(t => ({ ...t, operatorName: e.target.value }))}
-                   className="w-full rounded bg-black/30 border border-white/10 px-3 py-2 text-sm"/>
-          </Field>
-
-          <div className="rounded-xl border border-cyan-400/30 bg-cyan-500/5 p-3 text-xs leading-relaxed text-cyan-100/80">
-            <div className="font-bold text-cyan-300 mb-1">📌 Phase 1 진행 상태</div>
-            <ul className="list-disc list-inside space-y-1">
-              <li>✅ Firebase 연결</li>
-              <li>✅ Setup 데이터 자동 로드</li>
-              <li>✅ 스테이션 레이아웃 표시</li>
-              <li>✅ 히트 이동 (이전/다음)</li>
-              <li>⏳ Phase 2: 히트 진행 워크플로우</li>
-              <li>⏳ Phase 3: TTS 음성 안내</li>
-              <li>⏳ Phase 4: 종목별 신호음 업로드</li>
-              <li>⏳ Phase 5: 모니터링 대시보드</li>
-              <li>⏳ Phase 6: 코트별 개별 진행</li>
-            </ul>
-          </div>
-        </div>
-
-        <button onClick={save}
-                className="mt-6 w-full py-3 rounded bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold tracking-widest">
-          저장 및 연결
-        </button>
+  return(<div style={{background:'#080C18',minHeight:'100vh'}}>
+    {/* 헤더 */}
+    <header style={{padding:'10px 16px',borderBottom:'1px solid rgba(255,255,255,.08)',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,position:'sticky',top:0,zIndex:40,background:'rgba(8,12,24,.97)',backdropFilter:'blur(12px)'}}>
+      <div style={{display:'flex',alignItems:'baseline',gap:10}}>
+        <div className="fd" style={{fontSize:22}}>모두의 <span style={{color:'#00e5ff'}}>플레이</span></div>
+        <div style={{fontSize:10,color:'rgba(255,255,255,.3)',letterSpacing:'.2em'}}>운영 앱 v2</div>
       </div>
+      <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+        {/* 시계 */}
+        <Clock/>
+        {/* 언어 */}
+        <div style={{display:'flex',gap:3,background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.1)',borderRadius:7,padding:3}}>
+          {['ko','en','both'].map(l=>(
+            <button key={l} onClick={()=>{setLang(l);fbOp({lang:l});}}
+              style={{fontSize:10,padding:'3px 8px',borderRadius:5,border:'none',cursor:'pointer',fontWeight:700,background:lang===l?'#00e5ff':'transparent',color:lang===l?'#000':'rgba(255,255,255,.45)'}}>
+              {l==='ko'?'한':l==='en'?'ENG':'한+ENG'}
+            </button>
+          ))}
+        </div>
+        {/* 심판 */}
+        <div style={{fontSize:11,padding:'4px 10px',borderRadius:6,background:'rgba(0,255,136,.1)',border:'1px solid rgba(0,255,136,.3)',color:'#00ff88'}}>
+          ⚖ {readyCnt}준비/{onlineCnt}접속
+        </div>
+        {/* 연결 */}
+        <div style={{fontSize:11,padding:'4px 10px',borderRadius:6,background:online?'rgba(0,229,255,.1)':'rgba(255,61,113,.1)',border:`1px solid ${online?'rgba(0,229,255,.3)':'rgba(255,61,113,.3)'}`,color:online?'#00e5ff':'#ff3d71'}}>
+          {online?'🔗 ONLINE':'⚠ OFFLINE'}
+        </div>
+        <button onClick={()=>setCfg(c=>({...c,showCfg:true}))} style={{fontSize:11,padding:'4px 10px',borderRadius:6,border:'1px solid rgba(255,255,255,.15)',background:'transparent',color:'rgba(255,255,255,.5)',cursor:'pointer'}}>⚙</button>
+      </div>
+    </header>
+
+    <main style={{padding:'12px 16px 60px',maxWidth:1440,margin:'0 auto'}}>
+      {!cfg.roomId||!online?(
+        <div style={{textAlign:'center',padding:'60px 20px'}}>
+          <div style={{fontSize:60,marginBottom:16}}>📡</div>
+          <div className="fd" style={{fontSize:28,color:'rgba(255,255,255,.7)',marginBottom:8}}>Setup에서 만든 Room ID로 연결하세요</div>
+          <button onClick={()=>setCfg(c=>({...c,showCfg:true}))} style={{background:'#00e5ff',color:'#000',border:'none',borderRadius:10,padding:'12px 28px',fontSize:16,fontWeight:700,cursor:'pointer'}}>설정 열기 ⚙</button>
+        </div>
+      ):(
+        <>
+        {/* ── 현재 히트 ── */}
+        <div style={{borderRadius:12,border:`2px solid ${sc}40`,background:`linear-gradient(135deg,${sc}10,transparent)`,padding:'14px 18px',marginBottom:10}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
+            <div style={{display:'flex',alignItems:'baseline',gap:14}}>
+              <div>
+                <div style={{fontSize:10,letterSpacing:'.3em',color:sc,textTransform:'uppercase'}}>CURRENT</div>
+                <div className="fd" style={{fontSize:50,lineHeight:.9}}>HEAT {curHeat?.no||curHeat?.heatNo||'—'}</div>
+              </div>
+              <div>
+                <div style={{fontSize:14,fontWeight:700,color:'rgba(255,255,255,.85)'}}>{curHeat?.event_name||curHeat?.event||'—'}</div>
+                <div style={{fontSize:12,color:'rgba(255,255,255,.45)'}}>{curHeat?.division||'—'}</div>
+              </div>
+              <div style={{padding:'4px 12px',borderRadius:20,background:`${sc}20`,border:`1px solid ${sc}50`,fontSize:12,color:sc,fontWeight:700}}>
+                {ST_ICON[hState]} {ST_LABEL[hState]}
+              </div>
+            </div>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <button onClick={()=>{if(hIdx>0)goHeat(heats[hIdx-1].no||heats[hIdx-1].heatNo);}} disabled={hIdx<=0}
+                style={{padding:'9px 16px',borderRadius:8,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.05)',color:'rgba(255,255,255,.7)',fontSize:13,fontWeight:700,cursor:hIdx<=0?'not-allowed':'pointer',opacity:hIdx<=0?.4:1}}>← 이전</button>
+              <select value={curHeat?.no||curHeat?.heatNo||1} onChange={e=>goHeat(parseInt(e.target.value))}
+                style={{background:'rgba(0,0,0,.5)',border:'1px solid rgba(255,255,255,.15)',color:'#fff',padding:'9px 12px',borderRadius:8,fontSize:12,fontFamily:'JetBrains Mono,monospace'}}>
+                {heats.map(h=><option key={h.no||h.heatNo} value={h.no||h.heatNo}>HEAT {h.no||h.heatNo} · {h.event}</option>)}
+              </select>
+              <button onClick={()=>{if(hIdx<heats.length-1)goHeat(heats[hIdx+1].no||heats[hIdx+1].heatNo);}} disabled={hIdx>=heats.length-1}
+                style={{padding:'9px 16px',borderRadius:8,border:`1px solid ${sc}60`,background:`${sc}18`,color:sc,fontSize:13,fontWeight:700,cursor:hIdx>=heats.length-1?'not-allowed':'pointer',opacity:hIdx>=heats.length-1?.4:1}}>다음 →</button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── 워크플로우 + 멘트 ── */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
+          {/* 워크플로우 */}
+          <div style={{background:'rgba(255,255,255,.02)',border:'1px solid rgba(255,255,255,.08)',borderRadius:12,padding:14}}>
+            <div style={{fontSize:10,letterSpacing:'.2em',color:'rgba(255,255,255,.35)',marginBottom:10,textTransform:'uppercase'}}>진행 워크플로우</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:7}}>
+              <WBtn icon="🏆" label="대회 개회" desc="개회사+첫 소집" color="#ffd60a" onClick={doOpen}/>
+              <WBtn icon="🏁" label="대회 폐회" desc="폐회사 안내" color="#64748b" onClick={doClose}/>
+            </div>
+            <div style={{borderTop:'1px solid rgba(255,255,255,.07)',marginBottom:7}}/>
+            <WBtn icon="📢" label={`소집 안내 · HEAT ${curHeat?.no||curHeat?.heatNo||'—'}`} desc="선수 코트 입장 안내 + 음성" color="#ffd60a" big active={hState==='calling'} onClick={doCall}/>
+            <div style={{height:7}}/>
+            <WBtn icon="▶" label="시작 신호음" desc={`심판 준비 ${readyCnt}명 확인 후 발사`} color="#00e5ff" big active={hState==='racing'} onClick={doStart}/>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,margin:'7px 0'}}>
+              <WBtn icon="⏰" label="30초 경고음" desc="" color="#ff9f0a" onClick={do30}/>
+              <WBtn icon="🔔" label="재호출음" desc="" color="#f87171" onClick={doRecall}/>
+            </div>
+            <WBtn icon="■" label="종료 신호음" desc="퇴장 안내 + 음성" color="#00ff88" big active={hState==='finished'} onClick={doEnd}/>
+            <div style={{height:7}}/>
+            <WBtn icon="⏭" label="다음 히트 소집" desc={hIdx>=heats.length-1?"마지막 히트":`HEAT ${(curHeat?.no||curHeat?.heatNo||0)+1}로 이동 후 자동 소집`} color="#a78bfa" big disabled={hIdx>=heats.length-1} onClick={doNext}/>
+          </div>
+
+          {/* 멘트 */}
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            <div style={{background:'rgba(255,255,255,.02)',border:'1px solid rgba(255,255,255,.08)',borderRadius:12,padding:14,flex:1}}>
+              <div style={{fontSize:10,letterSpacing:'.2em',color:'rgba(255,255,255,.35)',marginBottom:8,textTransform:'uppercase'}}>📣 현재 안내 멘트</div>
+              <div style={{minHeight:90,padding:'10px 14px',background:'rgba(255,214,10,.05)',border:'1px solid rgba(255,214,10,.2)',borderRadius:8,fontSize:13,lineHeight:1.8,color:'#fef9c3'}}>
+                {mentTxt||'(진행 버튼을 누르면 자동 생성됩니다)'}
+              </div>
+              <div style={{marginTop:7,fontSize:10,color:'rgba(255,255,255,.25)'}}>→ Firebase announcements 동시 저장 (뷰어 팝업 연동)</div>
+            </div>
+            <div style={{background:'rgba(255,255,255,.02)',border:'1px solid rgba(255,255,255,.08)',borderRadius:12,padding:14}}>
+              <div style={{fontSize:10,letterSpacing:'.2em',color:'rgba(255,255,255,.35)',marginBottom:8,textTransform:'uppercase'}}>✏ 직접 안내 멘트</div>
+              <textarea value={customMent} onChange={e=>setCustomMent(e.target.value)} rows={3}
+                placeholder="직접 안내할 내용을 입력하세요..."
+                style={{width:'100%',background:'rgba(0,0,0,.3)',border:'1px solid rgba(255,255,255,.1)',borderRadius:8,padding:'10px 12px',fontSize:13,color:'#fff',resize:'vertical',fontFamily:'Pretendard,sans-serif',lineHeight:1.6}}/>
+              <button onClick={doCustom} style={{marginTop:7,width:'100%',padding:'10px',background:'rgba(0,229,255,.12)',border:'1px solid rgba(0,229,255,.3)',borderRadius:8,color:'#00e5ff',fontSize:13,fontWeight:700,cursor:'pointer'}}>
+                📢 안내 방송 송출
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── 코트 보드 ── */}
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:10,letterSpacing:'.3em',color:'#00e5ff',textTransform:'uppercase'}}>COURT BOARD</div>
+          <div className="fd" style={{fontSize:20,marginBottom:8}}>코트 진행 보드</div>
+          <CourtLayout curHeat={curHeat} layout={layout} cMode={cMode} judges={judges}/>
+        </div>
+
+        {/* ── 하단 요약 ── */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:8}}>
+          {[{l:'대회',v:meta?.competition||'—'},{l:'총 선수',v:`${Object.keys(athletes).length}명`},{l:'총 히트',v:`${heats.length}히트`},{l:'현재 위치',v:`${hIdx+1}/${heats.length}`},{l:'접속 심판',v:`${onlineCnt}명`},{l:'준비 완료',v:`${readyCnt}명`}]
+            .map(c=>(<div key={c.l} style={{background:'rgba(255,255,255,.03)',border:'1px solid rgba(255,255,255,.08)',borderRadius:10,padding:'10px 14px'}}>
+              <div style={{fontSize:10,letterSpacing:'.1em',color:'rgba(255,255,255,.4)',textTransform:'uppercase'}}>{c.l}</div>
+              <div className="fd" style={{fontSize:20,marginTop:2}}>{c.v}</div>
+            </div>))}
+        </div>
+        </>
+      )}
+    </main>
+
+    {/* 토스트 */}
+    <div className="toast-wrap">
+      {toasts.map(t=>(
+        <div key={t.id} className="toast-item"
+          style={{background:t.tp==='error'?'rgba(255,61,113,.2)':'rgba(0,229,255,.12)',border:`1px solid ${t.tp==='error'?'rgba(255,61,113,.4)':'rgba(0,229,255,.3)'}`,color:t.tp==='error'?'#ff8fa3':'#a5f3fc'}}>
+          {t.msg}
+        </div>
+      ))}
     </div>
-  );
+
+    {cfg.showCfg&&<CfgModal cfg={cfg} setCfg={setCfg}/>}
+  </div>);
 }
 
-function Field({ label, hint, children }) {
-  return (
-    <div>
-      <div className="text-xs text-white/70 tracking-wider uppercase mb-1">{label}</div>
-      {hint && <div className="text-[11px] text-white/40 mb-1.5 leading-relaxed">{hint}</div>}
-      {children}
+// ── 시계 ──
+function Clock(){const [t,setT]=useState(new Date());useEffect(()=>{const id=setInterval(()=>setT(new Date()),1000);return()=>clearInterval(id);},[]);return<div className="fm" style={{fontSize:20,color:'#67e8f9'}}>{t.toLocaleTimeString('ko-KR',{hour12:false})};</div>;}
+
+// ── 워크플로우 버튼 ──
+function WBtn({icon,label,desc,color,onClick,active,disabled,big}){
+  return(<button onClick={!disabled?onClick:undefined} className="wf-btn"
+    style={{marginBottom:big?0:0,borderColor:`${color}${active?'':50}`,background:`${color}${active?25:10}`,color:active?color:`${color}bb`,cursor:disabled?'not-allowed':'pointer',opacity:disabled?.4:1}}>
+    <div style={{display:'flex',alignItems:'center',gap:8}}>
+      <span style={{fontSize:big?17:14}}>{icon}</span>
+      <div>
+        <div style={{fontSize:big?13:12,fontWeight:700}}>{label}</div>
+        {desc&&<div style={{fontSize:10,opacity:.6,marginTop:1}}>{desc}</div>}
+      </div>
+      {active&&<span style={{marginLeft:'auto',fontSize:9,color,fontWeight:700}} className="pulse">● 진행중</span>}
     </div>
-  );
+  </button>);
 }
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
+// ── 코트 레이아웃 ──
+function CourtLayout({curHeat,layout,cMode,judges}){
+  const athMap=useMemo(()=>{
+    const m={};if(!curHeat?.courts)return m;
+    Object.entries(curHeat.courts).forEach(([k,c])=>m[k]=c.athlete||null);return m;
+  },[curHeat]);
+
+  const cl=layout||{mode:'station',stations:6,cps:4,stationCols:2,sides:2};
+  const total=cl.mode==='station'?cl.stations*cl.cps:(cl.gridCols||4)*(cl.gridRows||2);
+  const courts=Array.from({length:total},(_,i)=>cId(i,cMode));
+
+  const CourtBox=({cid})=>{
+    const ath=athMap[cid];
+    const js=judges[cid]||{};
+    const isOnline=js.online&&Date.now()-js.lastSeen<15000;
+    let cls='court-card';
+    if(js.submitted)cls+=' submitted';
+    else if(js.ready)cls+=' ready';
+    else if(ath)cls+=' has-ath';
+    return(<div className={cls} style={{minHeight:68}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:3}}>
+        <div className="fd" style={{fontSize:16,color:'#00e5ff'}}>{cid}</div>
+        <div style={{display:'flex',gap:3,alignItems:'center'}}>
+          {isOnline&&<span style={{width:5,height:5,borderRadius:'50%',background:'#00ff88',display:'block'}}/>}
+          {js.ready&&!js.submitted&&<span style={{fontSize:9,color:'#00ff88',fontWeight:700}}>READY</span>}
+          {js.submitted&&<span style={{fontSize:9,color:'#00ff88',fontWeight:700}}>✓{js.score}</span>}
+        </div>
+      </div>
+      {ath?(<>
+        <div style={{display:'flex',gap:5,alignItems:'baseline'}}>
+          <span className="fm" style={{fontSize:9,color:'rgba(255,255,255,.35)'}}>#{ath.bib}</span>
+          <span style={{fontSize:11,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{ath.name}</span>
+        </div>
+        <div style={{fontSize:9,color:'rgba(255,255,255,.3)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginTop:2}}>{ath.club||''}</div>
+      </>):(<div style={{fontSize:18,color:'rgba(255,255,255,.1)',textAlign:'center',marginTop:8}}>✕</div>)}
+    </div>);
+  };
+
+  const StBox=({label,rows,cpsRow})=>(<div className="st-box">
+    <div className="st-lbl">{label}</div>
+    {rows.map((row,ri)=>(
+      <div key={ri} style={{display:'grid',gridTemplateColumns:`repeat(${cpsRow},1fr)`,gap:6,marginBottom:6}}>
+        {row.map(c=><CourtBox key={c} cid={c}/>)}
+      </div>
+    ))}
+  </div>);
+
+  if(cl.mode==='station'){
+    const cpsRow=cl.stationCols||2;
+    const cpsRows=Math.ceil(cl.cps/cpsRow);
+    const buildSt=(startIdx)=>{const rows=[];let i=startIdx;for(let r=0;r<cpsRows;r++){const row=[];for(let c=0;c<cpsRow;c++){if(i<courts.length)row.push(courts[i++]);}rows.push(row);}return rows;};
+    if(cl.sides===2){
+      const sps=Math.ceil(cl.stations/2);let i=0;
+      const R=[],L=[];
+      for(let s=0;s<sps;s++){R.push(buildSt(i));i+=cl.cps;}
+      for(let s=0;s<(cl.stations-sps);s++){L.push(buildSt(i));i+=cl.cps;}
+      return(<div style={{display:'grid',gridTemplateColumns:'1fr 3px 1fr',gap:10,alignItems:'start'}}>
+        <div>{L.map((st,si)=><StBox key={si} label={`ST ${sps+si+1}`} rows={st} cpsRow={cpsRow}/>)}</div>
+        <div style={{background:'rgba(0,229,255,.2)',borderRadius:4,height:'100%'}}/>
+        <div>{R.map((st,si)=><StBox key={si} label={`ST ${si+1}`} rows={st} cpsRow={cpsRow}/>)}</div>
+      </div>);
+    }
+    let i=0;
+    return(<div>{Array.from({length:cl.stations},(_,si)=>{const rows=buildSt(i);i+=cl.cps;return<StBox key={si} label={`ST ${si+1}`} rows={rows} cpsRow={cpsRow}/>;})}</div>);
+  }
+  return(<div style={{display:'flex',flexDirection:'column',gap:6}}>
+    {Array.from({length:cl.gridRows||2},(_,ri)=>(
+      <div key={ri} style={{display:'grid',gridTemplateColumns:`repeat(${cl.gridCols||4},1fr)`,gap:6}}>
+        {Array.from({length:cl.gridCols||4},(_,ci)=>{const c=courts[ri*(cl.gridCols||4)+ci];return c?<CourtBox key={c} cid={c}/>:null;})}
+      </div>
+    ))}
+  </div>);
+}
+
+// ── 설정 모달 ──
+function CfgModal({cfg,setCfg}){
+  const [tmp,setTmp]=useState({...cfg});
+  const save=()=>{localStorage.setItem('mop_op_roomid',tmp.roomId||'');localStorage.setItem('mop_op_name',tmp.name||'');setCfg({...tmp,showCfg:false});};
+  return(<div style={{position:'fixed',inset:0,zIndex:50,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,.8)',backdropFilter:'blur(12px)',padding:20}}>
+    <div style={{width:'100%',maxWidth:420,background:'#0d1117',border:'1px solid rgba(255,255,255,.12)',borderRadius:20,padding:24}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+        <div className="fd" style={{fontSize:24}}>운영 앱 설정</div>
+        <button onClick={()=>setCfg(c=>({...c,showCfg:false}))} style={{background:'none',border:'none',color:'rgba(255,255,255,.5)',fontSize:20,cursor:'pointer'}}>✕</button>
+      </div>
+      {[{l:'Firebase Room ID',ph:'Setup의 Room ID',k:'roomId',mono:true},{l:'운영자 이름',ph:'홍길동',k:'name'}].map(f=>(
+        <div key={f.k} style={{marginBottom:14}}>
+          <div style={{fontSize:11,color:'rgba(255,255,255,.5)',letterSpacing:'.1em',marginBottom:6}}>{f.l}</div>
+          <input value={tmp[f.k]||''} onChange={e=>setTmp(t=>({...t,[f.k]:e.target.value}))} placeholder={f.ph}
+            style={{width:'100%',background:'rgba(0,0,0,.4)',border:'1px solid rgba(255,255,255,.1)',borderRadius:8,padding:'11px 14px',fontSize:14,color:'#fff',fontFamily:f.mono?'monospace':'inherit'}}/>
+        </div>
+      ))}
+      <div style={{padding:12,background:'rgba(0,229,255,.05)',border:'1px solid rgba(0,229,255,.2)',borderRadius:8,fontSize:11,color:'rgba(0,229,255,.8)',lineHeight:1.7,marginBottom:14}}>
+        ✅ Phase 2 기능<br/>
+        · 히트 워크플로우 (소집→시작→종료→다음)<br/>
+        · TTS 음성 안내 (한/영/한+영 선택)<br/>
+        · 신호음 (시작/30초/종료/재호출)<br/>
+        · 심판 준비 상태 실시간 모니터링<br/>
+        · 직접 입력 안내 방송<br/>
+        · 뷰어 announcements 연동<br/>
+        · 대회 개회/폐회 선언
+      </div>
+      <button onClick={save} style={{width:'100%',padding:'13px',background:'#00e5ff',border:'none',borderRadius:10,fontSize:16,fontWeight:700,color:'#000',cursor:'pointer'}}>저장 및 연결</button>
+    </div>
+  </div>);
+}
+
+document.addEventListener('touchstart',()=>{try{ac();}catch(e){}},{once:true});
+const root=ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App/>);
 </script>
 </body>
 </html>
