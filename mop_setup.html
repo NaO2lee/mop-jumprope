@@ -2849,6 +2849,7 @@ exports.qrToImageData = function qrToImageData (imgData, qr, opts) {
 </script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 <style>
 :root{
   /* 배경 */
@@ -3703,6 +3704,43 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
       </div>
     </div>
 
+    <!-- ══════ 종목별 신호음 라이브러리 ══════ -->
+    <div class="card" id="sound-lib-card" style="border:2px solid var(--gn);background:rgba(0,255,136,.04)">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+        <div>
+          <div class="ct" style="margin:0">🎵 종목별 신호음 라이브러리</div>
+          <div style="font-size:12px;color:var(--mu);margin-top:3px">통합 트랙 (시작~종료가 한 mp3에 들어있는 음원) · 운영앱에서 자동 재생됩니다</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn se" onclick="document.getElementById('sl-bulk-inp').click()">📁 일괄 업로드</button>
+          <input type="file" id="sl-bulk-inp" accept=".mp3,.wav,.m4a" multiple style="display:none" onchange="bulkUploadSounds(this.files)">
+          <button class="btn se" onclick="loadSoundLibrary()">⟳ 새로고침</button>
+        </div>
+      </div>
+
+      <!-- 검색 + 필터 -->
+      <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">
+        <input class="inp" id="sl-search" placeholder="🔍 종목명으로 검색..." 
+          style="flex:1;font-size:13px"
+          oninput="renderSoundLibrary()">
+        <select class="inp" id="sl-filter" onchange="renderSoundLibrary()" style="width:140px;font-size:12px">
+          <option value="all">전체 (모든 종목)</option>
+          <option value="has">음원 있음</option>
+          <option value="missing">음원 없음</option>
+        </select>
+      </div>
+
+      <!-- 종목 리스트 -->
+      <div id="sl-list" style="display:flex;flex-direction:column;gap:6px;max-height:500px;overflow-y:auto"></div>
+
+      <!-- 안내 -->
+      <div style="font-size:11px;color:var(--mu2);margin-top:10px;padding:8px;background:var(--sur3);border-radius:6px;line-height:1.6">
+        💡 <strong>일괄 업로드 팁:</strong> 파일명에 종목 코드(예: <code>SRSS</code>) 또는 종목명(예: <code>Single_Rope_Speed_1X30</code>)이 포함되면 자동 매칭됩니다.<br>
+        예) <code>Single_Rope_Speed_1X30.mp3</code> → SRSS · <code>Double_Dutch_Speed_1X60.mp3</code> → DDSS<br>
+        ⚠ Firebase Storage 활성화 필요 (Console → Build → Storage → 시작하기)
+      </div>
+    </div>
+
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px">
       <div class="card">
         <div class="ct">☁ Firebase</div>
@@ -3777,6 +3815,7 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
 /* ── Firebase ── */
 firebase.initializeApp({apiKey:"AIzaSyDOrKZDSNiA4sLnkNBiLVehE8xtrU-2JLY",authDomain:"mop-jumprope.firebaseapp.com",databaseURL:"https://mop-jumprope-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"mop-jumprope",storageBucket:"mop-jumprope.firebasestorage.app",messagingSenderId:"875740425909",appId:"1:875740425909:web:59768e633b7a42733918fc"});
 const db=firebase.database();
+const storage=firebase.storage();
 db.ref('.info/connected').on('value',s=>{const ok=s.val()===true;document.getElementById('fb-dot').className='fb-dot'+(ok?' on':'');document.getElementById('fb-txt').style.color=ok?'var(--gn)':'var(--ac2)';});
 
 /* ── 종목 (경기 시간 포함) ── */
@@ -6851,7 +6890,181 @@ function exportCSV(type){
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);a.download=fn;a.click();
 }
 
-/* ── 앱 링크 생성 ── */
+/* ══════════ 종목별 신호음 라이브러리 ══════════ */
+let soundLibrary = {}; // {eventCode: {url, name, size, uploadedAt}}
+
+// 파일명에서 종목 코드 자동 추출
+function detectEventCodeFromFilename(filename){
+  const f=filename.toLowerCase().replace(/\.[^.]+$/,''); // 확장자 제거
+  // 1순위: 종목 코드 직접 매칭 (SRSS, DDSS 등)
+  for(const ev of EVENTS){
+    if(f.includes(ev.code.split(' ')[0].toLowerCase())) return ev.code;
+  }
+  // 2순위: 영문 종목명 키워드 매칭
+  const patterns = [
+    {kw:['single_rope_speed_1x30','single_rope_speed_30','sr_speed_30','speed_30s','1x30'], code:'SRSS 1×30'},
+    {kw:['single_rope_speed_2x30','sr_speed_relay_2','2x30','double_under_2'], code:'SRSR 2×30'},
+    {kw:['single_rope_speed_4x30','sr_speed_relay_4','4x30'], code:'SRRE 4×30'},
+    {kw:['single_rope_speed_1x180','sr_endurance_3min','3min','180s'], code:'SRSE 3min'},
+    {kw:['single_rope_speed_1x120_8자','8자마라톤','figure8'], code:'LR-8M'},
+    {kw:['single_rope_speed_1x120','speed_endurance'], code:'SRSE'},
+    {kw:['double_dutch_speed_1x60','dd_speed_60','dd_1x60'], code:'DDSS 1×60'},
+    {kw:['double_dutch_speed_2x60','dd_speed_relay_2','dd_2x60'], code:'DDSR 2×60'},
+    {kw:['double_dutch_speed_3x40','dd_speed_relay_3','dd_3x40'], code:'DDRE 3×40'},
+    {kw:['double_sutch_speed_1x120','double_dutch_endurance','dd_endurance'], code:'DDSE 2min'},
+    {kw:['ddsc','dd_speed_contest'], code:'DDSC'},
+    {kw:['double_dutch_triad_freestyle','dd_triad','ddtf'], code:'DDTF'},
+    {kw:['freestyle_event','single_rope_freestyle'], code:'SRIF'},
+  ];
+  for(const p of patterns){
+    if(p.kw.some(k=>f.includes(k.replace(/_/g,'')) || f.includes(k))){
+      // 매칭된 코드 → 실제 EVENTS의 코드와 매칭
+      const target=p.code.split(' ')[0];
+      const ev=EVENTS.find(e=>e.code.startsWith(target));
+      if(ev)return ev.code;
+    }
+  }
+  return null;
+}
+
+// 사운드 라이브러리 Firebase에서 로드
+async function loadSoundLibrary(){
+  if(!cfg.roomId){toast('Room ID 먼저 설정하세요',true);return;}
+  try{
+    const snap=await db.ref(`${cfg.roomId}/soundLibrary`).once('value');
+    soundLibrary=snap.val()||{};
+    renderSoundLibrary();
+    toast(`✓ ${Object.keys(soundLibrary).length}개 음원 로드`);
+  }catch(e){toast('로드 실패: '+e.message,true);}
+}
+
+// 사운드 라이브러리 렌더
+function renderSoundLibrary(){
+  const el=document.getElementById('sl-list');if(!el)return;
+  const search=(document.getElementById('sl-search')?.value||'').toLowerCase();
+  const filter=document.getElementById('sl-filter')?.value||'all';
+
+  let evs=EVENTS;
+  if(search){
+    evs=evs.filter(ev=>{
+      const txt=(ev.code+' '+(ev.ko||'')+' '+(ev.en||'')).toLowerCase();
+      return txt.includes(search);
+    });
+  }
+  if(filter==='has') evs=evs.filter(ev=>soundLibrary[ev.code]);
+  else if(filter==='missing') evs=evs.filter(ev=>!soundLibrary[ev.code]);
+
+  if(!evs.length){
+    el.innerHTML=`<div style="text-align:center;padding:30px;color:var(--mu2)">표시할 종목이 없습니다</div>`;
+    return;
+  }
+
+  el.innerHTML=evs.map(ev=>{
+    const sound=soundLibrary[ev.code];
+    const code=ev.code.split(' ')[0];
+    const label=evLabel(ev);
+    if(sound){
+      const sizeKB=Math.round(sound.size/1024);
+      return`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#fff;border:1.5px solid var(--gn);border-radius:8px">
+        <div style="display:flex;flex-direction:column;flex-shrink:0;width:80px">
+          <span style="font-family:monospace;font-weight:700;font-size:12px;color:var(--ac)">${code}</span>
+          <span style="font-size:9px;color:var(--mu2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;font-weight:600;color:var(--gn);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📎 ${sound.name}</div>
+          <div style="font-size:10px;color:var(--mu);font-family:monospace">${sizeKB}KB</div>
+        </div>
+        <button onclick="playSound('${ev.code}')"
+          style="font-size:11px;padding:5px 10px;border-radius:5px;border:1px solid var(--ac);color:var(--ac);background:transparent;cursor:pointer;white-space:nowrap">▶ 재생</button>
+        <button onclick="deleteSoundFile('${ev.code}')"
+          style="font-size:11px;padding:5px 8px;border-radius:5px;border:1px solid var(--ac2);color:var(--ac2);background:transparent;cursor:pointer">✕</button>
+      </div>`;
+    } else {
+      return`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--sur3);border:1.5px dashed var(--bdr);border-radius:8px">
+        <div style="display:flex;flex-direction:column;flex-shrink:0;width:80px">
+          <span style="font-family:monospace;font-weight:700;font-size:12px;color:var(--mu)">${code}</span>
+          <span style="font-size:9px;color:var(--mu2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
+        </div>
+        <div style="flex:1;font-size:11px;color:var(--mu)">음원 없음 (운영앱에서 합성음 사용)</div>
+        <label style="cursor:pointer">
+          <span style="font-size:11px;padding:5px 10px;border-radius:5px;border:1px solid var(--ac);color:var(--ac);background:transparent;display:inline-block;white-space:nowrap">+ 업로드</span>
+          <input type="file" accept=".mp3,.wav,.m4a" style="display:none" 
+            onchange="uploadSoundFile('${ev.code}', this.files[0]); this.value='';">
+        </label>
+      </div>`;
+    }
+  }).join('');
+}
+
+// 단일 파일 업로드
+async function uploadSoundFile(eventCode, file){
+  if(!file) return;
+  if(!cfg.roomId){toast('Room ID 먼저 설정하세요',true);return;}
+  if(file.size > 10*1024*1024){toast('파일 크기 10MB 초과',true);return;}
+  toast(`📤 ${file.name} 업로드 중...`);
+  try{
+    const path=`${cfg.roomId}/sounds/${eventCode.replace(/[^a-zA-Z0-9]/g,'_')}_${Date.now()}.${file.name.split('.').pop()}`;
+    const ref=storage.ref(path);
+    const uploadTask=await ref.put(file);
+    const url=await uploadTask.ref.getDownloadURL();
+    const data={url, name:file.name, size:file.size, path, uploadedAt:Date.now()};
+    await db.ref(`${cfg.roomId}/soundLibrary/${eventCode}`).set(data);
+    soundLibrary[eventCode]=data;
+    renderSoundLibrary();
+    toast(`✓ ${eventCode} 업로드 완료`);
+  }catch(e){
+    console.error(e);
+    toast('업로드 실패: '+e.message,true);
+  }
+}
+
+// 일괄 업로드
+async function bulkUploadSounds(files){
+  if(!files||!files.length)return;
+  if(!cfg.roomId){toast('Room ID 먼저 설정하세요',true);return;}
+  let matched=0, unmatched=[];
+  for(const f of files){
+    const code=detectEventCodeFromFilename(f.name);
+    if(code){
+      await uploadSoundFile(code, f);
+      matched++;
+    } else {
+      unmatched.push(f.name);
+    }
+  }
+  toast(`✓ ${matched}개 업로드 완료${unmatched.length?`, ${unmatched.length}개 미매칭`:''}`);
+  if(unmatched.length){
+    console.log('미매칭 파일:', unmatched);
+    alert(`다음 파일은 종목 자동 매칭에 실패했습니다:\n\n${unmatched.join('\n')}\n\n각 종목 칸에서 개별 업로드 해주세요.`);
+  }
+}
+
+// 음원 재생 (미리듣기)
+let _previewAudio=null;
+function playSound(eventCode){
+  const sound=soundLibrary[eventCode];
+  if(!sound){toast('음원이 없습니다',true);return;}
+  if(_previewAudio){_previewAudio.pause();_previewAudio=null;}
+  _previewAudio=new Audio(sound.url);
+  _previewAudio.play().then(()=>toast(`▶ ${eventCode} 재생 중...`))
+    .catch(e=>toast('재생 실패: '+e.message,true));
+}
+
+// 삭제
+async function deleteSoundFile(eventCode){
+  if(!confirm(`${eventCode} 음원을 삭제할까요?`))return;
+  const sound=soundLibrary[eventCode];
+  if(!sound)return;
+  try{
+    if(sound.path) await storage.ref(sound.path).delete().catch(()=>{});
+    await db.ref(`${cfg.roomId}/soundLibrary/${eventCode}`).remove();
+    delete soundLibrary[eventCode];
+    renderSoundLibrary();
+    toast(`✓ ${eventCode} 삭제됨`);
+  }catch(e){toast('삭제 실패: '+e.message,true);}
+}
+
+
 const APP_LINK_DEFS=[
   {key:'operator', icon:'🎛', label:'운영 앱',     desc:'히트 진행·신호음·코트 관리', color:'var(--ac)'},
   {key:'viewer',   icon:'📺', label:'뷰어 앱',     desc:'전광판 표시 (대형 화면)', color:'var(--yw)'},
