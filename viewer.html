@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>모두의 플레이 뷰어</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+    body { background: #05070F; font-family: 'Pretendard', sans-serif; color: white; overflow: hidden; height: 100vh; margin: 0; }
+    .courts-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      gap: 8px;
+      height: 100%;
+      flex: 1;
+    }
+    .court-card {
+      background: #111;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .video-area { flex: 1; background: #000; overflow: hidden; position: relative; border-radius: 2px; }
+    video { width: 100%; height: 100%; object-fit: cover; }
+
+    /* ── 안내 방송 팝업 ── */
+    #ann-popup {
+      display: none;
+      position: fixed;
+      bottom: 50px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 999;
+      background: rgba(5,10,28,.96);
+      border: 2px solid rgba(0,229,255,.7);
+      border-radius: 18px;
+      padding: 22px 40px;
+      max-width: 860px;
+      width: 90%;
+      box-shadow: 0 0 60px rgba(0,229,255,.3), 0 0 120px rgba(0,229,255,.1);
+      backdrop-filter: blur(16px);
+      text-align: center;
+      animation: annSlide .4s cubic-bezier(.22,.68,0,1.2);
+    }
+    #ann-icon { font-size: 28px; margin-bottom: 8px; }
+    #ann-text {
+      font-size: clamp(18px, 3vw, 28px);
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.7;
+      letter-spacing: .02em;
+    }
+    #ann-text-en {
+      font-size: clamp(13px, 1.8vw, 18px);
+      color: rgba(0,229,255,.7);
+      margin-top: 8px;
+      font-style: italic;
+    }
+    #ann-progress {
+      height: 3px;
+      background: rgba(0,229,255,.3);
+      border-radius: 3px;
+      margin-top: 14px;
+      overflow: hidden;
+    }
+    #ann-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #00e5ff, #00ff88);
+      width: 100%;
+      transform-origin: left;
+      transition: transform linear;
+    }
+    @keyframes annSlide {
+      from { opacity:0; transform: translateX(-50%) translateY(30px) scale(.95); }
+      to   { opacity:1; transform: translateX(-50%) translateY(0) scale(1); }
+    }
+
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; align-items: center; justify-content: center; }
+    .modal.active { display: flex; }
+    .ranking-side { width: 200px; background: rgba(10,12,20,0.95); border-left: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; }
+  </style>
+</head>
+<body>
+
+  <button onclick="document.getElementById('configModal').classList.add('active')"
+    class="fixed top-2 right-2 z-50 opacity-20 hover:opacity-100 text-lg">⚙️</button>
+
+  <div id="configModal" class="modal">
+    <div class="bg-slate-900 p-6 rounded-xl border border-cyan-500/50 w-[400px]">
+      <h2 class="text-lg font-bold mb-4 text-cyan-400 text-center">🏆 전광판 설정</h2>
+      <div class="space-y-3">
+        <div>
+          <label class="text-[10px] text-slate-500 uppercase block mb-1">Room Code (Firebase)</label>
+          <input id="inputRoom" type="text" class="w-full bg-black/40 border border-white/10 p-2 rounded text-white" placeholder="예: room_001">
+        </div>
+      </div>
+      <button onclick="saveConfig()" class="w-full mt-6 bg-cyan-500 text-black font-bold py-3 rounded shadow-lg shadow-cyan-500/20">설정 저장 및 연결 시작</button>
+    </div>
+  </div>
+
+  <div class="flex h-screen w-screen p-2 gap-2">
+    <div id="courts-container" class="courts-grid"></div>
+    <div class="ranking-side rounded p-3">
+      <h3 class="text-cyan-400 font-bold text-[10px] mb-3 uppercase tracking-widest border-b border-white/10 pb-1">Real-time Rank</h3>
+      <div id="ranking-list" class="space-y-1 overflow-y-auto flex-1 text-[11px]"></div>
+    </div>
+  </div>
+
+  <!-- 안내 방송 팝업 -->
+  <div id="ann-popup">
+    <div id="ann-icon">📢</div>
+    <div id="ann-text"></div>
+    <div id="ann-text-en"></div>
+    <div id="ann-progress"><div id="ann-progress-bar"></div></div>
+  </div>
+
+<script>
+// ── Firebase 초기화 ──
+firebase.initializeApp({
+  apiKey: "AIzaSyDOrKZDSNiA4sLnkNBiLVehE8xtrU-2JLY",
+  authDomain: "mop-jumprope.firebaseapp.com",
+  databaseURL: "https://mop-jumprope-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "mop-jumprope",
+  storageBucket: "mop-jumprope.firebasestorage.app",
+  messagingSenderId: "875740425909",
+  appId: "1:875740425909:web:59768e633b7a42733918fc"
+});
+const db = firebase.database();
+
+let config = JSON.parse(localStorage.getItem('mop_viewer_v2') || '{}');
+let peer = null;
+let annTimer = null;
+let annProgressTimer = null;
+const ANN_DURATION = 15000; // 팝업 표시 시간 (ms)
+
+function saveConfig() {
+  config.room = document.getElementById('inputRoom').value.trim();
+  localStorage.setItem('mop_viewer_v2', JSON.stringify(config));
+  location.reload();
+}
+
+function init() {
+  if (!config.room) {
+    document.getElementById('configModal').classList.add('active');
+    return;
+  }
+
+  // 코트 12개 생성
+  const container = document.getElementById('courts-container');
+  for(let i = 1; i <= 12; i++) {
+    container.innerHTML += `
+      <div class="court-card" id="court-${i}">
+        <div class="absolute top-1 left-1 bg-cyan-500 text-black font-black px-1.5 rounded-sm text-[9px] z-10 shadow-lg">C-${i}</div>
+        <div id="video-box-${i}" class="video-area flex items-center justify-center text-[8px] text-white/10 font-mono italic">SIGNAL LOST</div>
+        <div class="bg-black/80 p-1.5 flex justify-between items-center">
+          <span id="name-${i}" class="text-[10px] font-bold truncate w-20 text-slate-300">-</span>
+          <span id="score-${i}" class="text-cyan-400 font-black text-sm">0</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // PeerJS (카메라 수신)
+  peer = new Peer('mop-' + config.room + '-viewer');
+  peer.on('open', id => console.log('뷰어 온라인:', id));
+  peer.on('call', call => {
+    call.answer();
+    call.on('stream', stream => {
+      const courtNum = call.peer.split('-cam-').pop();
+      const targetBox = document.getElementById('video-box-' + courtNum);
+      if (targetBox) {
+        targetBox.innerHTML = '';
+        const v = document.createElement('video');
+        v.srcObject = stream; v.autoplay = true; v.playsinline = true;
+        targetBox.appendChild(v);
+      }
+    });
+  });
+
+  // ── Firebase 안내 방송 구독 ──
+  db.ref(`${config.room}/announcements/current`).on('value', snap => {
+    const v = snap.val();
+    if (!v || !v.ts) return;
+    // 10초 이상 된 메시지 무시
+    if (Date.now() - v.ts > 10000) return;
+    showAnnouncement(v);
+  });
+
+  // heartbeat
+  db.ref(`${config.room}/monitoring/viewer`).update({
+    online: true, lastSeen: Date.now()
+  });
+  setInterval(() => {
+    db.ref(`${config.room}/monitoring/viewer`).update({
+      online: true, lastSeen: Date.now()
+    });
+  }, 5000);
+}
+
+function showAnnouncement(v) {
+  const popup = document.getElementById('ann-popup');
+  const textEl = document.getElementById('ann-text');
+  const textEnEl = document.getElementById('ann-text-en');
+  const bar = document.getElementById('ann-progress-bar');
+  const icon = document.getElementById('ann-icon');
+
+  const lang = v.lang || 'both';
+  const ko = v.text_ko || '';
+  const en = v.text_en || '';
+
+  // 멘트 종류에 따라 아이콘 변경
+  const icons = { '소집': '📢', '시작': '▶', '수고': '🎉', '폐회': '🏁', '개회': '🏆' };
+  const matchedIcon = Object.entries(icons).find(([k]) => ko.includes(k));
+  icon.textContent = matchedIcon ? matchedIcon[1] : '📢';
+
+  // 텍스트 설정
+  if (lang === 'ko') {
+    textEl.textContent = ko;
+    textEnEl.style.display = 'none';
+  } else if (lang === 'en') {
+    textEl.textContent = en;
+    textEnEl.style.display = 'none';
+  } else {
+    textEl.textContent = ko;
+    textEnEl.textContent = en;
+    textEnEl.style.display = en ? 'block' : 'none';
+  }
+
+  // 프로그레스 바 애니메이션
+  bar.style.transform = 'scaleX(1)';
+  bar.style.transition = 'none';
+  popup.style.display = 'block';
+
+  // 리셋 후 애니메이션 시작
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      bar.style.transition = `transform ${ANN_DURATION}ms linear`;
+      bar.style.transform = 'scaleX(0)';
+    });
+  });
+
+  // 자동 닫기
+  clearTimeout(annTimer);
+  annTimer = setTimeout(() => {
+    popup.style.display = 'none';
+  }, ANN_DURATION);
+}
+
+// 클릭 시 팝업 닫기
+document.getElementById('ann-popup').addEventListener('click', () => {
+  document.getElementById('ann-popup').style.display = 'none';
+  clearTimeout(annTimer);
+});
+
+window.onload = init;
+</script>
+</body>
+</html>
