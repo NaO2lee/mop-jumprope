@@ -158,7 +158,7 @@ function App(){
 
   const curHeat=useMemo(()=>heats.find(h=>(h.no||h.heatNo)===heatNo)||heats[0]||null,[heats,heatNo]);
   const hIdx=useMemo(()=>heats.findIndex(h=>(h.no||h.heatNo)===heatNo),[heats,heatNo]);
-  const comp=meta?.competition||cfg.roomId||'대회';
+  const comp=meta?.competition||'대회';
 
   const fbOp=useCallback((d)=>{if(!cfg.roomId)return;db.ref(`${cfg.roomId}/operator`).update({...d,updatedAt:Date.now()});});
   const fbSig=useCallback((t)=>{if(!cfg.roomId)return;db.ref(`${cfg.roomId}/signals/current`).set({type:t,ts:Date.now()});});
@@ -295,7 +295,11 @@ function App(){
     <header style={{padding:'10px 16px',borderBottom:'1px solid rgba(255,255,255,.08)',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,position:'sticky',top:0,zIndex:40,background:'rgba(8,12,24,.97)',backdropFilter:'blur(12px)'}}>
       <div style={{display:'flex',alignItems:'baseline',gap:10}}>
         <div className="fd" style={{fontSize:22}}>모두의 <span style={{color:'#00e5ff'}}>플레이</span></div>
-        <div style={{fontSize:10,color:'rgba(255,255,255,.3)',letterSpacing:'.2em'}}>운영 앱 v2</div>
+        {/* 대회명 표시 */}
+        {meta?.competition
+          ? <div style={{fontSize:14,fontWeight:700,color:'#ffd60a',letterSpacing:'.02em'}}>{meta.competition}</div>
+          : <div style={{fontSize:10,color:'rgba(255,255,255,.3)',letterSpacing:'.2em'}}>운영 앱 v2</div>
+        }
       </div>
       <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
         {/* 시계 */}
