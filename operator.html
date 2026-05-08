@@ -98,26 +98,37 @@ const SIG={
 
 // ── TTS 엔진 ──
 let _ttsQueue=[];let _ttsBusy=false;let _ttsActive=false;
-let _selectedVoiceName=null; // 사용자가 선택한 음성
+// ── TTS 프리셋 (아나운서/스포츠캐스터 톤) ──
+const TTS_PRESETS = {
+  default:  { label:'기본',         rate_ko:.92, pitch_ko:1.05, rate_en:.90, pitch_en:1.0  },
+  announcer:{ label:'📻 아나운서',  rate_ko:.88, pitch_ko:.90,  rate_en:.85, pitch_en:.90  },
+  sports:   { label:'🏟 스포츠',    rate_ko:1.0, pitch_ko:.85,  rate_en:.95, pitch_en:.88  },
+  calm:     { label:'🎵 차분',      rate_ko:.82, pitch_ko:.95,  rate_en:.80, pitch_en:.95  },
+  male_en:  { label:'🎙 영어 남성', rate_ko:.88, pitch_ko:.80,  rate_en:.85, pitch_en:.75  },
+};
+let _ttsPreset = 'default';
+let _selectedVoiceKo = null; // 한국어 음성
+let _selectedVoiceEn = null; // 영어 음성
 
 function _bestVoice(lang){
   if(!window.speechSynthesis)return null;
   const voices=window.speechSynthesis.getVoices();
   const isKo=lang==='ko';
-  const langCode=isKo?'ko':'en';
-  // 선택된 음성이 있으면 우선 사용
-  if(_selectedVoiceName){
-    const sel=voices.find(v=>v.name===_selectedVoiceName&&v.lang.startsWith(langCode));
+  // 사용자가 직접 선택한 음성 우선
+  const selName=isKo?_selectedVoiceKo:_selectedVoiceEn;
+  if(selName){
+    const sel=voices.find(v=>v.name===selName);
     if(sel)return sel;
   }
-  // 자연스러운 음성 우선순위
+  // 자동 선택 우선순위
   const preferred=isKo
-    ?['Yuna','유나','나라','Nara','Google 한국의','SunHi','Heami','Korean']
-    :['Samantha','Google US English','Karen','Moira','Fiona','en-US'];
+    ?['유나 (향상됨)','Yuna (Enhanced)','유나','Yuna','나라 (향상됨)','Nara (Enhanced)','나라','Nara','Google 한국의','SunHi','Heami']
+    :['Samantha','Google US English','Alex','Daniel','Karen','Moira','Fiona','Tom'];
   for(const n of preferred){
-    const v=voices.find(v=>v.name.includes(n)&&v.lang.startsWith(langCode));
+    const v=voices.find(v=>v.name===n);
     if(v)return v;
   }
+  const langCode=isKo?'ko':'en';
   return voices.find(v=>v.lang.startsWith(langCode))||null;
 }
 function _ttsNext(){
@@ -126,8 +137,12 @@ function _ttsNext(){
   const {text,lang}=_ttsQueue.shift();
   if(!window.speechSynthesis||!text){_ttsBusy=false;_ttsNext();return;}
   const u=new SpeechSynthesisUtterance(text);
-  u.lang=lang==='ko'?'ko-KR':'en-US';
-  u.rate=lang==='ko'?.92:.9;u.pitch=lang==='ko'?1.05:1;u.volume=1;
+  const isKo=lang==='ko';
+  u.lang=isKo?'ko-KR':'en-US';
+  const p=TTS_PRESETS[_ttsPreset]||TTS_PRESETS.default;
+  u.rate=isKo?p.rate_ko:p.rate_en;
+  u.pitch=isKo?p.pitch_ko:p.pitch_en;
+  u.volume=1;
   const v=_bestVoice(lang);if(v)u.voice=v;
   let done=false;
   const finish=()=>{if(done)return;done=true;_ttsNext();};
@@ -202,9 +217,12 @@ function App(){
   const [trackPlaying,setTrackPlaying]=useState(false);
   const trackRef=useRef(null);
   const ttsTimerRef=useRef(null);
-  const [voices,setVoices]=useState([]);
-  const [selVoice,setSelVoice]=useState(null);
+  const [voices,setVoices]=useState({ko:[],en:[]});
+  const [selVoiceKo,setSelVoiceKo]=useState(null);
+  const [selVoiceEn,setSelVoiceEn]=useState(null);
+  const [preset,setPreset]=useState('default');
   const [showVoicePicker,setShowVoicePicker]=useState(false);
+  const [voiceTab,setVoiceTab]=useState('ko'); // 'ko'|'en'|'preset'
 
   const toast=useCallback((msg,tp='info')=>{
     const id=Date.now();
@@ -212,20 +230,23 @@ function App(){
     setTimeout(()=>setToasts(p=>p.filter(t=>t.id!==id)),2800);
   },[]);
 
-  // 음성 목록 로드
+  // 음성 목록 로드 (한국어/영어 분리)
   useEffect(()=>{
     const load=()=>{
       const vs=window.speechSynthesis?.getVoices()||[];
-      const ko=vs.filter(v=>v.lang.startsWith('ko'));
-      setVoices(ko.length?ko:vs.filter(v=>v.lang.startsWith('en')));
+      setVoices({
+        ko: vs.filter(v=>v.lang.startsWith('ko')),
+        en: vs.filter(v=>v.lang.startsWith('en')),
+      });
     };
     load();
     window.speechSynthesis&&(window.speechSynthesis.onvoiceschanged=load);
   },[]);
 
-  useEffect(()=>{
-    _selectedVoiceName=selVoice;
-  },[selVoice]);
+  // 선택된 음성 전역 변수 동기화
+  useEffect(()=>{_selectedVoiceKo=selVoiceKo;},[selVoiceKo]);
+  useEffect(()=>{_selectedVoiceEn=selVoiceEn;},[selVoiceEn]);
+  useEffect(()=>{_ttsPreset=preset;},[preset]);
 
   // Firebase 구독
   useEffect(()=>{
@@ -475,29 +496,97 @@ function App(){
             {/* 음성 선택 */}
             <div>
               <button onClick={()=>setShowVoicePicker(v=>!v)}
-                style={{width:'100%',padding:'6px 10px',background:'rgba(255,255,255,.04)',border:'1px solid rgba(255,255,255,.12)',borderRadius:7,color:'rgba(255,255,255,.6)',fontSize:11,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                style={{width:'100%',padding:'7px 10px',background:'rgba(255,255,255,.04)',border:'1px solid rgba(255,255,255,.15)',borderRadius:7,color:'rgba(255,255,255,.7)',fontSize:11,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
                 <span>🎤</span>
-                <span style={{flex:1,textAlign:'left'}}>음성 선택 {selVoice?`· ${selVoice.slice(0,18)}`:''}</span>
+                <span style={{flex:1,textAlign:'left',fontSize:11}}>
+                  음성: {TTS_PRESETS[preset]?.label||'기본'} · 
+                  한:{selVoiceKo?selVoiceKo.slice(0,8):'자동'} / 
+                  영:{selVoiceEn?selVoiceEn.slice(0,8):'자동'}
+                </span>
                 <span>{showVoicePicker?'▲':'▼'}</span>
               </button>
+
               {showVoicePicker&&(
-                <div style={{marginTop:4,background:'rgba(0,0,0,.8)',border:'1px solid rgba(255,255,255,.15)',borderRadius:7,overflow:'hidden',maxHeight:180,overflowY:'auto'}}>
-                  <button onClick={()=>{setSelVoice(null);_selectedVoiceName=null;setShowVoicePicker(false);toast('기본 음성으로 초기화');}}
-                    style={{display:'block',width:'100%',padding:'8px 12px',background:'transparent',border:'none',color:'rgba(255,255,255,.5)',fontSize:11,cursor:'pointer',textAlign:'left',borderBottom:'1px solid rgba(255,255,255,.07)'}}>
-                    🔄 기본값 (자동 선택)
-                  </button>
-                  {voices.map(v=>(
-                    <button key={v.name} onClick={()=>{setSelVoice(v.name);_selectedVoiceName=v.name;setShowVoicePicker(false);
-                      // 미리듣기
-                      const u=new SpeechSynthesisUtterance('안녕하세요. 테스트입니다.');
-                      u.voice=v;u.lang='ko-KR';u.rate=.92;
-                      window.speechSynthesis.cancel();window.speechSynthesis.speak(u);
-                      toast(`🎤 ${v.name} 선택 · 미리듣기 중`);
-                    }}
-                      style={{display:'block',width:'100%',padding:'8px 12px',background:selVoice===v.name?'rgba(0,229,255,.1)':'transparent',border:'none',color:selVoice===v.name?'#00e5ff':'rgba(255,255,255,.7)',fontSize:11,cursor:'pointer',textAlign:'left',borderBottom:'1px solid rgba(255,255,255,.05)'}}>
-                      {selVoice===v.name?'✓ ':''}{v.name} <span style={{fontSize:9,opacity:.5}}>({v.lang})</span>
-                    </button>
-                  ))}
+                <div style={{marginTop:4,background:'rgba(5,8,20,.97)',border:'1px solid rgba(255,255,255,.15)',borderRadius:9,overflow:'hidden'}}>
+                  {/* 탭 */}
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',borderBottom:'1px solid rgba(255,255,255,.1)'}}>
+                    {[['ko','🇰🇷 한국어'],['en','🇺🇸 영어'],['preset','🎙 톤']].map(([t,l])=>(
+                      <button key={t} onClick={()=>setVoiceTab(t)}
+                        style={{padding:'8px',border:'none',cursor:'pointer',fontSize:11,fontWeight:700,
+                          background:voiceTab===t?'rgba(0,229,255,.15)':'transparent',
+                          color:voiceTab===t?'#00e5ff':'rgba(255,255,255,.5)',
+                          borderRight:'1px solid rgba(255,255,255,.07)'}}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div style={{maxHeight:200,overflowY:'auto'}}>
+                    {/* 한국어 탭 */}
+                    {voiceTab==='ko'&&(<>
+                      <div style={{padding:'6px 10px',fontSize:10,color:'rgba(255,255,255,.3)',borderBottom:'1px solid rgba(255,255,255,.06)'}}>
+                        💡 맥에서 한국어 남성: 시스템 설정 → 손쉬운 사용 → 말하기 → 음성 관리
+                      </div>
+                      <VoiceBtn label="🔄 자동 선택" active={!selVoiceKo}
+                        onClick={()=>{setSelVoiceKo(null);_selectedVoiceKo=null;toast('한국어 자동 선택');}}/>
+                      {voices.ko.map(v=>(
+                        <VoiceBtn key={v.name} label={v.name} sub={v.lang}
+                          active={selVoiceKo===v.name}
+                          onClick={()=>{
+                            setSelVoiceKo(v.name);_selectedVoiceKo=v.name;
+                            const u=new SpeechSynthesisUtterance('안녕하세요. 테스트 음성입니다.');
+                            u.voice=v;u.lang='ko-KR';
+                            const p=TTS_PRESETS[preset]||TTS_PRESETS.default;
+                            u.rate=p.rate_ko;u.pitch=p.pitch_ko;
+                            window.speechSynthesis.cancel();window.speechSynthesis.speak(u);
+                            toast(`🎤 ${v.name} · 미리듣기`);
+                          }}/>
+                      ))}
+                      {voices.ko.length===0&&<div style={{padding:'12px',fontSize:11,color:'rgba(255,255,255,.3)',textAlign:'center'}}>한국어 음성을 찾을 수 없습니다</div>}
+                    </>)}
+
+                    {/* 영어 탭 */}
+                    {voiceTab==='en'&&(<>
+                      <div style={{padding:'6px 10px',fontSize:10,color:'rgba(255,255,255,.3)',borderBottom:'1px solid rgba(255,255,255,.06)'}}>
+                        🎙 남성 추천: Alex, Tom, Daniel(영국), Fred
+                      </div>
+                      <VoiceBtn label="🔄 자동 선택" active={!selVoiceEn}
+                        onClick={()=>{setSelVoiceEn(null);_selectedVoiceEn=null;toast('영어 자동 선택');}}/>
+                      {voices.en.map(v=>(
+                        <VoiceBtn key={v.name} label={v.name} sub={v.lang}
+                          active={selVoiceEn===v.name}
+                          onClick={()=>{
+                            setSelVoiceEn(v.name);_selectedVoiceEn=v.name;
+                            const u=new SpeechSynthesisUtterance('Welcome to the competition. Testing voice.');
+                            u.voice=v;u.lang=v.lang;
+                            const p=TTS_PRESETS[preset]||TTS_PRESETS.default;
+                            u.rate=p.rate_en;u.pitch=p.pitch_en;
+                            window.speechSynthesis.cancel();window.speechSynthesis.speak(u);
+                            toast(`🎤 ${v.name} · 미리듣기`);
+                          }}/>
+                      ))}
+                    </>)}
+
+                    {/* 톤 프리셋 탭 */}
+                    {voiceTab==='preset'&&(<>
+                      <div style={{padding:'6px 10px',fontSize:10,color:'rgba(255,255,255,.3)',borderBottom:'1px solid rgba(255,255,255,.06)'}}>
+                        🎙 클릭하면 "지금부터 대회를 시작합니다" 미리듣기
+                      </div>
+                      {Object.entries(TTS_PRESETS).map(([key,p])=>(
+                        <VoiceBtn key={key} label={p.label}
+                          sub={`한국어 속도:${p.rate_ko} 피치:${p.pitch_ko} / 영어 속도:${p.rate_en} 피치:${p.pitch_en}`}
+                          active={preset===key}
+                          onClick={()=>{
+                            setPreset(key);_ttsPreset=key;
+                            const v=_bestVoice('ko');
+                            const u=new SpeechSynthesisUtterance('지금부터 대회를 시작하겠습니다. 환영합니다.');
+                            if(v)u.voice=v;u.lang='ko-KR';u.rate=p.rate_ko;u.pitch=p.pitch_ko;u.volume=1;
+                            window.speechSynthesis.cancel();window.speechSynthesis.speak(u);
+                            toast(`${p.label} 톤 적용 · 미리듣기`);
+                          }}/>
+                      ))}
+                    </>)}
+                  </div>
                 </div>
               )}
             </div>
@@ -564,6 +653,20 @@ function WBtn({icon,label,sub,color,onClick,active,disabled,big}){
       {active&&<span style={{fontSize:8,color,fontWeight:700}} className="pulse-anim">●</span>}
     </div>
   </button>);
+}
+
+function VoiceBtn({label,sub,active,onClick}){
+  return(
+    <button onClick={onClick}
+      style={{display:'block',width:'100%',padding:'8px 12px',textAlign:'left',border:'none',cursor:'pointer',
+        background:active?'rgba(0,229,255,.12)':'transparent',
+        borderBottom:'1px solid rgba(255,255,255,.05)'}}>
+      <div style={{fontSize:11,fontWeight:active?700:400,color:active?'#00e5ff':'rgba(255,255,255,.75)'}}>
+        {active?'✓ ':''}{label}
+      </div>
+      {sub&&<div style={{fontSize:9,color:'rgba(255,255,255,.35)',marginTop:1}}>{sub}</div>}
+    </button>
+  );
 }
 
 function CourtLayout({curHeat,layout,cMode,judges,cameras}){
