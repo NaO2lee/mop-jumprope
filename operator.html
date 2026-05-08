@@ -132,6 +132,7 @@ function App(){
   const [soundLib,setSoundLib]=useState({}); // {eventCode: {url, name, ...}}
   const [trackPlaying,setTrackPlaying]=useState(false);
   const trackAudioRef=useRef(null);
+  const [cameras,setCameras]=useState({}); // 카메라 연결 상태
 
   const toast=useCallback((msg,tp='info')=>{
     const id=Date.now();
@@ -151,6 +152,7 @@ function App(){
     db.ref(`${r}/operator`).on('value',s=>{const v=s.val();if(!v)return;if(v.currentHeatNo)setHeatNo(v.currentHeatNo);if(v.heatStatus)setHState(v.heatStatus);if(v.lang)setLang(v.lang);});
     db.ref(`${r}/monitoring/judges`).on('value',s=>setJudges(s.val()||{}));
     db.ref(`${r}/soundLibrary`).on('value',s=>setSoundLib(s.val()||{}));
+    db.ref(`${r}/monitoring/cameras`).on('value',s=>setCameras(s.val()||{}));
     return()=>db.ref(r).off();
   },[cfg.roomId]);
 
@@ -357,69 +359,89 @@ function App(){
           </div>
         </div>
 
-        {/* ── 워크플로우 + 멘트 ── */}
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
-          {/* 워크플로우 */}
-          <div style={{background:'rgba(255,255,255,.02)',border:'1px solid rgba(255,255,255,.08)',borderRadius:12,padding:14}}>
-            <div style={{fontSize:10,letterSpacing:'.2em',color:'rgba(255,255,255,.35)',marginBottom:10,textTransform:'uppercase'}}>진행 워크플로우</div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:7}}>
+        {/* ── 워크플로우 + 멘트 + 코트 보드 (통합 레이아웃) ── */}
+        <div style={{display:'grid',gridTemplateColumns:'300px 1fr',gap:10,marginBottom:10}}>
+
+          {/* 왼쪽: 워크플로우 컴팩트 */}
+          <div style={{background:'rgba(255,255,255,.02)',border:'1px solid rgba(255,255,255,.08)',borderRadius:12,padding:12,display:'flex',flexDirection:'column',gap:6}}>
+            <div style={{fontSize:10,letterSpacing:'.2em',color:'rgba(255,255,255,.35)',marginBottom:4,textTransform:'uppercase'}}>진행 워크플로우</div>
+
+            {/* 개회/폐회 */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:5}}>
               <WBtn icon="🏆" label="대회 개회" desc="개회사+첫 소집" color="#ffd60a" onClick={doOpen}/>
-              <WBtn icon="🏁" label="대회 폐회" desc="폐회사 안내" color="#64748b" onClick={doClose}/>
+              <WBtn icon="🏁" label="대회 폐회" desc="폐회사" color="#64748b" onClick={doClose}/>
             </div>
-            <div style={{borderTop:'1px solid rgba(255,255,255,.07)',marginBottom:7}}/>
-            <WBtn icon="📢" label={`소집 안내 · HEAT ${curHeat?.no||curHeat?.heatNo||'—'}`} desc="선수 코트 입장 안내 + 음성" color="#ffd60a" big active={hState==='calling'} onClick={doCall}/>
-            <div style={{height:7}}/>
-            <WBtn icon={currentSound?'🎵':'▶'} 
-              label={currentSound?`종목 음원 재생 · ${(curHeat?.event||'').split(' ')[0]}`:'시작 신호음 (합성음)'} 
-              desc={currentSound?`📎 ${currentSound.name} · 시작~종료 통합 트랙`:`종목 "${curHeat?.event||'—'}" 음원 없음 · 합성음 사용 (라이브러리: ${Object.keys(soundLib).length}개)`} 
+
+            <div style={{borderTop:'1px solid rgba(255,255,255,.07)'}}/>
+
+            {/* 소집 */}
+            <WBtn icon="📢" label={`소집 · HEAT ${curHeat?.no||curHeat?.heatNo||'—'}`}
+              desc="선수 입장 안내 + 음성" color="#ffd60a" big active={hState==='calling'} onClick={doCall}/>
+
+            {/* 음원 재생 */}
+            <WBtn icon={currentSound?'🎵':'▶'}
+              label={currentSound?`음원 재생 · ${(curHeat?.event||'').split(' ')[0]}`:'시작 신호음'}
+              desc={currentSound?`📎 ${currentSound.name}`:`음원 없음 · 합성음 (${Object.keys(soundLib).length}개)`}
               color="#00e5ff" big active={hState==='racing'||trackPlaying} onClick={doStart}/>
-            {trackPlaying && (
+
+            {/* 강제 정지 */}
+            {trackPlaying&&(
               <button onClick={doStopTrack} className="wf-btn"
-                style={{marginTop:6,borderColor:'#ff3d71',background:'rgba(255,61,113,.15)',color:'#ff3d71',cursor:'pointer'}}>
-                <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <span style={{fontSize:15}}>⏹</span>
-                  <div>
-                    <div style={{fontSize:12,fontWeight:700}}>음원 강제 정지</div>
-                    <div style={{fontSize:10,opacity:.7}}>응급 상황 시 사용</div>
-                  </div>
+                style={{borderColor:'#ff3d71',background:'rgba(255,61,113,.15)',color:'#ff3d71',cursor:'pointer'}}>
+                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                  <span>⏹</span><span style={{fontSize:12,fontWeight:700}}>음원 강제 정지</span>
                 </div>
               </button>
             )}
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,margin:'7px 0'}}>
-              <WBtn icon="⏰" label="30초 경고음" desc="" color="#ff9f0a" onClick={do30}/>
-              <WBtn icon="🔔" label="재호출음" desc="" color="#f87171" onClick={doRecall}/>
+
+            {/* 종료 + 다음 */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:5}}>
+              <WBtn icon="■" label="종료 신호음" desc="퇴장 안내+음성" color="#00ff88" big active={hState==='finished'} onClick={doEnd}/>
+              <WBtn icon="⏭" label="다음 히트" desc={hIdx>=heats.length-1?"마지막":`→ HEAT ${(curHeat?.no||curHeat?.heatNo||0)+1}`}
+                color="#a78bfa" big disabled={hIdx>=heats.length-1} onClick={doNext}/>
             </div>
-            <WBtn icon="■" label="종료 신호음" desc="퇴장 안내 + 음성" color="#00ff88" big active={hState==='finished'} onClick={doEnd}/>
-            <div style={{height:7}}/>
-            <WBtn icon="⏭" label="다음 히트 소집" desc={hIdx>=heats.length-1?"마지막 히트":`HEAT ${(curHeat?.no||curHeat?.heatNo||0)+1}로 이동 후 자동 소집`} color="#a78bfa" big disabled={hIdx>=heats.length-1} onClick={doNext}/>
+
+            <div style={{borderTop:'1px solid rgba(255,255,255,.07)'}}/>
+
+            {/* 멘트 표시 */}
+            <div style={{padding:'8px 10px',background:'rgba(255,214,10,.05)',border:'1px solid rgba(255,214,10,.15)',borderRadius:7,fontSize:11,lineHeight:1.7,color:'#fef9c3',minHeight:50}}>
+              {mentTxt||<span style={{color:'rgba(255,255,255,.25)'}}>진행 버튼을 누르면 자동 생성</span>}
+            </div>
+
+            {/* 직접 입력 */}
+            <textarea value={customMent} onChange={e=>setCustomMent(e.target.value)} rows={2}
+              placeholder="직접 안내 멘트..."
+              style={{width:'100%',background:'rgba(0,0,0,.3)',border:'1px solid rgba(255,255,255,.1)',borderRadius:7,padding:'8px 10px',fontSize:12,color:'#fff',resize:'none',fontFamily:'Pretendard,sans-serif'}}/>
+            <button onClick={doCustom}
+              style={{padding:'8px',background:'rgba(0,229,255,.12)',border:'1px solid rgba(0,229,255,.3)',borderRadius:7,color:'#00e5ff',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+              📢 안내 방송 송출
+            </button>
           </div>
 
-          {/* 멘트 */}
-          <div style={{display:'flex',flexDirection:'column',gap:10}}>
-            <div style={{background:'rgba(255,255,255,.02)',border:'1px solid rgba(255,255,255,.08)',borderRadius:12,padding:14,flex:1}}>
-              <div style={{fontSize:10,letterSpacing:'.2em',color:'rgba(255,255,255,.35)',marginBottom:8,textTransform:'uppercase'}}>📣 현재 안내 멘트</div>
-              <div style={{minHeight:90,padding:'10px 14px',background:'rgba(255,214,10,.05)',border:'1px solid rgba(255,214,10,.2)',borderRadius:8,fontSize:13,lineHeight:1.8,color:'#fef9c3'}}>
-                {mentTxt||'(진행 버튼을 누르면 자동 생성됩니다)'}
+          {/* 오른쪽: 코트 보드 */}
+          <div>
+            {/* 상태 요약 바 */}
+            <div style={{display:'flex',gap:8,marginBottom:8,flexWrap:'wrap',alignItems:'center'}}>
+              <div style={{fontSize:10,letterSpacing:'.3em',color:'#00e5ff',textTransform:'uppercase',fontFamily:'Bebas Neue,sans-serif',fontSize:16}}>코트 진행 보드</div>
+              <div style={{marginLeft:'auto',display:'flex',gap:6}}>
+                {/* 준비 현황 */}
+                <div style={{fontSize:11,padding:'3px 10px',borderRadius:20,background:'rgba(0,255,136,.1)',border:'1px solid rgba(0,255,136,.3)',color:'#00ff88'}}>
+                  ⚖ {readyCnt}명 READY
+                </div>
+                {/* 카메라 현황 */}
+                <div style={{fontSize:11,padding:'3px 10px',borderRadius:20,background:'rgba(0,229,255,.1)',border:'1px solid rgba(0,229,255,.3)',color:'#00e5ff'}}>
+                  📷 {Object.values(cameras).filter(c=>c.online&&Date.now()-c.lastSeen<15000).length}대 연결
+                </div>
+                {/* 모두 준비 시 강조 */}
+                {curHeat&&readyCnt>0&&readyCnt>=Object.keys(curHeat.courts||{}).length&&(
+                  <div style={{fontSize:11,padding:'3px 10px',borderRadius:20,background:'rgba(0,255,136,.25)',border:'1px solid #00ff88',color:'#00ff88',fontWeight:700,animation:'pulse 1s ease-in-out infinite'}}>
+                    ✅ 모두 준비 완료 · 음원 재생 가능
+                  </div>
+                )}
               </div>
-              <div style={{marginTop:7,fontSize:10,color:'rgba(255,255,255,.25)'}}>→ Firebase announcements 동시 저장 (뷰어 팝업 연동)</div>
             </div>
-            <div style={{background:'rgba(255,255,255,.02)',border:'1px solid rgba(255,255,255,.08)',borderRadius:12,padding:14}}>
-              <div style={{fontSize:10,letterSpacing:'.2em',color:'rgba(255,255,255,.35)',marginBottom:8,textTransform:'uppercase'}}>✏ 직접 안내 멘트</div>
-              <textarea value={customMent} onChange={e=>setCustomMent(e.target.value)} rows={3}
-                placeholder="직접 안내할 내용을 입력하세요..."
-                style={{width:'100%',background:'rgba(0,0,0,.3)',border:'1px solid rgba(255,255,255,.1)',borderRadius:8,padding:'10px 12px',fontSize:13,color:'#fff',resize:'vertical',fontFamily:'Pretendard,sans-serif',lineHeight:1.6}}/>
-              <button onClick={doCustom} style={{marginTop:7,width:'100%',padding:'10px',background:'rgba(0,229,255,.12)',border:'1px solid rgba(0,229,255,.3)',borderRadius:8,color:'#00e5ff',fontSize:13,fontWeight:700,cursor:'pointer'}}>
-                📢 안내 방송 송출
-              </button>
-            </div>
+            <CourtLayout curHeat={curHeat} layout={layout} cMode={cMode} judges={judges} cameras={cameras}/>
           </div>
-        </div>
-
-        {/* ── 코트 보드 ── */}
-        <div style={{marginBottom:10}}>
-          <div style={{fontSize:10,letterSpacing:'.3em',color:'#00e5ff',textTransform:'uppercase'}}>COURT BOARD</div>
-          <div className="fd" style={{fontSize:20,marginBottom:8}}>코트 진행 보드</div>
-          <CourtLayout curHeat={curHeat} layout={layout} cMode={cMode} judges={judges}/>
         </div>
 
         {/* ── 하단 요약 ── */}
@@ -467,7 +489,7 @@ function WBtn({icon,label,desc,color,onClick,active,disabled,big}){
 }
 
 // ── 코트 레이아웃 ──
-function CourtLayout({curHeat,layout,cMode,judges}){
+function CourtLayout({curHeat,layout,cMode,judges,cameras}){
   const athMap=useMemo(()=>{
     const m={};if(!curHeat?.courts)return m;
     Object.entries(curHeat.courts).forEach(([k,c])=>m[k]=c.athlete||null);return m;
@@ -480,34 +502,70 @@ function CourtLayout({curHeat,layout,cMode,judges}){
   const CourtBox=({cid})=>{
     const ath=athMap[cid];
     const js=judges[cid]||{};
-    const isOnline=js.online&&Date.now()-js.lastSeen<15000;
-    let cls='court-card';
-    if(js.submitted)cls+=' submitted';
-    else if(js.ready)cls+=' ready';
-    else if(ath)cls+=' has-ath';
-    return(<div className={cls} style={{minHeight:68}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:3}}>
-        <div className="fd" style={{fontSize:16,color:'#00e5ff'}}>{cid}</div>
-        <div style={{display:'flex',gap:3,alignItems:'center'}}>
-          {isOnline&&<span style={{width:5,height:5,borderRadius:'50%',background:'#00ff88',display:'block'}}/>}
-          {js.ready&&!js.submitted&&<span style={{fontSize:9,color:'#00ff88',fontWeight:700}}>READY</span>}
-          {js.submitted&&<span style={{fontSize:9,color:'#00ff88',fontWeight:700}}>✓{js.score}</span>}
+    const cs=cameras[cid]||{};
+    const now=Date.now();
+    const judgeOnline=js.online&&now-js.lastSeen<15000;
+    const camOnline=cs.online&&now-cs.lastSeen<15000;
+    const isReady=js.ready;
+    const isSubmitted=js.submitted;
+
+    // 배경색 결정
+    let bg='rgba(255,255,255,.03)';
+    let border='rgba(255,255,255,.08)';
+    if(isSubmitted){bg='rgba(0,255,136,.1)';border='rgba(0,255,136,.6)';}
+    else if(isReady){bg='rgba(0,255,136,.06)';border='rgba(0,255,136,.4)';}
+    else if(ath){bg='rgba(0,229,255,.05)';border='rgba(0,229,255,.3)';}
+
+    return(
+      <div style={{background:bg,border:`1.5px solid ${border}`,borderRadius:8,padding:'8px',minHeight:80,transition:'all .2s'}}>
+        {/* 코트 번호 + 상태 아이콘 */}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+          <div className="fd" style={{fontSize:17,color:'#00e5ff',lineHeight:1}}>{cid}</div>
+          <div style={{display:'flex',gap:4,alignItems:'center'}}>
+            {/* 카메라 */}
+            <span title={camOnline?'카메라 연결됨':'카메라 미연결'}
+              style={{fontSize:11,opacity:camOnline?1:.25}}>
+              {camOnline?'📷':'📷'}
+            </span>
+            {/* 심판 */}
+            <span title={judgeOnline?(isReady?'심판 준비 완료':'심판 접속 중'):'심판 미접속'}
+              style={{fontSize:11,opacity:judgeOnline?1:.25}}>
+              {judgeOnline?(isReady?'✅':'⚖'):'⚖'}
+            </span>
+            {/* 점수 제출 */}
+            {isSubmitted&&<span style={{fontSize:10,color:'#00ff88',fontWeight:700,fontFamily:'monospace'}}>✓{js.score}</span>}
+          </div>
         </div>
+
+        {/* 선수 정보 */}
+        {ath?(
+          <>
+            <div style={{display:'flex',gap:5,alignItems:'baseline'}}>
+              <span className="fm" style={{fontSize:9,color:'rgba(255,255,255,.35)'}}>#{ath.bib}</span>
+              <span style={{fontSize:11,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{ath.name}</span>
+            </div>
+            <div style={{fontSize:9,color:'rgba(255,255,255,.3)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{ath.club||''}</div>
+            {/* 상태 뱃지 */}
+            {(isReady||isSubmitted)&&(
+              <div style={{marginTop:3,fontSize:9,fontWeight:700,
+                color:isSubmitted?'#00ff88':'#ffd60a',
+                background:isSubmitted?'rgba(0,255,136,.1)':'rgba(255,214,10,.1)',
+                padding:'1px 5px',borderRadius:3,display:'inline-block'}}>
+                {isSubmitted?`✓ ${js.score}점 제출`:'✋ READY'}
+              </div>
+            )}
+          </>
+        ):(
+          <div style={{fontSize:18,color:'rgba(255,255,255,.1)',textAlign:'center',marginTop:8}}>✕</div>
+        )}
       </div>
-      {ath?(<>
-        <div style={{display:'flex',gap:5,alignItems:'baseline'}}>
-          <span className="fm" style={{fontSize:9,color:'rgba(255,255,255,.35)'}}>#{ath.bib}</span>
-          <span style={{fontSize:11,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{ath.name}</span>
-        </div>
-        <div style={{fontSize:9,color:'rgba(255,255,255,.3)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginTop:2}}>{ath.club||''}</div>
-      </>):(<div style={{fontSize:18,color:'rgba(255,255,255,.1)',textAlign:'center',marginTop:8}}>✕</div>)}
-    </div>);
+    );
   };
 
   const StBox=({label,rows,cpsRow})=>(<div className="st-box">
     <div className="st-lbl">{label}</div>
     {rows.map((row,ri)=>(
-      <div key={ri} style={{display:'grid',gridTemplateColumns:`repeat(${cpsRow},1fr)`,gap:6,marginBottom:6}}>
+      <div key={ri} style={{display:'grid',gridTemplateColumns:`repeat(${cpsRow},1fr)`,gap:5,marginBottom:5}}>
         {row.map(c=><CourtBox key={c} cid={c}/>)}
       </div>
     ))}

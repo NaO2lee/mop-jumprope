@@ -6897,54 +6897,26 @@ let soundLibrary = {}; // {eventCode: {url, name, source: 'github'|'custom'}}
 // GitHub Repo 기본 URL
 const GITHUB_SOUND_BASE = 'https://today119.github.io/mop-jumprope/';
 
-// GitHub에 올라간 mp3 파일 목록 (자동 감지용)
-const GITHUB_SOUND_FILES = [
-  'DDSC_30sSpeed.mp3',
-  'Double Dutch Speed 1X60.mp3',
-  'Double Dutch Speed 2X60.mp3',
-  'Double Dutch Speed 3X40.mp3',
-  'Double Dutch Triad Freestyle.mp3',
-  'Double Sutch Speed 1X120.mp3',
-  'Freestyle Event.mp3',
-  'Single Rope Speed 1X120_8자마라톤.mp3',
-  'Single Rope Speed 1X180.mp3',
-  'Single Rope Speed 1X30.mp3',
-  'Single Rope Speed 2X30.mp3',
-  'Single Rope Speed 4X30.mp3',
+// GitHub에 올라간 mp3 파일과 종목 코드 직접 매핑 (자동감지 대신 확실한 매핑)
+const GITHUB_SOUND_MAP = [
+  { file: 'Single Rope Speed 1X30.mp3',          prefix: 'SRSS' },
+  { file: 'Single Rope Speed 2X30.mp3',          prefix: 'SRSR' },
+  { file: 'Single Rope Speed 4X30.mp3',          prefix: 'SRRE' },
+  { file: 'Single Rope Speed 1X180.mp3',         prefix: 'SRSE 3min' },
+  { file: 'Single Rope Speed 1X120_8자마라톤.mp3', prefix: 'LR-8M' },
+  { file: 'Double Dutch Speed 1X60.mp3',         prefix: 'DDSS' },
+  { file: 'Double Dutch Speed 2X60.mp3',         prefix: 'DDSR' },
+  { file: 'Double Dutch Speed 3X40.mp3',         prefix: 'DDRE' },
+  { file: 'Double Sutch Speed 1X120.mp3',        prefix: 'DDSE' },
+  { file: 'DDSC_30sSpeed.mp3',                   prefix: 'DDSC' },
+  { file: 'Double Dutch Triad Freestyle.mp3',    prefix: 'DDTF' },
+  // 프리스타일 관련 종목 — Freestyle Event.mp3 공통 사용
+  { file: 'Freestyle Event.mp3',                 prefix: 'SRIF' },
+  { file: 'Freestyle Event.mp3',                 prefix: 'SRPF' },
+  { file: 'Freestyle Event.mp3',                 prefix: 'SRTU' },
+  { file: 'Freestyle Event.mp3',                 prefix: 'SRDR' },
+  { file: 'Freestyle Event.mp3',                 prefix: 'DDPF' },
 ];
-
-// 파일명에서 종목 코드 자동 추출
-function detectEventCodeFromFilename(filename){
-  const f=filename.toLowerCase().replace(/\.[^.]+$/,'').replace(/\s+/g,'');
-  // 1순위: 종목 코드 직접 매칭 (SRSS, DDSS 등)
-  for(const ev of EVENTS){
-    const code=ev.code.split(/\s+/)[0].toLowerCase();
-    if(f.includes(code)) return ev.code;
-  }
-  // 2순위: 영문 종목명 키워드 매칭 (정확도 향상)
-  const patterns = [
-    {kw:['singleropespeed1x30','single_rope_speed_1x30'], pref:'SRSS'},
-    {kw:['singleropespeed2x30','single_rope_speed_2x30'], pref:'SRSR'},
-    {kw:['singleropespeed4x30','single_rope_speed_4x30'], pref:'SRRE'},
-    {kw:['singleropespeed1x180','single_rope_speed_1x180'], pref:'SRSE 3min'},
-    {kw:['1x120_8자마라톤','8자마라톤','figure8'], pref:'LR-8M'},
-    {kw:['singleropespeed1x120','single_rope_speed_1x120'], pref:'SRSE'},
-    {kw:['doubledutchspeed1x60','double_dutch_speed_1x60'], pref:'DDSS'},
-    {kw:['doubledutchspeed2x60','double_dutch_speed_2x60'], pref:'DDSR'},
-    {kw:['doubledutchspeed3x40','double_dutch_speed_3x40'], pref:'DDRE'},
-    {kw:['doublesutchspeed1x120','double_sutch_speed_1x120','double_dutch_speed_1x120'], pref:'DDSE'},
-    {kw:['ddsc'], pref:'DDSC'},
-    {kw:['doubledutchtriadfreestyle','double_dutch_triad'], pref:'DDTF'},
-    {kw:['freestyleevent','freestyle_event'], pref:'SRIF'},
-  ];
-  for(const p of patterns){
-    if(p.kw.some(k=>f.includes(k))){
-      const ev=EVENTS.find(e=>e.code.startsWith(p.pref));
-      if(ev)return ev.code;
-    }
-  }
-  return null;
-}
 
 // GitHub URL 자동 생성
 function getGithubSoundUrl(filename){
@@ -6954,13 +6926,14 @@ function getGithubSoundUrl(filename){
 // 사운드 라이브러리 자동 매핑 (GitHub 파일을 종목 코드에 자동 연결)
 function autoMapGithubSounds(){
   let mapped=0;
-  for(const filename of GITHUB_SOUND_FILES){
-    const code=detectEventCodeFromFilename(filename);
-    if(code && !soundLibrary[code]){
-      soundLibrary[code] = {
-        url: getGithubSoundUrl(filename),
-        name: filename,
-        size: 0, // GitHub은 파일 크기 정보 없음
+  for(const {file, prefix} of GITHUB_SOUND_MAP){
+    // prefix로 EVENTS에서 종목 코드 찾기
+    const ev=EVENTS.find(e=>e.code.startsWith(prefix)||e.code===prefix);
+    if(ev && !soundLibrary[ev.code]){
+      soundLibrary[ev.code]={
+        url: getGithubSoundUrl(file),
+        name: file,
+        size: 0,
         source: 'github',
         uploadedAt: Date.now()
       };
