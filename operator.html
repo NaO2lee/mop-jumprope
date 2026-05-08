@@ -52,9 +52,46 @@ const SIG={
   recall:()=>{for(let i=0;i<4;i++)tone(i%2?880:660,.2,'square',.45,i*.28);},
 };
 
-// ── TTS ──
-function speak(txt,lang='ko'){if(!window.speechSynthesis)return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(txt);u.lang=lang==='ko'?'ko-KR':'en-US';u.rate=.95;u.volume=1;window.speechSynthesis.speak(u);}
-function speakBoth(ko,en,mode){window.speechSynthesis?.cancel();if(mode==='ko'||mode==='both')speak(ko,'ko');if(mode==='en'||mode==='both')setTimeout(()=>speak(en,'en'),mode==='both'?ko.length*75:0);}
+// ── TTS 엔진 (큐 방식 + 문장 분할) ──
+let _ttsQueue=[];
+let _ttsBusy=false;
+function _ttsNext(){
+  if(_ttsQueue.length===0){_ttsBusy=false;return;}
+  _ttsBusy=true;
+  const {text,lang}=_ttsQueue.shift();
+  if(!window.speechSynthesis||!text){_ttsBusy=false;_ttsNext();return;}
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang=lang==='ko'?'ko-KR':'en-US';
+  u.rate=lang==='ko'?0.95:0.9;
+  u.pitch=1;u.volume=1;
+  let done=false;
+  const finish=()=>{if(done)return;done=true;_ttsNext();};
+  u.onend=finish;
+  u.onerror=finish;
+  // 안전장치: speech가 멈춘 채로 안 끝나는 경우 대비 (브라우저 버그 우회)
+  setTimeout(()=>{if(!done){console.warn('[TTS] timeout fallback');finish();}}, text.length*200+5000);
+  window.speechSynthesis.speak(u);
+}
+function _ttsEnqueue(text,lang){if(text&&text.trim())_ttsQueue.push({text:text.trim(),lang});if(!_ttsBusy)_ttsNext();}
+function _ttsClear(){_ttsQueue=[];window.speechSynthesis?.cancel();_ttsBusy=false;}
+
+// 긴 텍스트를 문장 단위로 분할 (브라우저 TTS는 긴 문장에서 끊김)
+function _splitSentences(text){
+  if(!text)return[];
+  return text.split(/(?<=[.!?。])\s+|(?<=[.!?])$/g)
+    .map(s=>s.trim())
+    .filter(s=>s.length>0);
+}
+
+function speakBoth(ko,en,mode){
+  _ttsClear();
+  if(mode==='ko'||mode==='both'){
+    _splitSentences(ko).forEach(s=>_ttsEnqueue(s,'ko'));
+  }
+  if(mode==='en'||mode==='both'){
+    _splitSentences(en).forEach(s=>_ttsEnqueue(s,'en'));
+  }
+}
 
 // ── 멘트 템플릿 ──
 function ment(type,{comp='대회',heatNo=1,event=''}={}){
@@ -92,6 +129,9 @@ function App(){
   const [mentTxt,setMentTxt]=useState('');
   const [customMent,setCustomMent]=useState('');
   const [athletes,setAthletes]=useState({});
+  const [soundLib,setSoundLib]=useState({}); // {eventCode: {url, name, ...}}
+  const [trackPlaying,setTrackPlaying]=useState(false);
+  const trackAudioRef=useRef(null);
 
   const toast=useCallback((msg,tp='info')=>{
     const id=Date.now();
@@ -110,6 +150,7 @@ function App(){
     });
     db.ref(`${r}/operator`).on('value',s=>{const v=s.val();if(!v)return;if(v.currentHeatNo)setHeatNo(v.currentHeatNo);if(v.heatStatus)setHState(v.heatStatus);if(v.lang)setLang(v.lang);});
     db.ref(`${r}/monitoring/judges`).on('value',s=>setJudges(s.val()||{}));
+    db.ref(`${r}/soundLibrary`).on('value',s=>setSoundLib(s.val()||{}));
     return()=>db.ref(r).off();
   },[cfg.roomId]);
 
@@ -130,10 +171,83 @@ function App(){
     setMentTxt(m.ko);setHState('calling');fbOp({heatStatus:'calling'});
     fbAnn(m.ko,m.en);speakBoth(m.ko,m.en,lang);SIG.recall();toast('📢 소집 안내 송출');
   };
+  // 종목 음원 검색 (강력한 매칭: 정확/접두/코드/공백제거)
+  const findEventSound=(heat)=>{
+    if(!heat||!soundLib||Object.keys(soundLib).length===0)return null;
+    const ev=heat.event||'';
+    if(!ev)return null;
+
+    // 1. 완전 일치
+    if(soundLib[ev])return soundLib[ev];
+
+    // 2. 정규화 비교 (공백/대소문자 무시)
+    const norm=s=>String(s).toLowerCase().replace(/\s+/g,'').replace(/×/g,'x');
+    const evNorm=norm(ev);
+    for(const k of Object.keys(soundLib)){
+      if(norm(k)===evNorm)return soundLib[k];
+    }
+
+    // 3. 접두 매칭 (코드 부분만)
+    const evCode=ev.split(/\s+/)[0]; // "SRSS"
+    for(const k of Object.keys(soundLib)){
+      if(k.startsWith(evCode)||k.startsWith(ev))return soundLib[k];
+    }
+
+    // 4. 종목 코드만 매칭 (라이브러리 키도 코드로 시작하는 것)
+    for(const k of Object.keys(soundLib)){
+      const kCode=k.split(/\s+/)[0];
+      if(kCode===evCode)return soundLib[k];
+    }
+
+    return null;
+  };
+  const currentSound=useMemo(()=>findEventSound(curHeat),[curHeat,soundLib]);
+
+  // 종목 음원 통합 재생 (시작~종료가 한 트랙)
+  const doPlayEventTrack=()=>{
+    if(!currentSound){toast('이 종목 음원이 없습니다',true);return;}
+    if(trackAudioRef.current){trackAudioRef.current.pause();trackAudioRef.current=null;}
+    const audio=new Audio(currentSound.url);
+    trackAudioRef.current=audio;
+    setTrackPlaying(true);
+    setHState('racing');
+    fbOp({heatStatus:'racing'});
+    fbSig('start');
+    const m=ment('start',{comp});
+    setMentTxt(m.ko);
+    fbAnn(m.ko,m.en);
+    audio.onended=()=>{
+      setTrackPlaying(false);
+      setHState('finished');
+      fbOp({heatStatus:'finished'});
+      const em=ment('end',{comp});
+      setMentTxt(em.ko);fbAnn(em.ko,em.en);speakBoth(em.ko,em.en,lang);
+      toast('✓ 종목 음원 재생 완료');
+    };
+    audio.onerror=()=>{
+      setTrackPlaying(false);
+      toast('음원 재생 실패',true);
+    };
+    audio.play().then(()=>{
+      toast(`▶ ${curHeat?.event||''} 음원 재생`);
+    }).catch(e=>{
+      setTrackPlaying(false);
+      toast('재생 실패: '+e.message,true);
+    });
+  };
+  const doStopTrack=()=>{
+    if(trackAudioRef.current){trackAudioRef.current.pause();trackAudioRef.current=null;}
+    setTrackPlaying(false);
+    toast('⏹ 음원 정지');
+  };
+
   const doStart=()=>{
+    // 종목 음원이 있으면 자동으로 통합 트랙 재생
+    if(currentSound){doPlayEventTrack();return;}
+    // 없으면 합성음 fallback
     const m=ment('start',{comp});setMentTxt(m.ko);setHState('racing');
     fbOp({heatStatus:'racing'});fbSig('start');fbAnn(m.ko,m.en);
-    SIG.start();speakBoth(m.ko,m.en,lang);toast('▶ 시작 신호음');
+    SIG.start();speakBoth(m.ko,m.en,lang);toast('▶ 시작 신호음 (합성음)');
   };
   const do30=()=>{fbSig('warn30');SIG.warn30();toast('⏰ 30초 경고음');};
   const doEnd=()=>{
@@ -255,7 +369,22 @@ function App(){
             <div style={{borderTop:'1px solid rgba(255,255,255,.07)',marginBottom:7}}/>
             <WBtn icon="📢" label={`소집 안내 · HEAT ${curHeat?.no||curHeat?.heatNo||'—'}`} desc="선수 코트 입장 안내 + 음성" color="#ffd60a" big active={hState==='calling'} onClick={doCall}/>
             <div style={{height:7}}/>
-            <WBtn icon="▶" label="시작 신호음" desc={`심판 준비 ${readyCnt}명 확인 후 발사`} color="#00e5ff" big active={hState==='racing'} onClick={doStart}/>
+            <WBtn icon={currentSound?'🎵':'▶'} 
+              label={currentSound?`종목 음원 재생 · ${(curHeat?.event||'').split(' ')[0]}`:'시작 신호음 (합성음)'} 
+              desc={currentSound?`📎 ${currentSound.name} · 시작~종료 통합 트랙`:`종목 "${curHeat?.event||'—'}" 음원 없음 · 합성음 사용 (라이브러리: ${Object.keys(soundLib).length}개)`} 
+              color="#00e5ff" big active={hState==='racing'||trackPlaying} onClick={doStart}/>
+            {trackPlaying && (
+              <button onClick={doStopTrack} className="wf-btn"
+                style={{marginTop:6,borderColor:'#ff3d71',background:'rgba(255,61,113,.15)',color:'#ff3d71',cursor:'pointer'}}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{fontSize:15}}>⏹</span>
+                  <div>
+                    <div style={{fontSize:12,fontWeight:700}}>음원 강제 정지</div>
+                    <div style={{fontSize:10,opacity:.7}}>응급 상황 시 사용</div>
+                  </div>
+                </div>
+              </button>
+            )}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,margin:'7px 0'}}>
               <WBtn icon="⏰" label="30초 경고음" desc="" color="#ff9f0a" onClick={do30}/>
               <WBtn icon="🔔" label="재호출음" desc="" color="#f87171" onClick={doRecall}/>
