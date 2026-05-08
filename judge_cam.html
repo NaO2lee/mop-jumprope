@@ -97,14 +97,12 @@ html,body{height:100dvh;overflow:hidden;background:var(--bg);color:var(--tx);fon
 .ath-club{font-size:10px;color:var(--mu2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
 /* 카운트 영역 */
-.count-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 16px;gap:8px;}
-.count-num{font-family:'Bebas Neue',sans-serif;font-size:clamp(80px,25vw,140px);line-height:.9;color:#fff;cursor:pointer;user-select:none;transition:all .08s;text-shadow:0 0 60px rgba(255,255,255,.15);}
-.count-num.bump{color:var(--ac);transform:scale(1.05);}
-.count-num.minus-anim{color:var(--ac2);transform:scale(.97);}
-.count-btns{display:grid;grid-template-columns:1fr 2fr 1fr;gap:8px;width:100%;}
+.count-area{flex:1;display:flex;flex-direction:column;padding:8px 16px;gap:8px;}
 .c-btn{border:none;border-radius:14px;font-family:'Bebas Neue',sans-serif;cursor:pointer;transition:all .1s;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 0;font-size:30px;user-select:none;}
 .c-btn:active{transform:scale(.93);filter:brightness(1.3);}
-.c-btn .c-lbl{font-size:10px;margin-top:2px;opacity:.7;font-family:'Noto Sans KR',sans-serif;font-weight:700;}
+/* +1 전체 채우기 버튼 */
+.c-big{flex:1;width:100%;font-size:clamp(60px,18vw,100px);border-radius:20px;padding:0;}
+.c-lbl{font-size:10px;margin-top:2px;opacity:.7;font-family:'Noto Sans KR',sans-serif;font-weight:700;}
 .c-minus{background:rgba(255,61,113,.15);color:var(--ac2);border:1.5px solid rgba(255,61,113,.3);}
 .c-plus1{background:rgba(0,229,255,.12);color:var(--ac);border:1.5px solid rgba(0,229,255,.3);}
 .c-plus5{background:rgba(0,255,136,.1);color:var(--gn);border:1.5px solid rgba(0,255,136,.25);}
@@ -252,25 +250,31 @@ html,body{height:100dvh;overflow:hidden;background:var(--bg);color:var(--tx);fon
       </div>
     </div>
 
-    <!-- 카운트 메인 -->
+    <!-- 카운트 메인: 숫자 제거, +1 전체 채우기 -->
     <div class="count-area">
-      <div class="count-num" id="count-display"
+      <!-- +1 큰 버튼이 중앙 전체 차지 -->
+      <button class="c-btn c-plus1 c-big"
         onclick="addCount(1)"
-        ontouchstart="handleTap(event)">0</div>
+        ontouchstart="handleTap(event)">
+        +1
+        <span class="c-lbl">터치</span>
+      </button>
+      <!-- 하단 −1 / +10 보조 버튼 -->
       <div class="count-btns">
         <button class="c-btn c-minus" onclick="addCount(-1)">
           −1<span class="c-lbl">빼기</span>
         </button>
-        <button class="c-btn c-plus1" onclick="addCount(1)">
-          +1<span class="c-lbl">카운트</span>
-        </button>
-        <button class="c-btn c-plus5" onclick="addCount(5)">
-          +5<span class="c-lbl">더하기</span>
+        <div style="display:flex;align-items:center;justify-content:center;gap:4px;">
+          <span style="font-size:10px;color:var(--mu2);">COUNT</span>
+          <span id="count-display-sm" style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--ac);line-height:1;">0</span>
+        </div>
+        <button class="c-btn c-plus5" onclick="addCount(10)">
+          +10<span class="c-lbl">10개</span>
         </button>
       </div>
     </div>
 
-    <!-- 액션 바 -->
+    <!-- 액션 바: 준비완료 + 기록제출 -->
     <div class="action-bar">
       <button class="act-btn act-clear" onclick="clearCount()">🗑 초기화</button>
       <button class="act-btn act-ready" id="btn-ready" onclick="toggleReady()">✋ 준비 완료</button>
@@ -480,7 +484,12 @@ function updateHeatState(state){
   el.textContent=s.txt;
   // 진행 중이 됐을 때 화면 강조
   if(state==='racing'){
-    document.getElementById('count-display').style.color='';
+    // 진행 중 시작되면 +1 버튼 하이라이트
+    const bigBtn=document.querySelector('.c-big');
+    if(bigBtn)bigBtn.style.borderColor='var(--ac)';
+  } else {
+    const bigBtn=document.querySelector('.c-big');
+    if(bigBtn)bigBtn.style.borderColor='';
   }
 }
 
@@ -493,9 +502,16 @@ function addCount(n){
 }
 function clearCount(){count=0;updateCountDisplay();}
 function updateCountDisplay(anim=''){
-  const el=document.getElementById('count-display');
-  el.textContent=count;
-  if(anim){el.classList.add(anim);setTimeout(()=>el.classList.remove(anim),120);}
+  const el=document.getElementById('count-display-sm');
+  if(el)el.textContent=count;
+  // 카메라 오버레이 카운트도 업데이트
+  document.getElementById('cam-count').textContent=count;
+  // +1 버튼 플래시 효과
+  const bigBtn=document.querySelector('.c-big');
+  if(bigBtn&&anim){
+    bigBtn.style.filter=anim==='bump'?'brightness(1.4)':'brightness(0.8)';
+    setTimeout(()=>bigBtn.style.filter='',120);
+  }
 }
 let lastTap=0;
 function handleTap(e){

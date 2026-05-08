@@ -388,7 +388,16 @@ function App(){
           ))}
         </div>
         <div style={{fontSize:11,padding:'4px 10px',borderRadius:6,background:'rgba(0,255,136,.1)',border:'1px solid rgba(0,255,136,.3)',color:'#00ff88'}}>
-          ⚖ {readyCnt}/{onlineCnt} &nbsp; 📷 {camCnt}
+          ⚖ {readyCnt}/{onlineCnt} &nbsp;
+          <span style={{fontSize:11}}>
+            <span style={{display:'inline-flex',alignItems:'center',gap:3,
+              background:'rgba(255,61,113,.15)',border:'1px solid rgba(255,61,113,.3)',
+              borderRadius:4,padding:'1px 5px',fontSize:10,fontWeight:700,
+              color:camCnt>0?'#ff3d71':'rgba(255,61,113,.3)'}}>
+              <span style={{width:5,height:5,borderRadius:'50%',background:camCnt>0?'#ff3d71':'rgba(255,61,113,.2)',display:'inline-block',boxShadow:camCnt>0?'0 0 6px #ff3d71':'none'}}/>
+              CAM {camCnt}
+            </span>
+          </span>
         </div>
         <div style={{fontSize:11,padding:'4px 10px',borderRadius:6,background:online?'rgba(0,229,255,.1)':'rgba(255,61,113,.1)',border:`1px solid ${online?'rgba(0,229,255,.3)':'rgba(255,61,113,.3)'}`,color:online?'#00e5ff':'#ff3d71'}}>
           {online?'🔗 ONLINE':'⚠ OFFLINE'}
@@ -599,7 +608,13 @@ function App(){
               <div className="fd" style={{fontSize:18,color:'#fff'}}>코트 진행 보드</div>
               <div style={{marginLeft:'auto',display:'flex',gap:6}}>
                 <Pill color="#00ff88">⚖ {readyCnt}명 READY</Pill>
-                <Pill color="#00e5ff">📷 {camCnt}대 연결</Pill>
+                {/* CAM 빨간 LED 표시 */}
+                <div style={{display:'flex',alignItems:'center',gap:4,fontSize:11,padding:'3px 10px',borderRadius:20,
+                  background:'rgba(255,61,113,.12)',border:'1px solid rgba(255,61,113,.4)',color:'#ff3d71',fontWeight:700}}>
+                  <span style={{width:7,height:7,borderRadius:'50%',background:camCnt>0?'#ff3d71':'rgba(255,61,113,.2)',
+                    boxShadow:camCnt>0?'0 0 8px #ff3d71':'none',display:'inline-block'}}/>
+                  CAM {camCnt}
+                </div>
                 {allReady&&<Pill color="#00ff88" pulse>✅ 모두 준비 · 음원 재생 가능</Pill>}
               </div>
             </div>
@@ -692,13 +707,32 @@ function CourtLayout({curHeat,layout,cMode,judges,cameras}){
       <div style={{background:bg,border:`1.5px solid ${bdr}`,borderRadius:8,padding:'7px',minHeight:76,transition:'all .2s'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:3}}>
           <div className="fd" style={{fontSize:16,color:'#00e5ff',lineHeight:1}}>{cid}</div>
-          <div style={{display:'flex',gap:5,alignItems:'center'}}>
-            <span title={cOnline?'카메라 연결':'미연결'} style={{fontSize:12,opacity:cOnline?1:.22}}>📷</span>
-            <span title={jOnline?(ready?'READY':'접속 중'):'미접속'}
-              style={{fontSize:11,fontWeight:700,color:ready?'#00ff88':jOnline?'rgba(255,255,255,.5)':'rgba(255,255,255,.2)'}}>
-              {ready?'✅':jOnline?'⚖':'○'}
-            </span>
-            {submitted&&<span style={{fontSize:10,color:'#00ff88',fontWeight:800,fontFamily:'monospace'}}>✓{js.score}</span>}
+          <div style={{display:'flex',gap:4,alignItems:'center'}}>
+            {/* CAM — 빨간 LED */}
+            <div style={{display:'inline-flex',alignItems:'center',gap:2,
+              fontSize:8,fontWeight:800,letterSpacing:'.05em',
+              padding:'1px 4px',borderRadius:3,
+              background:cOnline?'rgba(255,61,113,.18)':'rgba(255,255,255,.04)',
+              color:cOnline?'#ff3d71':'rgba(255,255,255,.15)',
+              border:`1px solid ${cOnline?'rgba(255,61,113,.5)':'rgba(255,255,255,.07)'}`}}>
+              <span style={{width:5,height:5,borderRadius:'50%',flexShrink:0,
+                background:cOnline?'#ff3d71':'rgba(255,255,255,.12)',
+                boxShadow:cOnline?'0 0 5px #ff3d71':'none'}}/>
+              CAM
+            </div>
+            {/* JUDGE — 파란 LED */}
+            <div style={{display:'inline-flex',alignItems:'center',gap:2,
+              fontSize:8,fontWeight:800,letterSpacing:'.05em',
+              padding:'1px 4px',borderRadius:3,
+              background:ready?'rgba(59,130,246,.25)':jOnline?'rgba(255,255,255,.05)':'rgba(255,255,255,.03)',
+              color:ready?'#60a5fa':jOnline?'rgba(255,255,255,.35)':'rgba(255,255,255,.12)',
+              border:`1px solid ${ready?'rgba(96,165,250,.6)':jOnline?'rgba(255,255,255,.12)':'rgba(255,255,255,.05)'}`}}>
+              <span style={{width:5,height:5,borderRadius:'50%',flexShrink:0,
+                background:ready?'#60a5fa':jOnline?'rgba(255,255,255,.25)':'rgba(255,255,255,.07)',
+                boxShadow:ready?'0 0 7px #60a5fa':'none'}}/>
+              JUDGE
+            </div>
+            {submitted&&<span style={{fontSize:9,color:'#00ff88',fontWeight:800,fontFamily:'monospace',marginLeft:1}}>✓{js.score}</span>}
           </div>
         </div>
         {ath?(
