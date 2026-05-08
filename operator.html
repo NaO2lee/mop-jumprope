@@ -107,11 +107,18 @@ function courtId(idx, mode = 'alpha') {
 // 메인 앱
 // =================================================================
 function App() {
-  const [config, setConfig] = useState(() => ({
-    roomId: localStorage.getItem('mop_op_roomid') || '',
-    operatorName: localStorage.getItem('mop_op_name') || '운영자',
-    showConfig: !localStorage.getItem('mop_op_roomid'),
-  }));
+  const [config, setConfig] = useState(() => {
+    // URL ?room= 파라미터 자동 인식
+    const urlRoom = new URLSearchParams(window.location.search).get('room') || '';
+    const savedRoom = localStorage.getItem('mop_op_roomid') || '';
+    const roomId = urlRoom || savedRoom;
+    if (urlRoom) localStorage.setItem('mop_op_roomid', urlRoom);
+    return {
+      roomId,
+      operatorName: localStorage.getItem('mop_op_name') || '운영자',
+      showConfig: !roomId,
+    };
+  });
 
   const [meta, setMeta] = useState(null);              // 대회 정보
   const [athletes, setAthletes] = useState({});        // bib → athlete

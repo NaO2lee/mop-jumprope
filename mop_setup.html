@@ -3675,27 +3675,56 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
 
 <!-- ══════ TAB 5: 내보내기 ══════ -->
 <div class="view" id="view-export">
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px">
-    <div class="card">
-      <div class="ct">☁ Firebase</div>
-      <div style="font-size:13px;color:var(--mu2);margin-bottom:10px" id="lbl-fb-desc">운영앱/심판앱/뷰어와 실시간 연동</div>
-      <div style="display:flex;flex-direction:column;gap:5px">
-        <button class="btn su" onclick="saveToFirebase()">☁ <span id="btn-fb2">선수 명단 저장</span></button>
-        <button class="btn su" onclick="saveHeatsToFirebase()">☁ <span id="btn-hf2">히트표 저장</span></button>
-        <button class="btn se" onclick="loadFromFirebase()">⬇ <span id="btn-load">Firebase에서 불러오기</span></button>
+  <div style="display:flex;flex-direction:column;gap:12px">
+
+    <!-- 앱 링크 생성 (최상단 강조) -->
+    <div class="card" id="app-links-card" style="border:2px solid var(--ac);background:var(--ac-soft)">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <div>
+          <div class="ct" style="margin:0">🔗 앱 링크 생성</div>
+          <div style="font-size:12px;color:var(--mu);margin-top:3px">Room ID 하나로 모든 앱이 자동 연결됩니다</div>
+        </div>
+        <button class="btn pr" onclick="saveToFirebase().then(()=>renderAppLinks())">
+          ☁ Firebase 저장 + 링크 생성
+        </button>
+      </div>
+
+      <!-- Room ID 상태 -->
+      <div id="app-link-room" style="font-size:12px;color:var(--mu);margin-bottom:10px;padding:8px;background:var(--sur3);border-radius:7px">
+        ⚙ 설정에서 Room ID를 입력하고 Firebase에 저장하면 링크가 생성됩니다
+      </div>
+
+      <!-- 링크 목록 -->
+      <div id="app-links-list" style="display:flex;flex-direction:column;gap:7px"></div>
+
+      <!-- QR 안내 -->
+      <div style="font-size:11px;color:var(--mu2);margin-top:10px;padding-top:10px;border-top:1px solid var(--bdr)">
+        💡 링크를 카카오톡이나 단톡방에 공유하면 각 담당자가 클릭 한 번으로 바로 접속할 수 있어요
       </div>
     </div>
-    <div class="card">
-      <div class="ct">📊 Google Sheets</div>
-      <input class="inp" id="sheets-webhook" placeholder="https://script.google.com/..." style="font-size:12px;font-family:monospace;margin-bottom:7px">
-      <button class="btn se" onclick="saveToSheets()" style="width:100%" id="btn-sheets">📊 시트에 저장</button>
-    </div>
-    <div class="card">
-      <div class="ct" id="lbl-files">💾 파일</div>
-      <div style="display:flex;flex-direction:column;gap:5px">
-        <button class="btn se" onclick="exportCSV('athletes')" id="btn-csv-a">📥 선수 명단 CSV</button>
-        <button class="btn se" onclick="exportCSV('heats')" id="btn-csv-h">📥 히트표 CSV</button>
-        <button class="btn se" onclick="downloadTemplate()" id="btn-tmpl2">⬇ 참가신청 양식</button>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px">
+      <div class="card">
+        <div class="ct">☁ Firebase</div>
+        <div style="font-size:13px;color:var(--mu2);margin-bottom:10px" id="lbl-fb-desc">운영앱/심판앱/뷰어와 실시간 연동</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <button class="btn su" onclick="saveToFirebase()">☁ <span id="btn-fb2">선수 명단 저장</span></button>
+          <button class="btn su" onclick="saveHeatsToFirebase()">☁ <span id="btn-hf2">히트표 저장</span></button>
+          <button class="btn se" onclick="loadFromFirebase()">⬇ <span id="btn-load">Firebase에서 불러오기</span></button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ct">📊 Google Sheets</div>
+        <input class="inp" id="sheets-webhook" placeholder="https://script.google.com/..." style="font-size:12px;font-family:monospace;margin-bottom:7px">
+        <button class="btn se" onclick="saveToSheets()" style="width:100%" id="btn-sheets">📊 시트에 저장</button>
+      </div>
+      <div class="card">
+        <div class="ct" id="lbl-files">💾 파일</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <button class="btn se" onclick="exportCSV('athletes')" id="btn-csv-a">📥 선수 명단 CSV</button>
+          <button class="btn se" onclick="exportCSV('heats')" id="btn-csv-h">📥 히트표 CSV</button>
+          <button class="btn se" onclick="downloadTemplate()" id="btn-tmpl2">⬇ 참가신청 양식</button>
+        </div>
       </div>
     </div>
   </div>
@@ -6822,7 +6851,85 @@ function exportCSV(type){
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);a.download=fn;a.click();
 }
 
-/* ── 탭 / 설정 / 유틸 ── */
+/* ── 앱 링크 생성 ── */
+const APP_LINK_DEFS=[
+  {key:'operator', icon:'🎛', label:'운영 앱',     desc:'히트 진행·신호음·코트 관리', color:'var(--ac)'},
+  {key:'viewer',   icon:'📺', label:'뷰어 앱',     desc:'전광판 표시 (대형 화면)', color:'var(--yw)'},
+];
+const APP_BASE_URL='https://today119.github.io/mop-jumprope/';
+
+function renderAppLinks(){
+  const room=cfg.roomId;
+  const roomEl=document.getElementById('app-link-room');
+  const listEl=document.getElementById('app-links-list');
+  if(!roomEl||!listEl)return;
+
+  if(!room){
+    roomEl.innerHTML='⚙ 설정에서 Room ID를 입력하고 Firebase에 저장하면 링크가 생성됩니다';
+    listEl.innerHTML='';
+    return;
+  }
+
+  const comp=document.getElementById('cfg-comp')?.value||'대회';
+  roomEl.innerHTML=`<span style="color:var(--ac);font-weight:700">${comp}</span> · Room ID: <span style="font-family:monospace;color:var(--ac)">${room}</span>`;
+
+  // 코트 목록 추출 (첫 번째 히트 기준)
+  const firstHeat=heats[0];
+  const courtIds=firstHeat?Object.keys(firstHeat.courts||{}).sort():[];
+
+  let html='';
+
+  // 기본 앱 링크
+  html+=APP_LINK_DEFS.map(app=>{
+    const url=`${APP_BASE_URL}${app.key}.html?room=${encodeURIComponent(room)}`;
+    return renderLinkRow(app.icon, app.label, app.desc, url, app.color);
+  }).join('');
+
+  // 심판+카메라 앱 — 코트별 링크
+  if(courtIds.length){
+    html+=`<div style="font-size:11px;color:var(--mu);margin:8px 0 4px;padding-left:2px;font-weight:600">📷⚖ 심판+카메라 — 코트별 링크</div>`;
+    html+=courtIds.map(c=>{
+      const url=`${APP_BASE_URL}judge_cam.html?room=${encodeURIComponent(room)}&court=${encodeURIComponent(c)}`;
+      return renderLinkRow('📷⚖', `Court ${c}`, `심판 카운팅 + 카메라 송출`, url, 'var(--gn)');
+    }).join('');
+  } else {
+    // 코트 편성 전
+    const url=`${APP_BASE_URL}judge_cam.html?room=${encodeURIComponent(room)}&court=A`;
+    html+=renderLinkRow('📷⚖', '심판+카메라 앱', '코트별 심판 카운팅 + 카메라 송출 (Z플립 최적화)', url, 'var(--gn)');
+  }
+
+  listEl.innerHTML=html;
+}
+
+function renderLinkRow(icon, label, desc, url, color){
+  const safeUrl=url.replace(/'/g,'%27');
+  const safeLabel=label.replace(/'/g,'');
+  return`<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff;border:1.5px solid var(--bdr);border-radius:9px;margin-bottom:4px">
+    <span style="font-size:18px;flex-shrink:0">${icon}</span>
+    <div style="flex:1;min-width:0">
+      <div style="font-weight:700;font-size:13px;color:var(--tx)">${label}</div>
+      <div style="font-size:11px;color:var(--mu);margin-bottom:2px">${desc}</div>
+      <div style="font-size:10px;color:var(--mu2);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${url}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+      <button onclick="copyAppLink('${safeUrl}','${safeLabel}')"
+        style="font-size:11px;padding:5px 10px;border-radius:6px;border:1.5px solid ${color};color:${color};background:transparent;cursor:pointer;white-space:nowrap;font-weight:600">
+        📋 복사
+      </button>
+      <button onclick="window.open('${safeUrl}','_blank')"
+        style="font-size:11px;padding:5px 10px;border-radius:6px;border:1.5px solid var(--bdr);color:var(--mu);background:transparent;cursor:pointer;white-space:nowrap">
+        🔗 열기
+      </button>
+    </div>
+  </div>`;
+}
+
+function copyAppLink(url, label){
+  navigator.clipboard.writeText(url).then(()=>toast(`✓ ${label} 링크 복사됨`)).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=url;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    toast(`✓ ${label} 링크 복사됨`);
+  });
+}
 function showTab(n){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('show'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -6830,7 +6937,7 @@ function showTab(n){
   document.getElementById('tab-'+n)?.classList.add('active');
   if(n==='qr'){updateFilterOpts();generateBibCards();}
   if(n==='heats')updateHeatEvOpts();
-  if(n==='schedule')renderSchEvList();
+  if(n==='export')renderAppLinks();
   if(n==='info'){renderInfoSummary();renderDayAssign();}
 }
 /* ── 날짜별 종목 배정 ── */

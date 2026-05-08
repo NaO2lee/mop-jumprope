@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>심판+카메라 — 모두의 플레이</title>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<!-- PeerJS (카메라 송출) -->
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@400;600;700;900&display=swap');
+
+/* ──────── 전역 ──────── */
+:root {
+  --bg: #050810;
+  --sur: #0d1117;
+  --sur2: #161b24;
+  --ac: #00e5ff;
+  --ac2: #ff3d71;
+  --gn: #00ff88;
+  --yw: #ffd60a;
+  --tx: #e8eaf2;
+  --mu: #4a5568;
+  --mu2: #718096;
+  --fold: 50vh; /* Z플립 기본: 50%, 감지 시 자동 조정 */
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body {
+  height: 100dvh; overflow: hidden;
+  background: var(--bg); color: var(--tx);
+  font-family: 'Noto Sans KR', sans-serif;
+  touch-action: manipulation;
+}
+
+/* ──────── 설정 화면 ──────── */
+#s-setup {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 16px; padding: 24px;
+  min-height: 100dvh;
+  background: radial-gradient(ellipse at 30% 20%, #0a1628 0%, var(--bg) 60%);
+}
+.setup-logo { font-family: 'Bebas Neue', sans-serif; font-size: 11px; letter-spacing: .4em; color: var(--mu); }
+.setup-title { font-family: 'Bebas Neue', sans-serif; font-size: 42px; color: var(--ac); letter-spacing: .06em; line-height: 1; }
+.setup-sub { font-size: 12px; color: var(--mu2); text-align: center; }
+.setup-card {
+  width: 100%; max-width: 360px;
+  background: var(--sur2); border: 1.5px solid #1e2535;
+  border-radius: 20px; padding: 22px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.fld { display: flex; flex-direction: column; gap: 6px; }
+.fld label { font-size: 10px; color: var(--mu2); letter-spacing: .1em; text-transform: uppercase; }
+.inp {
+  background: #080b12; border: 1.5px solid #1e2535;
+  border-radius: 12px; padding: 13px 16px;
+  font-size: 16px; color: var(--tx);
+  font-family: 'Noto Sans KR', sans-serif;
+  outline: none; width: 100%;
+  transition: border-color .2s;
+}
+.inp:focus { border-color: var(--ac); }
+.inp-mono { font-family: monospace; letter-spacing: .05em; }
+.big-btn {
+  width: 100%; padding: 16px;
+  border: none; border-radius: 14px;
+  font-size: 16px; font-weight: 700;
+  font-family: 'Noto Sans KR', sans-serif;
+  cursor: pointer; transition: all .15s;
+  letter-spacing: .03em;
+}
+.big-btn:active { transform: scale(.97); }
+.btn-primary { background: var(--ac); color: #000; }
+.btn-sec { background: var(--sur2); color: var(--tx); border: 1.5px solid #1e2535; }
+
+/* ──────── 메인 분할 화면 ──────── */
+#s-main {
+  display: none;
+  height: 100dvh;
+  flex-direction: column;
+  overflow: hidden;
+}
+#s-main.show { display: flex; }
+
+/* ━━━ 상단: 카메라 영역 ━━━ */
+#cam-panel {
+  position: relative;
+  height: var(--fold);
+  flex-shrink: 0;
+  background: #000;
+  overflow: hidden;
+}
+#cam-video {
+  width: 100%; height: 100%;
+  object-fit: cover; display: block;
+}
+/* 카메라 오버레이 */
+.cam-overlay {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.cam-top-bar {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 14px 14px 0;
+  background: linear-gradient(180deg, rgba(0,0,0,.75) 0%, transparent 100%);
+  padding-bottom: 24px;
+}
+.cam-court-id {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 28px; color: var(--ac);
+  text-shadow: 0 0 20px rgba(0,229,255,.6);
+  line-height: 1;
+}
+.cam-room-txt { font-size: 9px; color: rgba(255,255,255,.4); letter-spacing: .12em; }
+.cam-status {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(0,0,0,.65); border-radius: 20px;
+  padding: 5px 10px; backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,.1);
+  font-size: 10px;
+  pointer-events: auto;
+}
+.cam-dot { width: 6px; height: 6px; border-radius: 50%; }
+.cam-dot.live { background: var(--ac2); animation: pls .7s ease-in-out infinite alternate; }
+.cam-dot.conn { background: var(--ac); animation: pls .6s ease-in-out infinite alternate; }
+.cam-dot.off { background: var(--mu); }
+@keyframes pls { from { opacity: .3; } to { opacity: 1; } }
+.cam-bot-bar {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  padding: 0 14px 12px;
+  background: linear-gradient(0deg, rgba(0,0,0,.8) 0%, transparent 100%);
+  padding-top: 28px;
+  pointer-events: auto;
+}
+.cam-count-display {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 64px; line-height: 1;
+  color: #fff;
+  transition: color .1s;
+  text-shadow: 0 0 30px rgba(255,255,255,.3);
+}
+.cam-count-display.flash { color: var(--ac); }
+.cam-btns { display: flex; gap: 8px; }
+.cam-small-btn {
+  width: 40px; height: 40px;
+  border: 1.5px solid rgba(255,255,255,.2);
+  border-radius: 50%; background: rgba(0,0,0,.6);
+  color: white; font-size: 16px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.cam-small-btn:active { transform: scale(.9); }
+
+/* 경첩 구분선 */
+.fold-line {
+  height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(0,229,255,.4), var(--ac), rgba(0,229,255,.4), transparent);
+  flex-shrink: 0;
+  position: relative;
+}
+.fold-line::after {
+  content: 'Z FLIP';
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 9px; letter-spacing: .3em;
+  color: rgba(0,229,255,.5);
+  background: var(--bg);
+  padding: 0 8px;
+}
+
+/* ━━━ 하단: 심판 영역 ━━━ */
+#judge-panel {
+  flex: 1;
+  display: flex; flex-direction: column;
+  background: var(--bg);
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* 선수 정보 바 */
+.athlete-bar {
+  background: var(--sur2);
+  border-bottom: 1px solid #1e2535;
+  padding: 8px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.athlete-info { flex: 1; min-width: 0; }
+.athlete-name { font-size: 15px; font-weight: 700; truncate: true; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.athlete-sub { font-size: 10px; color: var(--mu2); }
+.athlete-bib {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px; color: var(--ac);
+  margin-left: 10px; flex-shrink: 0;
+}
+
+/* 히트 정보 */
+.heat-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 16px;
+  background: rgba(0,229,255,.05);
+  border-bottom: 1px solid rgba(0,229,255,.1);
+  flex-shrink: 0;
+}
+.heat-badge {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 13px; color: var(--ac);
+  background: rgba(0,229,255,.1);
+  padding: 2px 8px; border-radius: 5px;
+  border: 1px solid rgba(0,229,255,.3);
+}
+.event-badge {
+  font-size: 11px; color: var(--mu2);
+}
+
+/* 카운트 메인 */
+.count-main {
+  flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 10px;
+  padding: 8px 16px;
+}
+.count-big {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(72px, 22vw, 120px);
+  line-height: .9;
+  color: #fff;
+  transition: all .08s;
+  text-shadow: 0 0 60px rgba(255,255,255,.15);
+  cursor: pointer;
+  user-select: none;
+}
+.count-big.bump { color: var(--ac); transform: scale(1.05); }
+.count-big.minus { color: var(--ac2); transform: scale(.97); }
+
+/* 카운팅 버튼 */
+.count-btns {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  gap: 8px;
+  width: 100%;
+}
+.c-btn {
+  border: none; border-radius: 14px;
+  font-family: 'Bebas Neue', sans-serif;
+  cursor: pointer; transition: all .1s;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 12px 0;
+  font-size: 28px;
+}
+.c-btn:active { transform: scale(.94); filter: brightness(1.3); }
+.c-btn.minus { background: rgba(255,61,113,.15); color: var(--ac2); border: 1.5px solid rgba(255,61,113,.3); }
+.c-btn.plus1 { background: rgba(0,229,255,.12); color: var(--ac); border: 1.5px solid rgba(0,229,255,.3); font-size: 36px; }
+.c-btn.plus5 { background: rgba(0,255,136,.1); color: var(--gn); border: 1.5px solid rgba(0,255,136,.25); }
+.c-btn-label { font-size: 10px; margin-top: 2px; opacity: .7; letter-spacing: .05em; }
+
+/* 액션 바 */
+.action-bar {
+  display: flex; gap: 8px;
+  padding: 8px 16px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  flex-shrink: 0;
+  border-top: 1px solid #1e2535;
+}
+.act-btn {
+  flex: 1; padding: 13px;
+  border: none; border-radius: 14px;
+  font-size: 13px; font-weight: 700;
+  font-family: 'Noto Sans KR', sans-serif;
+  cursor: pointer; transition: all .15s;
+  letter-spacing: .02em;
+}
+.act-btn:active { transform: scale(.97); }
+.act-ready { background: rgba(255,214,10,.15); color: var(--yw); border: 1.5px solid rgba(255,214,10,.3); }
+.act-ready.active { background: var(--yw); color: #000; }
+.act-submit { background: var(--ac); color: #000; }
+.act-clear { background: var(--sur2); color: var(--mu2); border: 1.5px solid #1e2535; }
+
+/* 상태 오버레이 (제출 완료 등) */
+.overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.85); z-index: 100;
+  align-items: center; justify-content: center;
+  flex-direction: column; gap: 16px;
+  backdrop-filter: blur(8px);
+}
+.overlay.show { display: flex; }
+.overlay-icon { font-size: 64px; }
+.overlay-title { font-family: 'Bebas Neue', sans-serif; font-size: 36px; letter-spacing: .08em; }
+.overlay-sub { font-size: 14px; color: var(--mu2); }
+.overlay-btn {
+  padding: 14px 32px; border-radius: 14px;
+  border: none; font-size: 16px; font-weight: 700;
+  cursor: pointer; background: var(--ac); color: #000;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+
+/* 신호음 플래시 */
+.signal-flash {
+  position: fixed; inset: 0; z-index: 200;
+  pointer-events: none; opacity: 0;
+  transition: opacity .15s;
+}
+.signal-flash.start { background: rgba(0,229,255,.2); }
+.signal-flash.end { background: rgba(255,61,113,.2); }
+.signal-flash.show { opacity: 1; }
+
+/* 토스트 */
+.toast {
+  position: fixed; bottom: 80px; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,229,255,.15);
+  border: 1px solid rgba(0,229,255,.3);
+  color: var(--ac); border-radius: 20px;
+  padding: 10px 20px; font-size: 13px;
+  white-space: nowrap; z-index: 50;
+  animation: tst .3s ease; pointer-events: none;
+}
+@keyframes tst { from { opacity:0; transform: translateX(-50%) translateY(8px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
+
+/* 로딩 */
+.spin { width: 36px; height: 36px; border: 3px solid #1e2535; border-top-color: var(--ac); border-radius: 50%; animation: sp .8s linear infinite; }
+@keyframes sp { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ 설정 화면 ═══════════════ -->
+<div id="s-setup">
+  <div class="setup-logo">모두의 플레이</div>
+  <div class="setup-title">심판 + 카메라</div>
+  <div class="setup-sub">Z플립에 최적화된 통합 앱<br>상단=카메라 송출 · 하단=심판 카운팅</div>
+
+  <div class="setup-card">
+    <div class="fld">
+      <label>📡 Room ID</label>
+      <input class="inp inp-mono" id="inp-room" type="text" placeholder="예: korea_open_2026">
+    </div>
+    <div class="fld">
+      <label>🏟 담당 코트</label>
+      <input class="inp inp-mono" id="inp-court" type="text" placeholder="예: A  또는  1"
+             oninput="this.value=this.value.toUpperCase()">
+    </div>
+    <div class="fld">
+      <label>⚖ 심판 이름</label>
+      <input class="inp" id="inp-judge" type="text" placeholder="홍길동">
+    </div>
+
+    <div style="border-top:1px solid #1e2535;padding-top:12px">
+      <div style="font-size:10px;color:var(--mu2);letter-spacing:.08em;margin-bottom:8px">🔗 링크로 접속 시 자동 입력됨</div>
+      <button class="big-btn btn-primary" onclick="startApp()">🚀 시작</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ 메인 화면 ═══════════════ -->
+<div id="s-main">
+  <!-- ───── 상단: 카메라 ───── -->
+  <div id="cam-panel">
+    <video id="cam-video" playsinline autoplay muted></video>
+    <div class="cam-overlay">
+      <div class="cam-top-bar">
+        <div>
+          <div class="cam-room-txt" id="cam-room-txt">ROOM: —</div>
+          <div class="cam-court-id" id="cam-court-id">C-A</div>
+        </div>
+        <div class="cam-status">
+          <div class="cam-dot off" id="cam-dot"></div>
+          <span id="cam-status-txt" style="color:rgba(255,255,255,.6)">연결 중...</span>
+        </div>
+      </div>
+      <div class="cam-bot-bar">
+        <div>
+          <div style="font-size:9px;color:rgba(255,255,255,.35);letter-spacing:.1em;margin-bottom:2px">COUNT</div>
+          <div class="cam-count-display" id="cam-count-big">0</div>
+        </div>
+        <div class="cam-btns">
+          <div class="cam-small-btn" onclick="flipCamera()">🔄</div>
+          <div class="cam-small-btn" id="cam-fold-btn" onclick="toggleFold()" title="상단 크기 조절">↕</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 경첩 구분선 -->
+  <div class="fold-line" id="fold-line"></div>
+
+  <!-- ───── 하단: 심판 ───── -->
+  <div id="judge-panel">
+    <!-- 히트 정보 -->
+    <div class="heat-bar">
+      <span class="heat-badge" id="heat-badge">HEAT —</span>
+      <span class="event-badge" id="event-badge">종목 로딩 중...</span>
+      <span style="margin-left:auto;font-size:10px;color:var(--mu);font-family:monospace" id="fb-status">⏳</span>
+    </div>
+
+    <!-- 선수 정보 -->
+    <div class="athlete-bar">
+      <div class="athlete-info">
+        <div class="athlete-name" id="ath-name">선수 대기 중...</div>
+        <div class="athlete-sub" id="ath-sub">—</div>
+      </div>
+      <div class="athlete-bib" id="ath-bib">#—</div>
+    </div>
+
+    <!-- 카운트 메인 -->
+    <div class="count-main">
+      <div class="count-big" id="count-display"
+           onclick="addCount(1)"
+           ontouchstart="handleCountTap(event)">0</div>
+
+      <div class="count-btns">
+        <button class="c-btn minus" onclick="addCount(-1)" ontouchstart="e=>e.preventDefault()">
+          −1
+          <span class="c-btn-label">빼기</span>
+        </button>
+        <button class="c-btn plus1" onclick="addCount(1)">
+          +1
+          <span class="c-btn-label">카운트</span>
+        </button>
+        <button class="c-btn plus5" onclick="addCount(5)">
+          +5
+          <span class="c-btn-label">더하기</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 액션 바 -->
+    <div class="action-bar">
+      <button class="act-btn act-clear" onclick="clearCount()">🗑 초기화</button>
+      <button class="act-btn act-ready" id="btn-ready" onclick="toggleReady()">
+        ✋ 준비 완료
+      </button>
+      <button class="act-btn act-submit" onclick="submitScore()">
+        ✓ 기록 제출
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 제출 완료 오버레이 -->
+<div class="overlay" id="overlay-done">
+  <div class="overlay-icon">✅</div>
+  <div class="overlay-title" id="overlay-score-title">기록 제출 완료</div>
+  <div class="overlay-sub" id="overlay-score-sub">다음 히트를 기다려 주세요</div>
+  <button class="overlay-btn" onclick="closeOverlay()">확인</button>
+</div>
+
+<!-- 신호음 플래시 -->
+<div class="signal-flash" id="signal-flash"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// Firebase 초기화
+// ═══════════════════════════════════════════════════════
+firebase.initializeApp({
+  apiKey: "AIzaSyDOrKZDSNiA4sLnkNBiLVehE8xtrU-2JLY",
+  authDomain: "mop-jumprope.firebaseapp.com",
+  databaseURL: "https://mop-jumprope-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "mop-jumprope",
+  storageBucket: "mop-jumprope.firebasestorage.app",
+  messagingSenderId: "875740425909",
+  appId: "1:875740425909:web:59768e633b7a42733918fc"
+});
+const db = firebase.database();
+
+// ═══════════════════════════════════════════════════════
+// 오디오 엔진 (신호음 합성)
+// ═══════════════════════════════════════════════════════
+let audioCtx = null;
+function getCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended') audioCtx.resume();
+  return audioCtx;
+}
+function playTone(freq, dur, type='sine', vol=0.6, off=0){
+  const ctx=getCtx();
+  const osc=ctx.createOscillator();
+  const gain=ctx.createGain();
+  osc.type=type; osc.frequency.value=freq;
+  osc.connect(gain); gain.connect(ctx.destination);
+  const t=ctx.currentTime+off;
+  gain.gain.setValueAtTime(0,t);
+  gain.gain.linearRampToValueAtTime(vol,t+.005);
+  gain.gain.linearRampToValueAtTime(vol,t+dur-.05);
+  gain.gain.linearRampToValueAtTime(0,t+dur);
+  osc.start(t); osc.stop(t+dur);
+}
+const SIGNALS = {
+  start:   ()=>{ playTone(800,.15,'sine',.5,0); playTone(800,.15,'sine',.5,.4); playTone(1400,.5,'sine',.7,.8); },
+  callout30: ()=>{ playTone(1000,.25,'sine',.6,0); },
+  end:     ()=>{ playTone(400,.8,'sine',.7,0); },
+  recall:  ()=>{ for(let i=0;i<4;i++){ playTone(i%2?900:700,.2,'square',.4,i*.25); } },
+};
+
+// ═══════════════════════════════════════════════════════
+// 상태 변수
+// ═══════════════════════════════════════════════════════
+let roomId='', courtId='', judgeName='';
+let count=0;
+let isReady=false;
+let currentHeatNo=1;
+let currentHeat=null;
+let localStream=null, facingMode='environment';
+let peer=null, currentCall=null, dataConn=null, retryTimer=null;
+let lastSignalTs=0;
+let fbRefs=[];
+let foldRatio=50; // 상단 비율 %
+
+// ═══════════════════════════════════════════════════════
+// URL 파라미터 자동 읽기
+// ═══════════════════════════════════════════════════════
+(function(){
+  const p = new URLSearchParams(window.location.search);
+  const r=p.get('room'); const c=p.get('court'); const j=p.get('judge');
+  if(r) document.getElementById('inp-room').value=r;
+  if(c) document.getElementById('inp-court').value=c.toUpperCase();
+  if(j) document.getElementById('inp-judge').value=j;
+  // 모두 있으면 자동 시작
+  if(r&&c) setTimeout(startApp,300);
+})();
+
+// ═══════════════════════════════════════════════════════
+// 시작
+// ═══════════════════════════════════════════════════════
+async function startApp(){
+  roomId   = document.getElementById('inp-room').value.trim();
+  courtId  = document.getElementById('inp-court').value.trim().toUpperCase();
+  judgeName= document.getElementById('inp-judge').value.trim()||'심판';
+  if(!roomId||!courtId){ alert('Room ID와 코트를 입력하세요'); return; }
+
+  // localStorage 저장
+  localStorage.setItem('mop_jc_room', roomId);
+  localStorage.setItem('mop_jc_court', courtId);
+  localStorage.setItem('mop_jc_judge', judgeName);
+
+  // UI 업데이트
+  document.getElementById('cam-room-txt').textContent=`ROOM: ${roomId}`;
+  document.getElementById('cam-court-id').textContent=`C-${courtId}`;
+
+  // 카메라 시작
+  try{
+    localStream=await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode, width:{ideal:1280}, height:{ideal:720}, frameRate:{ideal:24} },
+      audio:false
+    });
+    document.getElementById('cam-video').srcObject=localStream;
+  }catch(e){ console.warn('카메라 오류:',e.message); }
+
+  // 화면 전환
+  document.getElementById('s-setup').style.display='none';
+  document.getElementById('s-main').classList.add('show');
+
+  // Firebase 연결
+  connectFirebase();
+
+  // PeerJS (카메라 송출)
+  initPeer();
+
+  // 심판 heartbeat
+  startHeartbeat();
+
+  // Z플립 폴드 감지
+  detectFold();
+}
+
+// ═══════════════════════════════════════════════════════
+// Firebase 구독
+// ═══════════════════════════════════════════════════════
+function connectFirebase(){
+  // 연결 상태
+  db.ref('.info/connected').on('value', snap=>{
+    document.getElementById('fb-status').textContent = snap.val() ? '🔗' : '⚠';
+  });
+
+  // 현재 히트 번호 (운영앱이 변경)
+  const opRef=db.ref(`${roomId}/operator/currentHeatNo`);
+  opRef.on('value', snap=>{
+    if(snap.val()) { currentHeatNo=snap.val(); loadHeatData(); }
+  });
+  fbRefs.push(opRef);
+
+  // 신호음 구독
+  const sigRef=db.ref(`${roomId}/signals/current`);
+  sigRef.on('value', snap=>{
+    const v=snap.val();
+    if(!v||v.ts===lastSignalTs) return;
+    lastSignalTs=v.ts;
+    playSignal(v.type);
+  });
+  fbRefs.push(sigRef);
+}
+
+function loadHeatData(){
+  // 히트 정보 로드
+  const heatRef=db.ref(`${roomId}/heats/heat_${currentHeatNo}`);
+  heatRef.once('value', snap=>{
+    const h=snap.val();
+    if(!h) return;
+    currentHeat=h;
+
+    // 히트 배지 업데이트
+    document.getElementById('heat-badge').textContent=`HEAT ${h.no||h.heatNo||currentHeatNo}`;
+    document.getElementById('event-badge').textContent=`${h.event_name||h.event||'—'} · ${h.division||'—'}`;
+
+    // 이 코트 선수 정보
+    const courts=h.courts||{};
+    const myCourtKey=Object.keys(courts).find(k=>k.toUpperCase()===courtId)||courtId;
+    const courtData=courts[myCourtKey]||{};
+    const athlete=courtData.athlete||null;
+
+    if(athlete){
+      document.getElementById('ath-name').textContent=athlete.name||'—';
+      document.getElementById('ath-bib').textContent=`#${athlete.bib||'—'}`;
+      document.getElementById('ath-sub').textContent=
+        [athlete.club, athlete.country].filter(Boolean).join(' · ')||'—';
+    } else {
+      document.getElementById('ath-name').textContent='선수 미배정';
+      document.getElementById('ath-bib').textContent='#—';
+      document.getElementById('ath-sub').textContent='—';
+    }
+
+    // 카운트 초기화
+    clearCount();
+    isReady=false;
+    updateReadyBtn();
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// 카운팅
+// ═══════════════════════════════════════════════════════
+function addCount(n){
+  count=Math.max(0, count+n);
+  updateCountDisplay(n>0 ? 'bump' : 'minus');
+  // 카메라 오버레이도 업데이트
+  document.getElementById('cam-count-big').textContent=count;
+  // Firebase에 실시간 점수 (심판 앱 → 운영자 화면에서 볼 수 있도록)
+  db.ref(`${roomId}/monitoring/judges/${courtId}/liveCount`).set(count);
+}
+function clearCount(){ count=0; updateCountDisplay(); }
+function updateCountDisplay(anim=''){
+  const el=document.getElementById('count-display');
+  el.textContent=count;
+  if(anim){ el.classList.add(anim); setTimeout(()=>el.classList.remove(anim),120); }
+}
+
+// 터치 탭 카운팅 (큰 숫자 탭 시)
+let lastTap=0;
+function handleCountTap(e){
+  e.preventDefault();
+  const now=Date.now();
+  if(now-lastTap<200) return; // 디바운스
+  lastTap=now;
+  addCount(1);
+}
+
+// ═══════════════════════════════════════════════════════
+// 준비 완료 토글
+// ═══════════════════════════════════════════════════════
+function toggleReady(){
+  isReady=!isReady;
+  updateReadyBtn();
+  db.ref(`${roomId}/monitoring/judges/${courtId}`).update({
+    ready: isReady, judgeName, court: courtId, ts: Date.now()
+  });
+  showToast(isReady ? '✅ 준비 완료 신호 전송' : '⏸ 준비 취소');
+}
+function updateReadyBtn(){
+  const btn=document.getElementById('btn-ready');
+  btn.textContent = isReady ? '✅ 준비됨' : '✋ 준비 완료';
+  btn.classList.toggle('active', isReady);
+}
+
+// ═══════════════════════════════════════════════════════
+// 기록 제출
+// ═══════════════════════════════════════════════════════
+async function submitScore(){
+  const score=count;
+  const heatKey=`heat_${currentHeatNo}`;
+  const courts=currentHeat?.courts||{};
+  const myCourtKey=Object.keys(courts).find(k=>k.toUpperCase()===courtId)||courtId;
+
+  try{
+    await db.ref(`${roomId}/heats/${heatKey}/courts/${myCourtKey}`).update({
+      score,
+      judgeStatus: 'submitted',
+      judgeName,
+      submittedAt: Date.now()
+    });
+    await db.ref(`${roomId}/monitoring/judges/${courtId}`).update({
+      ready: false, score, submitted: true, ts: Date.now()
+    });
+
+    // 완료 오버레이
+    document.getElementById('overlay-score-title').textContent=`기록: ${score}`;
+    document.getElementById('overlay-score-sub').textContent=
+      `코트 ${courtId} · HEAT ${currentHeatNo} · ${document.getElementById('ath-name').textContent}`;
+    document.getElementById('overlay-done').classList.add('show');
+    isReady=false; updateReadyBtn();
+  }catch(e){ showToast('❌ 제출 실패: '+e.message); }
+}
+function closeOverlay(){
+  document.getElementById('overlay-done').classList.remove('show');
+}
+
+// ═══════════════════════════════════════════════════════
+// 신호음
+// ═══════════════════════════════════════════════════════
+function playSignal(type){
+  if(SIGNALS[type]) SIGNALS[type]();
+  // 화면 플래시
+  const fl=document.getElementById('signal-flash');
+  fl.className='signal-flash '+(type==='start'?'start':type==='end'?'end':'');
+  fl.classList.add('show');
+  setTimeout(()=>fl.classList.remove('show'), type==='end'?800:400);
+}
+
+// ═══════════════════════════════════════════════════════
+// 심판 heartbeat
+// ═══════════════════════════════════════════════════════
+function startHeartbeat(){
+  function beat(){
+    db.ref(`${roomId}/monitoring/judges/${courtId}`).update({
+      online: true, judgeName, court: courtId,
+      lastSeen: Date.now(), ready: isReady
+    });
+  }
+  beat();
+  setInterval(beat, 5000);
+  // 브라우저 닫힐 때 offline 처리
+  window.addEventListener('beforeunload', ()=>{
+    db.ref(`${roomId}/monitoring/judges/${courtId}/online`).set(false);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// PeerJS 카메라 송출
+// ═══════════════════════════════════════════════════════
+function initPeer(){
+  const myId=`mop-${roomId}-cam-${courtId}`;
+  if(peer){ try{peer.destroy();}catch(e){} }
+  peer=new Peer(myId,{ host:'0.peerjs.com', port:443, path:'/', secure:true, debug:0 });
+
+  peer.on('open', ()=>{
+    setCamStatus('conn','뷰어 연결 중...');
+    callViewer();
+    // 카메라 heartbeat
+    setInterval(()=>{
+      db.ref(`${roomId}/monitoring/cameras/${courtId}`).update({
+        online:true, court:courtId, lastSeen:Date.now()
+      });
+    }, 5000);
+    db.ref(`${roomId}/monitoring/cameras/${courtId}`).update({online:true,court:courtId,lastSeen:Date.now()});
+  });
+  peer.on('error', e=>{
+    if(e.type==='peer-unavailable'){ setCamStatus('conn','뷰어 대기 중...'); retryTimer=setTimeout(callViewer,2500); }
+    else { setCamStatus('off','오류: '+e.type); retryTimer=setTimeout(initPeer,4000); }
+  });
+  peer.on('disconnected', ()=>{ setCamStatus('conn','재연결 중...'); setTimeout(()=>{if(peer&&!peer.destroyed)peer.reconnect();},2000); });
+}
+
+function callViewer(){
+  if(!peer||peer.destroyed||!localStream) return;
+  clearTimeout(retryTimer);
+  const viewerId=`mop-${roomId}-viewer`;
+  try{
+    currentCall=peer.call(viewerId, localStream, { metadata:{court:courtId,room:roomId} });
+    if(!currentCall){ retryTimer=setTimeout(callViewer,2500); return; }
+    currentCall.on('stream',()=>{ setCamStatus('live','LIVE 송출'); });
+    currentCall.on('close',()=>{ setCamStatus('conn','재연결...'); retryTimer=setTimeout(callViewer,2500); });
+    currentCall.on('error',()=>{ retryTimer=setTimeout(callViewer,2500); });
+  }catch(e){ retryTimer=setTimeout(callViewer,2500); }
+  // 데이터 연결
+  try{
+    dataConn=peer.connect(viewerId,{reliable:true});
+    dataConn.on('open',()=>{ dataConn.send({type:'info',court:courtId,room:roomId}); });
+  }catch(e){}
+}
+
+function setCamStatus(state, txt){
+  const d=document.getElementById('cam-dot');
+  d.className='cam-dot '+(state==='live'?'live':state==='conn'?'conn':'off');
+  document.getElementById('cam-status-txt').textContent=txt;
+}
+
+// ═══════════════════════════════════════════════════════
+// 카메라 전환
+// ═══════════════════════════════════════════════════════
+async function flipCamera(){
+  facingMode=facingMode==='environment'?'user':'environment';
+  if(localStream) localStream.getTracks().forEach(t=>t.stop());
+  try{
+    localStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode,width:{ideal:1280},height:{ideal:720}},audio:false
+    });
+    document.getElementById('cam-video').srcObject=localStream;
+    if(currentCall) currentCall.close();
+    callViewer();
+  }catch(e){ console.warn(e); }
+}
+
+// ═══════════════════════════════════════════════════════
+// Z플립 화면 비율 조절
+// ═══════════════════════════════════════════════════════
+const FOLD_PRESETS=[30,40,50,60,70];
+let foldPresetIdx=2;
+
+function toggleFold(){
+  foldPresetIdx=(foldPresetIdx+1)%FOLD_PRESETS.length;
+  setFoldRatio(FOLD_PRESETS[foldPresetIdx]);
+}
+function setFoldRatio(pct){
+  foldRatio=pct;
+  document.getElementById('cam-panel').style.height=pct+'vh';
+  document.documentElement.style.setProperty('--fold', pct+'vh');
+  showToast(`카메라 영역: ${pct}%`);
+}
+
+function detectFold(){
+  // Z플립 폴드 감지 (Viewport Segments API)
+  if('getWindowSegments' in window){
+    const segs=window.getWindowSegments();
+    if(segs&&segs.length===2){
+      const topH=segs[0].height;
+      const total=window.innerHeight;
+      const pct=Math.round(topH/total*100);
+      setFoldRatio(Math.max(20,Math.min(80,pct)));
+      return;
+    }
+  }
+  // CSS Fold API (Chrome 116+)
+  try{
+    const foldTop=CSS.supports('height: env(fold-top)');
+    if(foldTop){ /* 지원 시 자동 처리 */ }
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════════════════
+// 토스트
+// ═══════════════════════════════════════════════════════
+let toastTimer=null;
+function showToast(msg){
+  let t=document.querySelector('.toast');
+  if(t) t.remove();
+  t=document.createElement('div');
+  t.className='toast'; t.textContent=msg;
+  document.body.appendChild(t);
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t?.remove(), 2000);
+}
+
+// ═══════════════════════════════════════════════════════
+// 오디오 컨텍스트 언락 (iOS 대응)
+// ═══════════════════════════════════════════════════════
+document.addEventListener('touchstart', ()=>{ try{getCtx();}catch(e){} }, {once:true});
+</script>
+</body>
+</html>
