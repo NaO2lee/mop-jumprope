@@ -395,6 +395,8 @@ function init(){
 
   // 코트 카드 생성
   // 초기엔 A~L (12개)만 표시 — Firebase 데이터 오면 실제 히트 코트로 교체
+  const wrap=document.getElementById('courts-wrap');
+  const totalCourts=24;
   for(let i=1;i<=totalCourts;i++){
     const cid=String.fromCharCode(64+i); // A~X
     const isVisible=i<=12;
