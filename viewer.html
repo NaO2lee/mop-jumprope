@@ -393,28 +393,9 @@ function init(){
     logoEl.src=config.logo;logoEl.style.display='block';
   }
 
-  // 코트 카드 생성
-  // 초기엔 A~L (12개)만 표시 — Firebase 데이터 오면 실제 히트 코트로 교체
+  // 코트 카드 영역 — 동적 생성 (히트 데이터 받으면 그 코트 ID로 생성)
   const wrap=document.getElementById('courts-wrap');
-  const totalCourts=24;
-  for(let i=1;i<=totalCourts;i++){
-    const cid=String.fromCharCode(64+i); // A~X
-    const isVisible=i<=12;
-    wrap.innerHTML+=`
-      <div class="court-card" id="court-${cid}" data-court="${cid}" style="${isVisible?'':'display:none'}">
-        <div class="court-id-badge">${cid}</div>
-        <div class="video-wrap" id="vid-${cid}">
-          <div class="no-signal">NO SIGNAL</div>
-        </div>
-        <div class="info-bar">
-          <div class="info-left">
-            <div class="info-name" id="name-${cid}">—</div>
-            <div class="info-club" id="club-${cid}">—</div>
-          </div>
-          <div class="info-score" id="score-${cid}">—</div>
-        </div>
-      </div>`;
-  }
+  wrap.innerHTML='<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:rgba(255,255,255,.3);font-family:Bebas Neue,sans-serif;letter-spacing:.2em;font-size:14px">WAITING FOR DATA...</div>';
 
   // PeerJS 카메라 수신
   peer=new Peer('mop-'+config.room+'-viewer');
@@ -450,11 +431,19 @@ function subscribeOperator(){
     if(!s.val()){
       el.className='top-status st-calling';
       el.textContent='🔴 Firebase 연결 중...';
+    } else {
+      // 연결됨 - heatStatus가 있으면 그걸로, 없으면 idle
+      if(!el.dataset.hasState){
+        el.className='top-status st-idle';
+        el.textContent='⏸ 대기';
+      }
     }
   });
 
   db.ref(`${config.room}/operator`).on('value',s=>{
     const v=s.val();if(!v)return;
+    const el=document.getElementById('top-status');
+    el.dataset.hasState='1'; // 데이터 받았다 마킹
 
     // 히트/종목 표시
     if(v.currentHeatNo){
@@ -462,11 +451,12 @@ function subscribeOperator(){
       loadHeatInfo(v.currentHeatNo);
     }
     if(v.heatStatus)updateStatus(v.heatStatus);
+    else updateStatus('idle');
 
     // ★ 레이아웃 제어 (운영앱에서 설정)
     if(v.viewerLayout){
-      const layout=v.viewerLayout; // '12'|'4'|'1'
-      const courts=v.viewerCourts||[]; // ['A','B','C','D']
+      const layout=v.viewerLayout;
+      const courts=v.viewerCourts||[];
       const focus=v.viewerFocus||null;
       focusCourt=focus;
       setLayout(layout,courts);
@@ -479,13 +469,22 @@ function loadHeatInfo(heatNo){
     const h=s.val();if(!h)return;
     document.getElementById('top-event').textContent=h.event_name||h.event||'—';
 
-    // 이 히트의 실제 코트 목록 업데이트
-    activeCourtsFor12=Object.keys(h.courts||{});
+    // 이 히트의 실제 코트 목록
+    const heatCourts=Object.keys(h.courts||{}).sort((a,b)=>{
+      // 숫자/알파벳 자연 정렬
+      const an=parseInt(a),bn=parseInt(b);
+      if(!isNaN(an)&&!isNaN(bn))return an-bn;
+      return String(a).localeCompare(String(b));
+    });
+    activeCourtsFor12=heatCourts;
+
+    // ★ 코트 카드를 실제 히트 코트 기반으로 동적 생성/업데이트
+    rebuildCourtCards(heatCourts);
 
     // 12분할이면 히트 코트에 맞게 바로 재적용
     if(currentLayout==='12') setLayout('12',[]);
 
-    // 코트별 선수 정보 업데이트 (숨기기 없음 — 오직 내용만)
+    // 코트별 선수 정보 업데이트
     Object.entries(h.courts||{}).forEach(([cid,c])=>{
       const ath=c.athlete;
       if(!ath)return;
@@ -500,6 +499,56 @@ function loadHeatInfo(heatNo){
     });
     updateRankBoard();
   });
+}
+
+// 히트 코트 ID 리스트로 카드 재생성 (없으면 생성, 있으면 유지)
+function rebuildCourtCards(courtIds){
+  const wrap=document.getElementById('courts-wrap');
+  // 첫 호출이면 placeholder 제거
+  const placeholder=wrap.querySelector('div[style*="WAITING"]');
+  if(placeholder)wrap.innerHTML='';
+
+  // 기존 카드 ID 수집
+  const existing=new Set();
+  wrap.querySelectorAll('.court-card').forEach(c=>existing.add(c.dataset.court));
+
+  // 없는 카드 추가
+  courtIds.forEach(cid=>{
+    if(existing.has(cid))return;
+    const card=document.createElement('div');
+    card.className='court-card';
+    card.id='court-'+cid;
+    card.dataset.court=cid;
+    card.innerHTML=`
+      <div class="court-id-badge">${cid}</div>
+      <div class="video-wrap" id="vid-${cid}">
+        <div class="no-signal">NO SIGNAL</div>
+      </div>
+      <div class="info-bar">
+        <div class="info-left">
+          <div class="info-name" id="name-${cid}">—</div>
+          <div class="info-club" id="club-${cid}">—</div>
+        </div>
+        <div class="info-score" id="score-${cid}">—</div>
+      </div>`;
+    wrap.appendChild(card);
+  });
+
+  // 히트에 없는 카드는 제거 (선택사항 - 일단 유지)
+  // 12분할 그리드 자동 조정
+  const n=courtIds.length;
+  if(currentLayout==='12'){
+    if(n<=6){
+      wrap.style.gridTemplateColumns=`repeat(${n},1fr)`;
+      wrap.style.gridTemplateRows='1fr';
+    } else if(n<=12){
+      wrap.style.gridTemplateColumns='repeat(6,1fr)';
+      wrap.style.gridTemplateRows='repeat(2,1fr)';
+    } else {
+      wrap.style.gridTemplateColumns=`repeat(${Math.ceil(n/2)},1fr)`;
+      wrap.style.gridTemplateRows='repeat(2,1fr)';
+    }
+  }
 }
 
 function updateStatus(state){
