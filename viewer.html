@@ -157,37 +157,61 @@ html,body{
 .layout-1 .info-score{font-size:clamp(60px,12vw,140px);}
 .layout-1 .court-id-badge{font-size:clamp(28px,4vw,48px);}
 
-/* ── 하단 티커 ── */
-#ticker{
-  height:34px;flex-shrink:0;
+/* ── 하단 순위 바 (고정 위치, 내용만 교체) ── */
+#rank-board{
+  height:40px;flex-shrink:0;
   background:#000814;
-  border-top:1px solid rgba(0,229,255,.2);
-  display:flex;align-items:center;overflow:hidden;
+  border-top:2px solid rgba(0,229,255,.25);
+  display:flex;align-items:stretch;
+  overflow:hidden;position:relative;
 }
-.ticker-tag{
-  font-family:'Bebas Neue',sans-serif;font-size:13px;
+.rank-tag{
+  font-family:'Bebas Neue',sans-serif;font-size:12px;
   color:#00e5ff;letter-spacing:.15em;
-  padding:0 14px;white-space:nowrap;
-  border-right:1px solid rgba(0,229,255,.2);flex-shrink:0;
+  padding:0 12px;white-space:nowrap;
+  border-right:1px solid rgba(0,229,255,.2);
+  flex-shrink:0;display:flex;align-items:center;
+  background:rgba(0,229,255,.05);
+  gap:6px;
 }
-.ticker-track{flex:1;overflow:hidden;position:relative;height:100%;}
-.ticker-inner{
+.rank-page-dot{font-size:8px;color:rgba(0,229,255,.4);}
+
+/* 순위 콘텐츠 영역 — 두 레이어 겹쳐서 crossfade */
+.rank-content-wrap{
+  flex:1;position:relative;overflow:hidden;
+}
+.rank-layer{
+  position:absolute;inset:0;
   display:flex;align-items:center;
-  position:absolute;white-space:nowrap;
-  animation:tickMove 40s linear infinite;
-  height:100%;
+  padding:0 4px;gap:0;
+  transition:opacity .5s ease;
 }
-.ticker-inner:empty{animation:none;}
-@keyframes tickMove{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
-.t-item{
-  display:inline-flex;align-items:center;gap:8px;
-  padding:0 18px;height:100%;
-  border-right:1px solid rgba(255,255,255,.07);
+.rank-layer.visible{opacity:1;pointer-events:auto;}
+.rank-layer.hidden{opacity:0;pointer-events:none;}
+
+/* 순위 아이템 */
+.rank-item{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:0 14px;height:100%;
+  border-right:1px solid rgba(255,255,255,.06);
+  flex-shrink:0;white-space:nowrap;
 }
-.t-cid{font-family:'Bebas Neue',sans-serif;font-size:13px;color:rgba(0,229,255,.65);}
-.t-name{font-size:12px;font-weight:700;color:rgba(255,255,255,.8);}
-.t-club{font-size:10px;color:rgba(255,255,255,.45);}
-.t-score{font-family:'Bebas Neue',sans-serif;font-size:20px;color:#00e5ff;margin-left:4px;}
+.r-rank{
+  font-family:'Bebas Neue',sans-serif;font-size:16px;
+  line-height:1;flex-shrink:0;width:18px;text-align:center;
+}
+.r-rank.gold  {color:#ffd60a;}
+.r-rank.silver{color:#94a3b8;}
+.r-rank.bronze{color:#cd7c54;}
+.r-rank.other {color:rgba(255,255,255,.3);}
+.r-court{font-family:'Bebas Neue',sans-serif;font-size:12px;color:rgba(0,229,255,.6);}
+.r-name{font-size:12px;font-weight:700;color:rgba(255,255,255,.85);}
+.r-club{font-size:10px;color:rgba(255,255,255,.4);}
+.r-score{
+  font-family:'Bebas Neue',sans-serif;font-size:20px;
+  color:#00e5ff;margin-left:2px;
+  text-shadow:0 0 8px rgba(0,229,255,.4);
+}
 
 /* ── 안내 방송 팝업 ── */
 #ann-popup{
@@ -249,11 +273,15 @@ html,body{
   <!-- 코트 그리드 -->
   <div id="courts-wrap" class="layout-12"></div>
 
-  <!-- 티커 -->
-  <div id="ticker">
-    <div class="ticker-tag">LIVE SCORE</div>
-    <div class="ticker-track">
-      <div class="ticker-inner" id="ticker-inner"></div>
+  <!-- 순위 바 (고정 위치, 내용 교체) -->
+  <div id="rank-board">
+    <div class="rank-tag">
+      LIVE RANK
+      <span class="rank-page-dot" id="rank-page-ind">●●●</span>
+    </div>
+    <div class="rank-content-wrap">
+      <div class="rank-layer visible" id="rank-layer-a"></div>
+      <div class="rank-layer hidden"  id="rank-layer-b"></div>
     </div>
   </div>
 </div>
@@ -330,13 +358,13 @@ function init(){
     logoEl.src=config.logo;logoEl.style.display='block';
   }
 
-  // 코트 카드 생성 (최대 24)
+  // 코트 카드 생성 (기본 display:flex — 처음에 모두 보여주고 나중에 필터)
   const wrap=document.getElementById('courts-wrap');
   const totalCourts=24;
   for(let i=1;i<=totalCourts;i++){
     const cid=String.fromCharCode(64+i); // A~X
     wrap.innerHTML+=`
-      <div class="court-card" id="court-${cid}" data-court="${cid}" style="display:none">
+      <div class="court-card" id="court-${cid}" data-court="${cid}">
         <div class="court-id-badge">${cid}</div>
         <div class="video-wrap" id="vid-${cid}">
           <div class="no-signal">NO SIGNAL</div>
@@ -349,6 +377,12 @@ function init(){
           <div class="info-score" id="score-${cid}">—</div>
         </div>
       </div>`;
+  }
+  // 초기엔 A~L (12개)만 표시 (히트 데이터 오기 전 기본값)
+  for(let i=1;i<=totalCourts;i++){
+    const cid=String.fromCharCode(64+i);
+    const card=document.getElementById('court-'+cid);
+    if(card)card.style.display=i<=12?'':'none';
   }
 
   // PeerJS 카메라 수신
@@ -426,7 +460,7 @@ function loadHeatInfo(heatNo){
       liveScores[cid].club=ath.club||'';
       liveScores[cid].bib=ath.bib||'';
     });
-    updateTicker();
+    updateRankBoard();
   });
 }
 
@@ -459,24 +493,69 @@ function subscribeJudges(){
       if(!liveScores[cid])liveScores[cid]={};
       liveScores[cid].score=sc??0;
     });
-    updateTicker();
+    updateRankBoard();
   });
 }
 
-// ── 티커 ──
-function updateTicker(){
-  const entries=Object.entries(liveScores)
-    .filter(([,v])=>v.name||v.score>0)
-    .sort((a,b)=>(b[1].score||0)-(a[1].score||0));
-  if(!entries.length)return;
-  const html=entries.map(([cid,v])=>`
-    <div class="t-item">
-      <span class="t-cid">${cid}</span>
-      <span class="t-name">${v.name||'—'}</span>
-      ${v.club?`<span class="t-club">${v.club}</span>`:''}
-      <span class="t-score">${v.score??'—'}</span>
+// ── 순위 바 (고정 위치, 내용만 crossfade 교체) ──
+let rankData=[];
+let rankPage=0;
+const RANK_PER_PAGE=5;
+let rankTimer=null;
+let activeLayer='a';
+
+function buildRankItems(entries){
+  const cls=['gold','silver','bronze'];
+  return entries.map(e=>`
+    <div class="rank-item">
+      <span class="r-rank ${cls[e.rank-1]||'other'}">${e.rank}</span>
+      <span class="r-court">${e.cid}</span>
+      <span class="r-name">${e.name||'—'}</span>
+      ${e.club?`<span class="r-club">${e.club}</span>`:''}
+      <span class="r-score">${e.score??'—'}</span>
     </div>`).join('');
-  document.getElementById('ticker-inner').innerHTML=html+html; // 2번 반복 = 무한 루프
+}
+
+function showRankPage(page){
+  const totalPages=Math.max(1,Math.ceil(rankData.length/RANK_PER_PAGE));
+  const p=((page%totalPages)+totalPages)%totalPages;
+  const slice=rankData.slice(p*RANK_PER_PAGE,(p+1)*RANK_PER_PAGE);
+  if(!slice.length)return;
+
+  const next=activeLayer==='a'?'b':'a';
+  const nextEl=document.getElementById(`rank-layer-${next}`);
+  const curEl=document.getElementById(`rank-layer-${activeLayer}`);
+
+  // 다음 레이어에 새 내용 미리 로드
+  nextEl.innerHTML=buildRankItems(slice);
+  // crossfade
+  nextEl.classList.remove('hidden');nextEl.classList.add('visible');
+  curEl.classList.remove('visible');curEl.classList.add('hidden');
+  activeLayer=next;
+
+  // 페이지 인디케이터
+  const ind=document.getElementById('rank-page-ind');
+  if(ind)ind.textContent='●'.repeat(totalPages).split('').map((d,i)=>i===p?'●':'○').join('');
+}
+
+function startRankCycle(){
+  clearInterval(rankTimer);
+  showRankPage(0);rankPage=0;
+  if(rankData.length<=RANK_PER_PAGE)return; // 5개 이하면 그냥 고정
+  rankTimer=setInterval(()=>{
+    rankPage=(rankPage+1)%Math.ceil(rankData.length/RANK_PER_PAGE);
+    showRankPage(rankPage);
+  },4000);
+}
+
+function updateRankBoard(){
+  const sorted=Object.entries(liveScores)
+    .filter(([,v])=>v.name||v.score>0)
+    .sort((a,b)=>(b[1].score||0)-(a[1].score||0))
+    .map(([cid,v],i)=>({rank:i+1,cid,name:v.name||'—',club:v.club||'',score:v.score??0}));
+  rankData=sorted;
+  rankPage=0;
+  startRankCycle();
 }
 
 // ── 안내 방송 팝업 ──
