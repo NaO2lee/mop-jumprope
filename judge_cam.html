@@ -2,20 +2,20 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>심판+카메라 — 모두의 플레이</title>
+<title>심판+카메라 (Z플립) — 모두의 플레이</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@400;600;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#050810;--sur:#0d1117;--sur2:#161b24;
+  --bg:#050810;--sur2:#161b24;
   --ac:#00e5ff;--ac2:#ff3d71;--gn:#00ff88;--yw:#ffd60a;
-  --tx:#e8eaf2;--mu:#4a5568;--mu2:#718096;
+  --tx:#e8eaf2;--mu:#4a5568;
   --fold:50vh;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
@@ -26,195 +26,155 @@ html,body{height:100dvh;overflow:hidden;background:var(--bg);color:var(--tx);fon
 #s-setup.show{display:flex;}
 .logo-txt{font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:.4em;color:var(--mu);}
 .big-title{font-family:'Bebas Neue',sans-serif;font-size:38px;color:var(--ac);letter-spacing:.06em;line-height:1;}
-.sub-txt{font-size:11px;color:var(--mu2);text-align:center;line-height:1.6;}
-.card{width:100%;max-width:350px;background:var(--sur2);border:1.5px solid #1e2535;border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:12px;}
+.card{width:100%;max-width:340px;background:var(--sur2);border:1.5px solid #1e2535;border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:12px;}
 .fld{display:flex;flex-direction:column;gap:5px;}
-.fld label{font-size:10px;color:var(--mu2);letter-spacing:.1em;text-transform:uppercase;}
-.inp{background:#080b12;border:1.5px solid #1e2535;border-radius:11px;padding:12px 14px;font-size:16px;color:var(--tx);font-family:'Noto Sans KR',sans-serif;outline:none;width:100%;transition:border-color .2s;}
+.fld label{font-size:10px;color:#718096;letter-spacing:.1em;text-transform:uppercase;}
+.inp{background:#080b12;border:1.5px solid #1e2535;border-radius:11px;padding:12px 14px;font-size:16px;color:var(--tx);outline:none;width:100%;font-family:'Noto Sans KR',sans-serif;transition:border-color .2s;}
 .inp:focus{border-color:var(--ac);}
 .inp-mono{font-family:monospace;letter-spacing:.05em;}
-.big-btn{width:100%;padding:15px;border:none;border-radius:13px;font-size:16px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .15s;letter-spacing:.02em;}
+.big-btn{width:100%;padding:15px;border:none;border-radius:13px;font-size:16px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .15s;}
 .big-btn:active{transform:scale(.97);}
 .btn-ac{background:var(--ac);color:#000;}
 
-/* ── 모드 선택 ── */
-.mode-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
-.mode-btn{padding:12px 8px;border:1.5px solid #1e2535;border-radius:12px;background:var(--sur);color:var(--tx);cursor:pointer;text-align:center;transition:all .2s;font-family:'Noto Sans KR',sans-serif;}
-.mode-btn.active{border-color:var(--ac);background:rgba(0,229,255,.12);color:var(--ac);}
-.mode-btn .mode-icon{font-size:22px;display:block;margin-bottom:4px;}
-.mode-btn .mode-lbl{font-size:11px;font-weight:700;}
-.mode-btn .mode-desc{font-size:9px;color:var(--mu2);margin-top:2px;}
-
-/* ── 메인 화면 (분할) ── */
+/* ── 메인: 상하 분할 ── */
 #s-main{display:none;flex-direction:column;height:100dvh;overflow:hidden;}
 #s-main.show{display:flex;}
 
-/* ─ 카메라 영역 ─ */
-#cam-panel{position:relative;height:var(--fold);flex-shrink:0;background:#000;overflow:hidden;transition:height .3s;}
-#cam-panel.hidden{height:0;}
+/* ─ 상단 카메라 ─ */
+#cam-panel{position:relative;height:var(--fold);flex-shrink:0;background:#000;overflow:hidden;}
 #cam-video{width:100%;height:100%;object-fit:cover;display:block;}
 .cam-overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none;}
-.cam-top{display:flex;justify-content:space-between;align-items:flex-start;padding:14px 14px 0;background:linear-gradient(180deg,rgba(0,0,0,.75),transparent);padding-bottom:28px;}
-.cam-info{display:flex;flex-direction:column;gap:2px;}
-.cam-room{font-size:9px;color:rgba(255,255,255,.4);letter-spacing:.12em;}
-.cam-court{font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--ac);line-height:1;text-shadow:0 0 20px rgba(0,229,255,.5);}
-.cam-athlete{font-size:12px;font-weight:700;}
-.cam-status{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.65);border-radius:20px;padding:5px 10px;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.1);pointer-events:auto;}
-.cam-dot{width:6px;height:6px;border-radius:50%;}
-.cam-dot.live{background:var(--ac2);animation:pls .7s ease-in-out infinite alternate;}
-.cam-dot.conn{background:var(--ac);animation:pls .6s ease-in-out infinite alternate;}
-.cam-dot.off{background:var(--mu);}
+.cam-top{display:flex;justify-content:space-between;align-items:flex-start;padding:12px 12px 0;background:linear-gradient(180deg,rgba(0,0,0,.75),transparent);padding-bottom:24px;}
+.cam-court-lbl{font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--ac);line-height:1;text-shadow:0 0 18px rgba(0,229,255,.5);}
+.cam-status{display:flex;align-items:center;gap:5px;background:rgba(0,0,0,.6);border-radius:20px;padding:4px 10px;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.1);font-size:10px;pointer-events:auto;}
+.dot{width:6px;height:6px;border-radius:50%;}
+.dot.live{background:var(--ac2);animation:pls .7s ease-in-out infinite alternate;}
+.dot.conn{background:var(--ac);animation:pls .6s ease-in-out infinite alternate;}
+.dot.off{background:var(--mu);}
 @keyframes pls{from{opacity:.3;}to{opacity:1;}}
-.cam-bot{display:flex;justify-content:space-between;align-items:flex-end;padding:0 14px 14px;background:linear-gradient(0deg,rgba(0,0,0,.8),transparent);padding-top:28px;pointer-events:auto;}
-.cam-count{font-family:'Bebas Neue',sans-serif;font-size:60px;line-height:1;color:#fff;transition:color .1s;text-shadow:0 0 30px rgba(255,255,255,.2);}
-.cam-count.flash{color:var(--ac);}
+.cam-bot{display:flex;justify-content:space-between;align-items:flex-end;padding:0 12px 10px;background:linear-gradient(0deg,rgba(0,0,0,.75),transparent);padding-top:24px;pointer-events:auto;}
+.cam-count-lbl{font-family:'Bebas Neue',sans-serif;font-size:54px;line-height:1;color:#fff;text-shadow:0 0 24px rgba(255,255,255,.2);}
 .cam-btns{display:flex;gap:8px;}
-.cam-btn{width:40px;height:40px;border:1.5px solid rgba(255,255,255,.2);border-radius:50%;background:rgba(0,0,0,.6);color:white;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.cam-btn{width:38px;height:38px;border:1.5px solid rgba(255,255,255,.2);border-radius:50%;background:rgba(0,0,0,.6);color:white;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .cam-btn:active{transform:scale(.9);}
 
 /* 경첩선 */
-#fold-line{height:3px;background:linear-gradient(90deg,transparent,rgba(0,229,255,.4),var(--ac),rgba(0,229,255,.4),transparent);flex-shrink:0;display:none;position:relative;}
-#fold-line.show{display:block;}
-#fold-line::after{content:'· MOP ·';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Bebas Neue',sans-serif;font-size:9px;letter-spacing:.3em;color:rgba(0,229,255,.5);background:var(--bg);padding:0 8px;}
+#fold-line{height:3px;background:linear-gradient(90deg,transparent,rgba(0,229,255,.4),var(--ac),rgba(0,229,255,.4),transparent);flex-shrink:0;position:relative;}
+#fold-line::after{content:'Z FLIP';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Bebas Neue',sans-serif;font-size:9px;letter-spacing:.3em;color:rgba(0,229,255,.45);background:var(--bg);padding:0 8px;}
 
-/* ─ 심판 영역 ─ */
+/* ─ 하단 심판 ─ */
 #judge-panel{flex:1;display:flex;flex-direction:column;background:var(--bg);overflow:hidden;min-height:0;}
-#judge-panel.full{flex:1;}
 
-/* 히트+선수 정보 바 */
-.info-bar{background:var(--sur2);border-bottom:1px solid #1e2535;padding:8px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;}
-.heat-badge{font-family:'Bebas Neue',sans-serif;font-size:13px;color:var(--ac);background:rgba(0,229,255,.1);padding:3px 8px;border-radius:5px;border:1px solid rgba(0,229,255,.3);white-space:nowrap;}
-.event-info{flex:1;min-width:0;}
-.event-name{font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.event-div{font-size:10px;color:var(--mu2);}
-.fb-dot{font-size:9px;color:var(--mu2);}
+/* 히트 상태 바 */
+.hstate-bar{display:flex;align-items:center;gap:8px;padding:5px 12px;background:rgba(0,0,0,.5);border-bottom:1px solid #1e2535;flex-shrink:0;}
+.hstate-pill{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;}
+.h-idle{background:rgba(74,85,104,.3);color:#718096;}
+.h-calling{background:rgba(255,214,10,.2);color:var(--yw);}
+.h-racing{background:rgba(0,229,255,.2);color:var(--ac);}
+.h-finished{background:rgba(0,255,136,.2);color:var(--gn);}
+.fb-dot-sm{font-size:10px;margin-left:auto;}
 
-/* 선수 정보 */
-.athlete-bar{background:rgba(0,229,255,.04);border-bottom:1px solid rgba(0,229,255,.1);padding:8px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;}
-.ath-bib{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--ac);flex-shrink:0;line-height:1;}
-.ath-info{flex:1;min-width:0;}
-.ath-name{font-size:15px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.ath-club{font-size:10px;color:var(--mu2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* 선수 정보 (컴팩트) */
+.ath-bar{display:flex;align-items:center;gap:8px;padding:6px 12px;background:rgba(0,229,255,.04);border-bottom:1px solid rgba(0,229,255,.08);flex-shrink:0;}
+.ath-bib-sm{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--ac);line-height:1;flex-shrink:0;}
+.ath-name-sm{font-size:14px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+.ath-club-sm{font-size:10px;color:#718096;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;max-width:40%;}
 
-/* 카운트 영역 */
-.count-area{flex:1;display:flex;flex-direction:column;padding:8px 16px;gap:8px;}
-.c-btn{border:none;border-radius:14px;font-family:'Bebas Neue',sans-serif;cursor:pointer;transition:all .1s;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 0;font-size:30px;user-select:none;}
-.c-btn:active{transform:scale(.93);filter:brightness(1.3);}
-/* +1 전체 채우기 버튼 */
-.c-big{flex:1;width:100%;font-size:clamp(60px,18vw,100px);border-radius:20px;padding:0;}
-.c-lbl{font-size:10px;margin-top:2px;opacity:.7;font-family:'Noto Sans KR',sans-serif;font-weight:700;}
-.c-minus{background:rgba(255,61,113,.15);color:var(--ac2);border:1.5px solid rgba(255,61,113,.3);}
-.c-plus1{background:rgba(0,229,255,.12);color:var(--ac);border:1.5px solid rgba(0,229,255,.3);}
-.c-plus5{background:rgba(0,255,136,.1);color:var(--gn);border:1.5px solid rgba(0,255,136,.25);}
+/* ━━━ 심판 UI (judge.html과 동일 구조) ━━━ */
+.judge-body{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;}
 
-/* 액션 바 */
-.action-bar{display:flex;gap:7px;padding:8px 14px;padding-bottom:max(8px,env(safe-area-inset-bottom));flex-shrink:0;border-top:1px solid #1e2535;}
-.act-btn{flex:1;padding:13px;border:none;border-radius:13px;font-size:13px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .15s;}
-.act-btn:active{transform:scale(.97);}
-.act-clear{background:var(--sur2);color:var(--mu2);border:1.5px solid #1e2535;}
+/* 상단: 초기화/준비/제출 */
+.top-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;padding:6px 10px;flex-shrink:0;border-bottom:1px solid #1e2535;}
+.act-btn{padding:10px 4px;border:none;border-radius:11px;font-size:12px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .15s;}
+.act-btn:active{transform:scale(.96);}
+.act-clear{background:var(--sur2);color:#718096;border:1.5px solid #1e2535;}
 .act-ready{background:rgba(255,214,10,.15);color:var(--yw);border:1.5px solid rgba(255,214,10,.3);}
 .act-ready.on{background:var(--yw);color:#000;}
 .act-submit{background:var(--ac);color:#000;}
 
-/* 신호음 플래시 오버레이 */
+/* 중단: −1 / COUNT / +10 */
+.sub-btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;padding:5px 10px;flex-shrink:0;}
+.s-btn{padding:12px 0;border:none;border-radius:11px;font-family:'Bebas Neue',sans-serif;font-size:22px;cursor:pointer;transition:all .1s;display:flex;flex-direction:column;align-items:center;justify-content:center;user-select:none;}
+.s-btn:active{transform:scale(.93);filter:brightness(1.3);}
+.s-lbl{font-size:9px;font-family:'Noto Sans KR',sans-serif;font-weight:700;opacity:.7;margin-top:2px;}
+.s-minus{background:rgba(255,61,113,.15);color:var(--ac2);border:1.5px solid rgba(255,61,113,.3);}
+.s-count{background:rgba(255,255,255,.03);border:1.5px solid #1e2535;color:var(--ac);}
+.s-plus10{background:rgba(0,255,136,.1);color:var(--gn);border:1.5px solid rgba(0,255,136,.25);}
+#count-sm{font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--ac);line-height:1;}
+
+/* +1 전체 버튼 (하단 전체, 텍스트 없음) */
+#btn-plus1{
+  flex:1;width:100%;border:none;
+  background:rgba(0,229,255,.08);
+  border-top:2px solid rgba(0,229,255,.15);
+  cursor:pointer;transition:all .08s;
+  user-select:none;-webkit-user-select:none;
+}
+#btn-plus1:active{background:rgba(0,229,255,.22);filter:brightness(1.2);}
+
+/* 신호음 플래시 */
 #sig-flash{position:fixed;inset:0;z-index:200;pointer-events:none;opacity:0;transition:opacity .1s;}
 #sig-flash.start{background:rgba(0,229,255,.25);}
 #sig-flash.end{background:rgba(255,61,113,.2);}
 #sig-flash.show{opacity:1;}
 
-/* 제출 완료 오버레이 */
-#overlay-done{display:none;position:fixed;inset:0;background:rgba(0,0,0,.87);z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:14px;backdrop-filter:blur(10px);}
+/* 제출 오버레이 */
+#overlay-done{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:14px;backdrop-filter:blur(10px);}
 #overlay-done.show{display:flex;}
-.ov-icon{font-size:60px;}
-.ov-title{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:.06em;}
-.ov-sub{font-size:14px;color:var(--mu2);text-align:center;padding:0 20px;}
-.ov-btn{padding:14px 32px;border-radius:13px;border:none;font-size:16px;font-weight:700;cursor:pointer;background:var(--ac);color:#000;font-family:'Noto Sans KR',sans-serif;}
+.ov-icon{font-size:56px;}
+.ov-title{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:.06em;}
+.ov-sub{font-size:13px;color:#718096;text-align:center;padding:0 20px;}
+.ov-btn{padding:13px 30px;border-radius:13px;border:none;font-size:15px;font-weight:700;cursor:pointer;background:var(--ac);color:#000;font-family:'Noto Sans KR',sans-serif;}
 
-/* 상태 표시 바 (상단) */
-.status-bar{display:flex;align-items:center;gap:8px;padding:6px 14px;background:rgba(0,0,0,.4);border-bottom:1px solid #1e2535;flex-shrink:0;}
-.hstate-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;font-family:'Noto Sans KR',sans-serif;}
-.hstate-idle{background:rgba(74,85,104,.3);color:#718096;}
-.hstate-calling{background:rgba(255,214,10,.2);color:var(--yw);}
-.hstate-racing{background:rgba(0,229,255,.2);color:var(--ac);}
-.hstate-finished{background:rgba(0,255,136,.2);color:var(--gn);}
+/* 폴드 비율 조절 버튼 */
+.fold-adjust{position:absolute;right:8px;bottom:8px;pointer-events:auto;}
+.fold-btn{width:34px;height:34px;border:1.5px solid rgba(255,255,255,.2);border-radius:50%;background:rgba(0,0,0,.6);color:white;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.fold-btn:active{transform:scale(.9);}
 
 /* 토스트 */
-.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(0,229,255,.15);border:1px solid rgba(0,229,255,.3);color:var(--ac);border-radius:20px;padding:10px 20px;font-size:13px;white-space:nowrap;z-index:50;animation:tst .3s ease;pointer-events:none;}
+.toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:rgba(0,229,255,.15);border:1px solid rgba(0,229,255,.3);color:var(--ac);border-radius:20px;padding:8px 18px;font-size:12px;white-space:nowrap;z-index:50;animation:tst .3s ease;pointer-events:none;}
 @keyframes tst{from{opacity:0;transform:translateX(-50%) translateY(8px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
 </style>
 </head>
 <body>
 
-<!-- ═══════ 설정 화면 ═══════ -->
+<!-- 설정 화면 -->
 <div id="s-setup" class="show">
   <div class="logo-txt">모두의 플레이</div>
-  <div class="big-title">심판 + 카메라</div>
-  <div class="sub-txt">URL 파라미터 자동 인식<br>?room=XXX&court=A&mode=both</div>
-
+  <div class="big-title">📷⚖ Z플립 통합</div>
+  <div style="font-size:11px;color:#718096;text-align:center">상단=카메라 송출 · 하단=심판 카운팅</div>
   <div class="card">
-    <div class="fld">
-      <label>📡 Room ID</label>
-      <input class="inp inp-mono" id="inp-room" type="text" placeholder="예: room_001">
-    </div>
-    <div class="fld">
-      <label>🏟 코트 번호</label>
-      <input class="inp inp-mono" id="inp-court" type="text" placeholder="예: A 또는 1" oninput="this.value=this.value.toUpperCase()">
-    </div>
-    <div class="fld">
-      <label>⚖ 심판 이름</label>
-      <input class="inp" id="inp-judge" type="text" placeholder="홍길동">
-    </div>
-    <div class="fld">
-      <label>🎛 모드 선택</label>
-      <div class="mode-grid">
-        <button class="mode-btn active" id="mode-both" onclick="selectMode('both')">
-          <span class="mode-icon">📷⚖</span>
-          <span class="mode-lbl">통합</span>
-          <span class="mode-desc">Z플립 최적</span>
-        </button>
-        <button class="mode-btn" id="mode-judge" onclick="selectMode('judge')">
-          <span class="mode-icon">⚖</span>
-          <span class="mode-lbl">심판만</span>
-          <span class="mode-desc">일반 스마트폰</span>
-        </button>
-        <button class="mode-btn" id="mode-cam" onclick="selectMode('cam')">
-          <span class="mode-icon">📷</span>
-          <span class="mode-lbl">카메라만</span>
-          <span class="mode-desc">전용 송출</span>
-        </button>
-      </div>
-    </div>
+    <div class="fld"><label>📡 Room ID</label>
+      <input class="inp inp-mono" id="inp-room" placeholder="예: room_001"></div>
+    <div class="fld"><label>🏟 담당 코트</label>
+      <input class="inp inp-mono" id="inp-court" placeholder="예: A" oninput="this.value=this.value.toUpperCase()"></div>
+    <div class="fld"><label>⚖ 심판 이름</label>
+      <input class="inp" id="inp-judge" placeholder="홍길동"></div>
     <button class="big-btn btn-ac" onclick="startApp()">🚀 시작</button>
   </div>
 </div>
 
-<!-- ═══════ 메인 화면 ═══════ -->
+<!-- 메인 화면 -->
 <div id="s-main">
-
-  <!-- 카메라 패널 -->
+  <!-- 상단: 카메라 -->
   <div id="cam-panel">
     <video id="cam-video" playsinline autoplay muted></video>
     <div class="cam-overlay">
       <div class="cam-top">
-        <div class="cam-info">
-          <div class="cam-room" id="cam-room">ROOM: —</div>
-          <div class="cam-court" id="cam-court">C-A</div>
-          <div class="cam-athlete" id="cam-athlete"></div>
-        </div>
+        <div class="cam-court-lbl" id="cam-court-lbl">C-A</div>
         <div class="cam-status">
-          <div class="cam-dot off" id="cam-dot"></div>
-          <span id="cam-status-txt" style="font-size:10px;color:rgba(255,255,255,.6)">연결 중...</span>
+          <div class="dot off" id="cam-dot"></div>
+          <span id="cam-status-txt" style="color:rgba(255,255,255,.6)">연결 중...</span>
         </div>
       </div>
       <div class="cam-bot">
-        <div>
-          <div style="font-size:9px;color:rgba(255,255,255,.35);letter-spacing:.1em;margin-bottom:2px">COUNT</div>
-          <div class="cam-count" id="cam-count">0</div>
-        </div>
+        <div class="cam-count-lbl" id="cam-count">0</div>
         <div class="cam-btns">
           <div class="cam-btn" onclick="flipCamera()">🔄</div>
-          <div class="cam-btn" id="fold-btn" onclick="toggleFold()">↕</div>
         </div>
+      </div>
+      <div class="fold-adjust">
+        <div class="fold-btn" onclick="toggleFold()" title="비율 조절">↕</div>
       </div>
     </div>
   </div>
@@ -222,80 +182,55 @@ html,body{height:100dvh;overflow:hidden;background:var(--bg);color:var(--tx);fon
   <!-- 경첩선 -->
   <div id="fold-line"></div>
 
-  <!-- 심판 패널 -->
+  <!-- 하단: 심판 -->
   <div id="judge-panel">
-
-    <!-- 히트 상태 바 -->
-    <div class="status-bar">
-      <div class="hstate-badge hstate-idle" id="hstate-badge">⏸ 대기</div>
-      <div style="font-size:10px;color:var(--mu2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="hstate-event">—</div>
-      <div class="fb-dot" id="fb-dot">⏳</div>
+    <!-- 히트 상태 -->
+    <div class="hstate-bar">
+      <div class="hstate-pill h-idle" id="hstate">⏸ 대기</div>
+      <div style="font-size:10px;color:#718096;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:6px" id="hstate-ev">—</div>
+      <div class="fb-dot-sm" id="fb-dot">⏳</div>
+    </div>
+    <!-- 선수 (컴팩트) -->
+    <div class="ath-bar">
+      <div class="ath-bib-sm" id="ath-bib">#—</div>
+      <div class="ath-name-sm" id="ath-name">선수 대기 중...</div>
+      <div class="ath-club-sm" id="ath-club">—</div>
     </div>
 
-    <!-- 히트+종목 정보 -->
-    <div class="info-bar">
-      <div class="heat-badge" id="heat-badge">HEAT —</div>
-      <div class="event-info">
-        <div class="event-name" id="event-name">로딩 중...</div>
-        <div class="event-div" id="event-div">—</div>
+    <div class="judge-body">
+      <!-- 상단: 초기화/준비/제출 -->
+      <div class="top-actions">
+        <button class="act-btn act-clear" onclick="clearCount()">🗑 초기화</button>
+        <button class="act-btn act-ready" id="btn-ready" onclick="toggleReady()">✋ 준비</button>
+        <button class="act-btn act-submit" onclick="submitScore()">✓ 제출</button>
       </div>
-    </div>
-
-    <!-- 선수 정보 -->
-    <div class="athlete-bar">
-      <div class="ath-bib" id="ath-bib">#—</div>
-      <div class="ath-info">
-        <div class="ath-name" id="ath-name">선수 대기 중...</div>
-        <div class="ath-club" id="ath-club">—</div>
-      </div>
-    </div>
-
-    <!-- 카운트 메인: 숫자 제거, +1 전체 채우기 -->
-    <div class="count-area">
-      <!-- +1 큰 버튼이 중앙 전체 차지 -->
-      <button class="c-btn c-plus1 c-big"
-        onclick="addCount(1)"
-        ontouchstart="handleTap(event)">
-        +1
-        <span class="c-lbl">터치</span>
-      </button>
-      <!-- 하단 −1 / +10 보조 버튼 -->
-      <div class="count-btns">
-        <button class="c-btn c-minus" onclick="addCount(-1)">
-          −1<span class="c-lbl">빼기</span>
-        </button>
-        <div style="display:flex;align-items:center;justify-content:center;gap:4px;">
-          <span style="font-size:10px;color:var(--mu2);">COUNT</span>
-          <span id="count-display-sm" style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--ac);line-height:1;">0</span>
+      <!-- 중단: −1 / COUNT / +10 -->
+      <div class="sub-btns">
+        <button class="s-btn s-minus" onclick="addCount(-1)">−1<span class="s-lbl">빼기</span></button>
+        <div class="s-btn s-count" style="cursor:default">
+          <div id="count-sm">0</div>
+          <span class="s-lbl">COUNT</span>
         </div>
-        <button class="c-btn c-plus5" onclick="addCount(10)">
-          +10<span class="c-lbl">10개</span>
-        </button>
+        <button class="s-btn s-plus10" onclick="addCount(10)">+10<span class="s-lbl">10개</span></button>
       </div>
-    </div>
-
-    <!-- 액션 바: 준비완료 + 기록제출 -->
-    <div class="action-bar">
-      <button class="act-btn act-clear" onclick="clearCount()">🗑 초기화</button>
-      <button class="act-btn act-ready" id="btn-ready" onclick="toggleReady()">✋ 준비 완료</button>
-      <button class="act-btn act-submit" onclick="submitScore()">✓ 기록 제출</button>
+      <!-- 하단 전체: +1 (무표시) -->
+      <button id="btn-plus1" onclick="addCount(1)" ontouchstart="handleTap(event)"></button>
     </div>
   </div>
 </div>
 
-<!-- 제출 완료 오버레이 -->
+<!-- 제출 오버레이 -->
 <div id="overlay-done">
   <div class="ov-icon">✅</div>
   <div class="ov-title" id="ov-score">기록 제출</div>
   <div class="ov-sub" id="ov-sub">다음 히트를 기다려 주세요</div>
-  <button class="ov-btn" onclick="closeOverlay()">확인</button>
+  <button class="ov-btn" onclick="document.getElementById('overlay-done').classList.remove('show')">확인</button>
 </div>
 
 <!-- 신호음 플래시 -->
 <div id="sig-flash"></div>
 
 <script>
-// ═══════════ Firebase ═══════════
 firebase.initializeApp({
   apiKey:"AIzaSyDOrKZDSNiA4sLnkNBiLVehE8xtrU-2JLY",
   authDomain:"mop-jumprope.firebaseapp.com",
@@ -305,295 +240,177 @@ firebase.initializeApp({
 });
 const db=firebase.database();
 
-// ═══════════ 오디오 ═══════════
+// 오디오
 let audioCtx=null;
 function getCtx(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();return audioCtx;}
-function tone(freq,dur,type='sine',vol=.6,off=0){
-  const ctx=getCtx(),osc=ctx.createOscillator(),g=ctx.createGain();
-  osc.type=type;osc.frequency.value=freq;osc.connect(g);g.connect(ctx.destination);
-  const t=ctx.currentTime+off;
-  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.005);
-  g.gain.linearRampToValueAtTime(vol,t+dur-.05);g.gain.linearRampToValueAtTime(0,t+dur);
-  osc.start(t);osc.stop(t+dur);
-}
+function tone(f,d,t='sine',v=.6,o=0){const ctx=getCtx(),osc=ctx.createOscillator(),g=ctx.createGain();osc.type=t;osc.frequency.value=f;osc.connect(g);g.connect(ctx.destination);const ts=ctx.currentTime+o;g.gain.setValueAtTime(0,ts);g.gain.linearRampToValueAtTime(v,ts+.005);g.gain.linearRampToValueAtTime(v,ts+d-.05);g.gain.linearRampToValueAtTime(0,ts+d);osc.start(ts);osc.stop(ts+d);}
 const BEEP={
   start:()=>{tone(880,.12,'sine',.5,0);tone(880,.12,'sine',.5,.35);tone(1320,.6,'sine',.75,.7);},
   end:()=>{tone(440,.9,'sine',.7,0);},
   recall:()=>{for(let i=0;i<4;i++)tone(i%2?880:660,.2,'square',.45,i*.28);},
 };
 
-// ═══════════ 상태 변수 ═══════════
-let roomId='',courtId='',judgeName='',appMode='both';
+// 상태 변수
+let roomId='',courtId='',judgeName='';
 let count=0,isReady=false;
 let currentHeatNo=1,currentHeat=null;
 let localStream=null,facingMode='environment';
 let peer=null,currentCall=null,retryTimer=null;
 let lastSignalTs=0;
-let lastHeatChangeTs=0;
 const FOLD_STEPS=[30,40,50,60,70];
 let foldIdx=2;
 
-// ═══════════ URL 파라미터 자동 인식 ═══════════
+// URL 파라미터 자동 인식
 (function(){
   const p=new URLSearchParams(window.location.search);
-  const r=p.get('room'),c=p.get('court'),j=p.get('judge'),m=p.get('mode');
-  if(r)document.getElementById('inp-room').value=r;
-  if(c)document.getElementById('inp-court').value=c.toUpperCase();
-  if(j)document.getElementById('inp-judge').value=j;
-  if(m&&['both','judge','cam'].includes(m)){selectMode(m);}
-  if(r&&c)setTimeout(startApp,300);
+  if(p.get('room'))document.getElementById('inp-room').value=p.get('room');
+  if(p.get('court'))document.getElementById('inp-court').value=p.get('court').toUpperCase();
+  if(p.get('judge'))document.getElementById('inp-judge').value=p.get('judge');
+  if(p.get('room')&&p.get('court'))setTimeout(startApp,300);
 })();
 
-// ═══════════ 모드 선택 ═══════════
-function selectMode(m){
-  appMode=m;
-  ['both','judge','cam'].forEach(id=>{
-    document.getElementById('mode-'+id).classList.toggle('active',id===m);
-  });
-}
-
-// ═══════════ 앱 시작 ═══════════
 async function startApp(){
   roomId=document.getElementById('inp-room').value.trim();
   courtId=document.getElementById('inp-court').value.trim().toUpperCase();
   judgeName=document.getElementById('inp-judge').value.trim()||'심판';
   if(!roomId||!courtId){alert('Room ID와 코트를 입력하세요');return;}
 
-  localStorage.setItem('mop_jc_room',roomId);
-  localStorage.setItem('mop_jc_court',courtId);
-  localStorage.setItem('mop_jc_judge',judgeName);
+  document.getElementById('cam-court-lbl').textContent='C-'+courtId;
 
-  // UI 업데이트
-  document.getElementById('cam-room').textContent='ROOM: '+roomId;
-  document.getElementById('cam-court').textContent='C-'+courtId;
+  // 카메라 시작
+  try{
+    localStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode,width:{ideal:1280},height:{ideal:720},frameRate:{ideal:24}},audio:false
+    });
+    document.getElementById('cam-video').srcObject=localStream;
+  }catch(e){console.warn('카메라 오류:',e.message);}
 
-  // 카메라 패널 표시 여부
-  const camPanel=document.getElementById('cam-panel');
-  const foldLine=document.getElementById('fold-line');
-  const judgePanel=document.getElementById('judge-panel');
-
-  if(appMode==='judge'){
-    camPanel.style.display='none';
-    foldLine.classList.remove('show');
-  } else {
-    camPanel.style.display='block';
-    if(appMode==='both')foldLine.classList.add('show');
-    // 카메라 시작
-    try{
-      localStream=await navigator.mediaDevices.getUserMedia({
-        video:{facingMode,width:{ideal:1280},height:{ideal:720},frameRate:{ideal:24}},audio:false
-      });
-      document.getElementById('cam-video').srcObject=localStream;
-    }catch(e){console.warn('카메라 오류:',e.message);}
-  }
-
-  // 화면 전환
   document.getElementById('s-setup').classList.remove('show');
   document.getElementById('s-main').classList.add('show');
 
-  // Firebase 연결
   connectFirebase();
-
-  // PeerJS (카메라 전용 또는 통합)
-  if(appMode!=='judge')initPeer();
-
-  // 심판 heartbeat
+  initPeer();
   startHeartbeat();
   detectFold();
 }
 
-// ═══════════ Firebase 구독 ═══════════
+// ── Firebase ──
 function connectFirebase(){
-  // 연결 상태
-  db.ref('.info/connected').on('value',s=>{
-    document.getElementById('fb-dot').textContent=s.val()?'🔗':'⚠';
-  });
+  db.ref('.info/connected').on('value',s=>document.getElementById('fb-dot').textContent=s.val()?'🔗':'⚠');
 
-  // 운영앱 현재 히트 + 상태 구독
   db.ref(`${roomId}/operator`).on('value',s=>{
-    const v=s.val();
-    if(!v)return;
+    const v=s.val();if(!v)return;
     if(v.currentHeatNo&&v.currentHeatNo!==currentHeatNo){
       currentHeatNo=v.currentHeatNo;
+      resetJudgeState();
       loadHeatData();
     }
     if(v.heatStatus)updateHeatState(v.heatStatus);
   });
 
-  // 신호음 구독
   db.ref(`${roomId}/signals/current`).on('value',s=>{
     const v=s.val();
-    if(!v||v.ts===lastSignalTs)return;
+    if(!v||v.ts===lastSignalTs||Date.now()-v.ts>5000)return;
     lastSignalTs=v.ts;
-    if(Date.now()-v.ts>5000)return; // 5초 이상 된 신호 무시
     playSignal(v.type);
   });
 
-  // 초기 히트 로드
   loadHeatData();
 }
 
-function loadHeatData(){
-  const heatKey=`heat_${currentHeatNo}`;
-  db.ref(`${roomId}/heats/${heatKey}`).once('value',s=>{
-    const h=s.val();
-    if(!h)return;
-    currentHeat=h;
-    updateHeatUI(h);
-    clearCount();
-    isReady=false;
-    updateReadyBtn();
-  });
+function resetJudgeState(){
+  db.ref(`${roomId}/monitoring/judges/${courtId}`).update({ready:false,submitted:false,score:null,ts:Date.now()});
+  isReady=false;updateReadyBtn();clearCount();
 }
 
-function updateHeatUI(h){
-  const no=h.no||h.heatNo||currentHeatNo;
-  document.getElementById('heat-badge').textContent=`HEAT ${no}`;
-  document.getElementById('event-name').textContent=h.event_name||h.event||'—';
-  document.getElementById('event-div').textContent=h.division||'—';
-  document.getElementById('hstate-event').textContent=`${h.event||'—'} · ${h.division||''}`;
-
-  // 이 코트 선수 찾기
-  const courts=h.courts||{};
-  const key=Object.keys(courts).find(k=>k.toUpperCase()===courtId)||courtId;
-  const ath=courts[key]?.athlete||null;
-
-  if(ath){
-    document.getElementById('ath-bib').textContent=`#${ath.bib||'—'}`;
-    document.getElementById('ath-name').textContent=ath.name||'—';
-    document.getElementById('ath-club').textContent=[ath.club,ath.country].filter(Boolean).join(' · ')||'—';
-    document.getElementById('cam-athlete').textContent=ath.name||'';
-  } else {
-    document.getElementById('ath-bib').textContent='#—';
-    document.getElementById('ath-name').textContent='선수 미배정';
-    document.getElementById('ath-club').textContent='—';
-    document.getElementById('cam-athlete').textContent='';
-  }
+function loadHeatData(){
+  db.ref(`${roomId}/heats/heat_${currentHeatNo}`).once('value',s=>{
+    const h=s.val();if(!h)return;
+    currentHeat=h;
+    const no=h.no||h.heatNo||currentHeatNo;
+    document.getElementById('hstate-ev').textContent=`HEAT ${no} · ${h.event||'—'}`;
+    const courts=h.courts||{};
+    const key=Object.keys(courts).find(k=>k.toUpperCase()===courtId)||courtId;
+    const ath=courts[key]?.athlete||null;
+    if(ath){
+      document.getElementById('ath-bib').textContent=`#${ath.bib||'—'}`;
+      document.getElementById('ath-name').textContent=ath.name||'—';
+      document.getElementById('ath-club').textContent=ath.club||'—';
+    } else {
+      document.getElementById('ath-bib').textContent='#—';
+      document.getElementById('ath-name').textContent='미배정';
+      document.getElementById('ath-club').textContent='—';
+    }
+  });
 }
 
 function updateHeatState(state){
-  const el=document.getElementById('hstate-badge');
-  const states={
-    idle:  {cls:'hstate-idle',   txt:'⏸ 대기'},
-    calling:{cls:'hstate-calling',txt:'📢 소집'},
-    racing:{cls:'hstate-racing', txt:'▶ 진행 중'},
-    finished:{cls:'hstate-finished',txt:'✓ 완료'},
-  };
-  const s=states[state]||states.idle;
-  el.className='hstate-badge '+s.cls;
-  el.textContent=s.txt;
-  // 진행 중이 됐을 때 화면 강조
-  if(state==='racing'){
-    // 진행 중 시작되면 +1 버튼 하이라이트
-    const bigBtn=document.querySelector('.c-big');
-    if(bigBtn)bigBtn.style.borderColor='var(--ac)';
-  } else {
-    const bigBtn=document.querySelector('.c-big');
-    if(bigBtn)bigBtn.style.borderColor='';
-  }
+  const el=document.getElementById('hstate');
+  const map={idle:{c:'h-idle',t:'⏸ 대기'},calling:{c:'h-calling',t:'📢 소집'},racing:{c:'h-racing',t:'▶ 진행'},finished:{c:'h-finished',t:'✓ 완료'}};
+  const s=map[state]||map.idle;
+  el.className='hstate-pill '+s.c;el.textContent=s.t;
+  document.getElementById('btn-plus1').style.background=
+    state==='racing'?'rgba(0,229,255,.15)':'rgba(0,229,255,.08)';
 }
 
-// ═══════════ 카운팅 ═══════════
+// ── 카운팅 ──
 function addCount(n){
   count=Math.max(0,count+n);
-  updateCountDisplay(n>0?'bump':'minus-anim');
+  document.getElementById('count-sm').textContent=count;
   document.getElementById('cam-count').textContent=count;
   db.ref(`${roomId}/monitoring/judges/${courtId}/liveCount`).set(count);
+  const btn=document.getElementById('btn-plus1');
+  btn.style.filter=n>0?'brightness(1.5)':'brightness(.7)';
+  setTimeout(()=>btn.style.filter='',100);
 }
-function clearCount(){count=0;updateCountDisplay();}
-function updateCountDisplay(anim=''){
-  const el=document.getElementById('count-display-sm');
-  if(el)el.textContent=count;
-  // 카메라 오버레이 카운트도 업데이트
-  document.getElementById('cam-count').textContent=count;
-  // +1 버튼 플래시 효과
-  const bigBtn=document.querySelector('.c-big');
-  if(bigBtn&&anim){
-    bigBtn.style.filter=anim==='bump'?'brightness(1.4)':'brightness(0.8)';
-    setTimeout(()=>bigBtn.style.filter='',120);
-  }
-}
+function clearCount(){count=0;document.getElementById('count-sm').textContent=0;document.getElementById('cam-count').textContent=0;}
 let lastTap=0;
 function handleTap(e){
   e.preventDefault();
-  const now=Date.now();
-  if(now-lastTap<150)return;
-  lastTap=now;
-  addCount(1);
+  const now=Date.now();if(now-lastTap<150)return;lastTap=now;addCount(1);
 }
 
-// ═══════════ 준비 완료 ═══════════
+// ── 준비 ──
 function toggleReady(){
-  isReady=!isReady;
-  updateReadyBtn();
-  db.ref(`${roomId}/monitoring/judges/${courtId}`).update({
-    ready:isReady,judgeName,court:courtId,ts:Date.now()
-  });
+  isReady=!isReady;updateReadyBtn();
+  db.ref(`${roomId}/monitoring/judges/${courtId}`).update({ready:isReady,judgeName,court:courtId,ts:Date.now()});
   showToast(isReady?'✅ 준비 완료 전송':'⏸ 준비 취소');
 }
 function updateReadyBtn(){
   const btn=document.getElementById('btn-ready');
-  btn.textContent=isReady?'✅ 준비됨':'✋ 준비 완료';
+  btn.textContent=isReady?'✅ 준비됨':'✋ 준비';
   btn.classList.toggle('on',isReady);
 }
 
-// ═══════════ 기록 제출 ═══════════
+// ── 제출 ──
 async function submitScore(){
-  if(!currentHeat){showToast('히트 정보 없음',true);return;}
+  if(!currentHeat)return;
   const score=count;
   const heatKey=`heat_${currentHeatNo}`;
   const courts=currentHeat.courts||{};
   const key=Object.keys(courts).find(k=>k.toUpperCase()===courtId)||courtId;
   try{
-    await db.ref(`${roomId}/heats/${heatKey}/courts/${key}`).update({
-      score,judgeStatus:'submitted',judgeName,submittedAt:Date.now()
-    });
-    await db.ref(`${roomId}/monitoring/judges/${courtId}`).update({
-      ready:false,score,submitted:true,ts:Date.now()
-    });
-    // 완료 오버레이
+    await db.ref(`${roomId}/heats/${heatKey}/courts/${key}`).update({score,judgeStatus:'submitted',judgeName,submittedAt:Date.now()});
+    await db.ref(`${roomId}/monitoring/judges/${courtId}`).update({ready:false,score,submitted:true,ts:Date.now()});
     document.getElementById('ov-score').textContent=`기록: ${score}`;
-    document.getElementById('ov-sub').textContent=
-      `코트 ${courtId} · HEAT ${currentHeatNo} · ${document.getElementById('ath-name').textContent}`;
+    document.getElementById('ov-sub').textContent=`코트 ${courtId} · HEAT ${currentHeatNo}`;
     document.getElementById('overlay-done').classList.add('show');
     isReady=false;updateReadyBtn();
-  }catch(e){showToast('제출 실패: '+e.message,true);}
+  }catch(e){showToast('제출 실패',true);}
 }
-function closeOverlay(){document.getElementById('overlay-done').classList.remove('show');}
 
-// ═══════════ 신호음 수신 ═══════════
+// ── 신호음 ──
 function playSignal(type){
   if(type==='start')BEEP.start();
   else if(type==='end')BEEP.end();
   else if(type==='recall')BEEP.recall();
-  // 화면 플래시
   const fl=document.getElementById('sig-flash');
   fl.className='sig-flash '+(type==='start'?'start':type==='end'?'end':'');
   fl.classList.add('show');
   setTimeout(()=>fl.classList.remove('show'),type==='end'?700:350);
 }
 
-// ═══════════ 심판 heartbeat ═══════════
-function startHeartbeat(){
-  function beat(){
-    db.ref(`${roomId}/monitoring/judges/${courtId}`).update({
-      online:true,judgeName,court:courtId,lastSeen:Date.now(),ready:isReady
-    });
-    if(appMode!=='judge'){
-      db.ref(`${roomId}/monitoring/cameras/${courtId}`).update({
-        online:true,court:courtId,lastSeen:Date.now()
-      });
-    }
-  }
-  beat();
-  setInterval(beat,5000);
-  window.addEventListener('beforeunload',()=>{
-    db.ref(`${roomId}/monitoring/judges/${courtId}/online`).set(false);
-    if(appMode!=='judge')db.ref(`${roomId}/monitoring/cameras/${courtId}/online`).set(false);
-  });
-}
-
-// ═══════════ PeerJS 카메라 송출 ═══════════
+// ── PeerJS ──
 function initPeer(){
   const myId=`mop-${roomId}-cam-${courtId}`;
   if(peer){try{peer.destroy();}catch(e){}}
@@ -601,9 +418,9 @@ function initPeer(){
   peer.on('open',()=>{setCamStatus('conn','뷰어 연결 중...');callViewer();});
   peer.on('error',e=>{
     if(e.type==='peer-unavailable'){setCamStatus('conn','뷰어 대기 중...');retryTimer=setTimeout(callViewer,2500);}
-    else{setCamStatus('off','오류: '+e.type);retryTimer=setTimeout(initPeer,4000);}
+    else{setCamStatus('off','오류');retryTimer=setTimeout(initPeer,4000);}
   });
-  peer.on('disconnected',()=>{setCamStatus('conn','재연결 중...');setTimeout(()=>{if(peer&&!peer.destroyed)peer.reconnect();},2000);});
+  peer.on('disconnected',()=>{setCamStatus('conn','재연결...');setTimeout(()=>{if(peer&&!peer.destroyed)peer.reconnect();},2000);});
 }
 function callViewer(){
   if(!peer||peer.destroyed||!localStream)return;
@@ -612,18 +429,18 @@ function callViewer(){
   try{
     currentCall=peer.call(viewerId,localStream,{metadata:{court:courtId,room:roomId}});
     if(!currentCall){retryTimer=setTimeout(callViewer,2500);return;}
-    currentCall.on('stream',()=>setCamStatus('live','LIVE 송출'));
+    currentCall.on('stream',()=>setCamStatus('live','LIVE'));
     currentCall.on('close',()=>{setCamStatus('conn','재연결...');retryTimer=setTimeout(callViewer,2500);});
     currentCall.on('error',()=>retryTimer=setTimeout(callViewer,2500));
   }catch(e){retryTimer=setTimeout(callViewer,2500);}
 }
 function setCamStatus(state,txt){
   const d=document.getElementById('cam-dot');
-  d.className='cam-dot '+(state==='live'?'live':state==='conn'?'conn':'off');
+  d.className='dot '+(state==='live'?'live':state==='conn'?'conn':'off');
   document.getElementById('cam-status-txt').textContent=txt;
 }
 
-// ═══════════ 카메라 전환 ═══════════
+// ── 카메라 전환 ──
 async function flipCamera(){
   facingMode=facingMode==='environment'?'user':'environment';
   if(localStream)localStream.getTracks().forEach(t=>t.stop());
@@ -637,35 +454,46 @@ async function flipCamera(){
   }catch(e){console.warn(e);}
 }
 
-// ═══════════ Z플립 폴드 비율 ═══════════
+// ── 폴드 비율 ──
 function toggleFold(){
   foldIdx=(foldIdx+1)%FOLD_STEPS.length;
   const pct=FOLD_STEPS[foldIdx];
-  document.getElementById('cam-panel').style.height=pct+'vh';
-  document.documentElement.style.setProperty('--fold',pct+'vh');
-  showToast(`카메라 영역: ${pct}%`);
+  document.getElementById('cam-panel').style.height=pct+'dvh';
+  document.documentElement.style.setProperty('--fold',pct+'dvh');
+  showToast(`카메라 ${pct}%`);
 }
 function detectFold(){
   if('getWindowSegments' in window){
     const segs=window.getWindowSegments();
     if(segs&&segs.length===2){
       const pct=Math.round(segs[0].height/window.innerHeight*100);
-      document.getElementById('cam-panel').style.height=Math.max(20,Math.min(80,pct))+'vh';
+      const safe=Math.max(20,Math.min(80,pct));
+      document.getElementById('cam-panel').style.height=safe+'dvh';
+      document.documentElement.style.setProperty('--fold',safe+'dvh');
     }
   }
 }
 
-// ═══════════ 토스트 ═══════════
-let _toastTimer=null;
-function showToast(msg){
-  let t=document.querySelector('.toast');if(t)t.remove();
-  t=document.createElement('div');t.className='toast';t.textContent=msg;
-  document.body.appendChild(t);
-  clearTimeout(_toastTimer);
-  _toastTimer=setTimeout(()=>t?.remove(),2000);
+// ── Heartbeat ──
+function startHeartbeat(){
+  function beat(){
+    db.ref(`${roomId}/monitoring/judges/${courtId}`).update({online:true,judgeName,court:courtId,lastSeen:Date.now(),ready:isReady});
+    db.ref(`${roomId}/monitoring/cameras/${courtId}`).update({online:true,court:courtId,lastSeen:Date.now()});
+  }
+  beat();setInterval(beat,5000);
+  window.addEventListener('beforeunload',()=>{
+    db.ref(`${roomId}/monitoring/judges/${courtId}/online`).set(false);
+    db.ref(`${roomId}/monitoring/cameras/${courtId}/online`).set(false);
+  });
 }
 
-// iOS 오디오 언락
+let _toast=null;
+function showToast(msg){
+  if(_toast)_toast.remove();
+  _toast=document.createElement('div');_toast.className='toast';_toast.textContent=msg;
+  document.body.appendChild(_toast);setTimeout(()=>_toast?.remove(),2000);
+}
+
 document.addEventListener('touchstart',()=>{try{getCtx();}catch(e){}},{once:true});
 </script>
 </body>

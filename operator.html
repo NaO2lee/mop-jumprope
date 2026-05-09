@@ -282,6 +282,20 @@ function App(){
   const goHeat=useCallback((no)=>{
     setHeatNo(no);setHState('idle');
     fbOp({currentHeatNo:no,heatStatus:'idle'});setMentTxt('');
+    // ★ 히트 변경 시 모든 코트 심판 상태 초기화
+    if(cfg.roomId){
+      db.ref(`${cfg.roomId}/monitoring/judges`).once('value',s=>{
+        const judges=s.val()||{};
+        const updates={};
+        Object.keys(judges).forEach(cid=>{
+          updates[`${cfg.roomId}/monitoring/judges/${cid}/ready`]=false;
+          updates[`${cfg.roomId}/monitoring/judges/${cid}/submitted`]=false;
+          updates[`${cfg.roomId}/monitoring/judges/${cid}/score`]=null;
+          updates[`${cfg.roomId}/monitoring/judges/${cid}/liveCount`]=0;
+        });
+        if(Object.keys(updates).length>0)db.ref().update(updates);
+      });
+    }
   });
 
   // TTS 래퍼
@@ -475,6 +489,14 @@ function App(){
             <WBtn icon="⏭" label="다음 히트 소집"
               sub={hIdx>=heats.length-1?'마지막 히트':`→ HEAT ${(curHeat?.no||curHeat?.heatNo||0)+1} 이동 후 소집`}
               color="#a78bfa" big disabled={hIdx>=heats.length-1} onClick={doNext}/>
+
+            <hr style={{border:'none',borderTop:'1px solid rgba(255,255,255,.07)',margin:'2px 0'}}/>
+
+            {/* ── 뷰어 레이아웃 제어 ── */}
+            <div style={{fontSize:10,letterSpacing:'.15em',color:'rgba(255,255,255,.3)',textTransform:'uppercase',marginBottom:4}}>
+              📺 전광판 레이아웃
+            </div>
+            <ViewerLayoutPanel roomId={cfg.roomId} curHeat={curHeat} fbOp={fbOp}/>
 
             <hr style={{border:'none',borderTop:'1px solid rgba(255,255,255,.07)',margin:'2px 0'}}/>
 
@@ -781,6 +803,117 @@ function CourtLayout({curHeat,layout,cMode,judges,cameras}){
         {Array.from({length:cl.gridCols||4},(_,ci)=>{const c=courts[ri*(cl.gridCols||4)+ci];return c?<CourtBox key={c} cid={c}/>:null;})}
       </div>
     ))}
+  </div>);
+}
+
+// ── 뷰어 레이아웃 제어 패널 ──
+function ViewerLayoutPanel({roomId,curHeat,fbOp}){
+  const [layout,setLayout]=useState('12');
+  const [sel4,setSel4]=useState([]); // 4분할 선택 코트
+  const [focus1,setFocus1]=useState(''); // 1분할 포커스 코트
+
+  // 현재 히트 코트 목록
+  const heatCourts=useMemo(()=>{
+    if(!curHeat?.courts)return[];
+    return Object.keys(curHeat.courts).sort();
+  },[curHeat]);
+
+  const apply=(l,courts,focus)=>{
+    if(!roomId)return;
+    db.ref(`${roomId}/viewer`).update({
+      viewerLayout:l,
+      viewerCourts:courts||[],
+      viewerFocus:focus||null,
+      ts:Date.now()
+    });
+    db.ref(`${roomId}/operator`).update({
+      viewerLayout:l,
+      viewerCourts:courts||[],
+      viewerFocus:focus||null,
+    });
+  };
+
+  const toggle4=(cid)=>{
+    setSel4(p=>{
+      const n=p.includes(cid)?p.filter(c=>c!==cid):[...p,cid].slice(-4);
+      return n;
+    });
+  };
+
+  const btnStyle=(active)=>({
+    padding:'6px 10px',borderRadius:7,border:'none',cursor:'pointer',fontSize:11,fontWeight:700,
+    background:active?'rgba(0,229,255,.25)':'rgba(255,255,255,.06)',
+    color:active?'#00e5ff':'rgba(255,255,255,.5)',
+    transition:'all .15s',
+  });
+
+  return(<div style={{display:'flex',flexDirection:'column',gap:6}}>
+    {/* 레이아웃 선택 */}
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:5}}>
+      {[
+        {l:'12',icon:'⊞',label:'12분할',desc:'스피드'},
+        {l:'4', icon:'⊡',label:'4분할', desc:'프리스타일'},
+        {l:'1', icon:'□', label:'풀스크린',desc:'결승'},
+      ].map(({l,icon,label,desc})=>(
+        <button key={l}
+          onClick={()=>{setLayout(l);if(l==='12')apply('12',[],null);}}
+          style={{
+            padding:'8px 4px',borderRadius:8,border:'none',cursor:'pointer',
+            background:layout===l?'rgba(0,229,255,.2)':'rgba(255,255,255,.04)',
+            color:layout===l?'#00e5ff':'rgba(255,255,255,.5)',
+            borderTop:`2px solid ${layout===l?'#00e5ff':'transparent'}`,
+            transition:'all .15s',
+          }}>
+          <div style={{fontSize:16}}>{icon}</div>
+          <div style={{fontSize:11,fontWeight:700}}>{label}</div>
+          <div style={{fontSize:9,opacity:.6}}>{desc}</div>
+        </button>
+      ))}
+    </div>
+
+    {/* 4분할: 코트 선택 */}
+    {layout==='4'&&(<>
+      <div style={{fontSize:10,color:'rgba(255,255,255,.4)'}}>코트 선택 (최대 4개)</div>
+      <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+        {heatCourts.map(c=>(
+          <button key={c} onClick={()=>toggle4(c)}
+            style={btnStyle(sel4.includes(c))}>
+            {c}
+          </button>
+        ))}
+      </div>
+      <button onClick={()=>apply('4',sel4,null)}
+        disabled={sel4.length===0}
+        style={{padding:'8px',background:'rgba(0,229,255,.15)',border:'1px solid rgba(0,229,255,.3)',borderRadius:8,color:'#00e5ff',fontSize:12,fontWeight:700,cursor:sel4.length===0?'not-allowed':'pointer',opacity:sel4.length===0?.4:1}}>
+        📺 4분할 적용 ({sel4.join(', ')||'코트 선택'})
+      </button>
+    </>)}
+
+    {/* 1분할: 코트 선택 */}
+    {layout==='1'&&(<>
+      <div style={{fontSize:10,color:'rgba(255,255,255,.4)'}}>포커스 코트 선택</div>
+      <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+        {heatCourts.map(c=>(
+          <button key={c} onClick={()=>setFocus1(c)}
+            style={btnStyle(focus1===c)}>
+            {c}
+          </button>
+        ))}
+      </div>
+      <button onClick={()=>apply('1',[],focus1)}
+        disabled={!focus1}
+        style={{padding:'8px',background:'rgba(255,214,10,.15)',border:'1px solid rgba(255,214,10,.3)',borderRadius:8,color:'#ffd60a',fontSize:12,fontWeight:700,cursor:!focus1?'not-allowed':'pointer',opacity:!focus1?.4:1}}>
+        📺 풀스크린 적용 (Court {focus1||'—'})
+      </button>
+    </>)}
+
+    {/* 12분할: 바로 적용 */}
+    {layout==='12'&&(
+      <button onClick={()=>apply('12',[],null)}
+        style={{padding:'8px',background:'rgba(0,229,255,.08)',border:'1px solid rgba(0,229,255,.2)',borderRadius:8,color:'rgba(0,229,255,.7)',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+        📺 12분할 전광판 적용
+      </button>
+    )}
   </div>);
 }
 
