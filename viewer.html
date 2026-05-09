@@ -304,21 +304,40 @@ firebase.initializeApp({
 });
 const db=firebase.database();
 
-let config=JSON.parse(localStorage.getItem('mop_viewer_v4')||'{}');
+// localStorage 키 통합 (이전 버전 마이그레이션)
+function loadConfig(){
+  // 현재 키 먼저
+  let cfg=JSON.parse(localStorage.getItem('mop_viewer_v4')||'{}');
+  // room이 없으면 이전 버전 키에서 마이그레이션
+  if(!cfg.room){
+    const v3=JSON.parse(localStorage.getItem('mop_viewer_v3')||'{}');
+    const v2=JSON.parse(localStorage.getItem('mop_viewer_v2')||'{}');
+    if(v3.room){cfg.room=v3.room;cfg.logo=v3.logo||'';}
+    else if(v2.room){cfg.room=v2.room;}
+    if(cfg.room)localStorage.setItem('mop_viewer_v4',JSON.stringify(cfg));
+  }
+  return cfg;
+}
+let config=loadConfig();
 let peer=null;
 let liveScores={}; // courtId → {name,club,score,bib}
 let annTimer=null;
 const ANN_DUR=15000;
 
-// URL 파라미터 우선
+// URL 파라미터 우선 (URL에 있으면 localStorage보다 우선)
 const urlP=new URLSearchParams(window.location.search);
-if(urlP.get('room'))config.room=urlP.get('room');
+if(urlP.get('room')){
+  config.room=urlP.get('room');
+  localStorage.setItem('mop_viewer_v4',JSON.stringify(config));
+}
+if(urlP.get('logo'))config.logo=urlP.get('logo');
 
 function saveConfig(){
   config.room=document.getElementById('inp-room').value.trim();
   config.logo=document.getElementById('inp-logo').value.trim();
   localStorage.setItem('mop_viewer_v4',JSON.stringify(config));
-  location.reload();
+  // 저장 후 URL에 room 파라미터 추가해서 이동
+  window.location.href=window.location.pathname+'?room='+encodeURIComponent(config.room);
 }
 
 // ── 레이아웃 전환 ──
@@ -355,10 +374,18 @@ function setLayout(layout, courts){
 
 // ── 초기화 ──
 function init(){
+  // 설정 모달 현재 값 채우기
+  document.getElementById('inp-room').value=config.room||'';
+  document.getElementById('inp-logo').value=config.logo||'';
+
   if(!config.room){
-    if(urlP.get('room')){config.room=urlP.get('room');}
-    else{document.getElementById('cfg').classList.add('show');return;}
+    document.getElementById('cfg').classList.add('show');
+    return;
   }
+
+  // 현재 Room ID 상단에 표시 (디버그용)
+  console.log('[MOP Viewer] Room ID:', config.room);
+  document.title=`뷰어 — ${config.room}`;
 
   // 로고
   if(config.logo){
@@ -415,6 +442,15 @@ function init(){
 
 // ── 운영앱 구독 (히트/종목/레이아웃/포커스코트) ──
 function subscribeOperator(){
+  // Firebase 연결 상태 표시
+  db.ref('.info/connected').on('value',s=>{
+    const el=document.getElementById('top-status');
+    if(!s.val()){
+      el.className='top-status st-calling';
+      el.textContent='🔴 Firebase 연결 중...';
+    }
+  });
+
   db.ref(`${config.room}/operator`).on('value',s=>{
     const v=s.val();if(!v)return;
 
