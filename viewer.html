@@ -344,32 +344,16 @@ function saveConfig(){
 let currentLayout='12';
 let focusCourt=null;
 let activeCourtsFor12=[]; // 현재 히트의 실제 코트 목록
+let currentLayout4Courts=[]; // 4분할 시 선택된 코트
 
 function setLayout(layout, courts){
   currentLayout=layout;
-  const wrap=document.getElementById('courts-wrap');
-  wrap.className=`layout-${layout}`;
+  if(layout==='4')currentLayout4Courts=courts||[];
 
-  if(layout==='12'){
-    // 12분할: activeCourtsFor12에 있는 것만, 없으면 A~L 전체 표시
-    const show=activeCourtsFor12.length>0 ? activeCourtsFor12 : null;
-    document.querySelectorAll('.court-card').forEach(c=>{
-      c.style.display=show ? (show.includes(c.dataset.court)?'':'none') : '';
-    });
-  } else if(layout==='4'&&courts&&courts.length>0){
-    // 4분할: 선택된 코트만
-    document.querySelectorAll('.court-card').forEach(c=>{
-      c.style.display=courts.includes(c.dataset.court)?'':'none';
-    });
-  } else if(layout==='1'&&focusCourt){
-    // 풀스크린: 포커스 코트만
-    document.querySelectorAll('.court-card').forEach(c=>{
-      c.style.display=c.dataset.court===focusCourt?'':'none';
-    });
-  } else {
-    // fallback: 모두 표시
-    document.querySelectorAll('.court-card').forEach(c=>c.style.display='');
-  }
+  const courtsToShow=getCourtsForCurrentLayout();
+  rebuildCourtCards(courtsToShow);
+  applyGridStyle(layout,courtsToShow.length);
+  console.log(`[Viewer] setLayout(${layout}):`,courtsToShow);
 }
 
 // ── 초기화 ──
@@ -395,7 +379,7 @@ function init(){
 
   // 코트 카드 영역 — 동적 생성 (히트 데이터 받으면 그 코트 ID로 생성)
   const wrap=document.getElementById('courts-wrap');
-  wrap.innerHTML='<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:rgba(255,255,255,.3);font-family:Bebas Neue,sans-serif;letter-spacing:.2em;font-size:14px">WAITING FOR DATA...</div>';
+  wrap.innerHTML='<div id="placeholder-msg" style="grid-column:1/-1;grid-row:1/-1;display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:rgba(255,255,255,.3);font-family:Bebas Neue,sans-serif;letter-spacing:.2em;font-size:14px">WAITING FOR DATA...</div>';
 
   // PeerJS 카메라 수신
   peer=new Peer('mop-'+config.room+'-viewer');
@@ -469,22 +453,20 @@ function loadHeatInfo(heatNo){
     const h=s.val();if(!h)return;
     document.getElementById('top-event').textContent=h.event_name||h.event||'—';
 
-    // 이 히트의 실제 코트 목록
+    // 이 히트의 실제 코트 목록 (정렬)
     const heatCourts=Object.keys(h.courts||{}).sort((a,b)=>{
-      // 숫자/알파벳 자연 정렬
       const an=parseInt(a),bn=parseInt(b);
       if(!isNaN(an)&&!isNaN(bn))return an-bn;
       return String(a).localeCompare(String(b));
     });
     activeCourtsFor12=heatCourts;
 
-    // ★ 코트 카드를 실제 히트 코트 기반으로 동적 생성/업데이트
-    rebuildCourtCards(heatCourts);
+    // 현재 레이아웃에 맞는 코트만 카드로 생성
+    const courtsToShow=getCourtsForCurrentLayout();
+    rebuildCourtCards(courtsToShow);
+    applyGridStyle(currentLayout,courtsToShow.length);
 
-    // 12분할이면 히트 코트에 맞게 바로 재적용
-    if(currentLayout==='12') setLayout('12',[]);
-
-    // 코트별 선수 정보 업데이트
+    // 코트별 선수 정보 업데이트 (전체 히트 코트 기준 — RANK용)
     Object.entries(h.courts||{}).forEach(([cid,c])=>{
       const ath=c.athlete;
       if(!ath)return;
@@ -501,20 +483,54 @@ function loadHeatInfo(heatNo){
   });
 }
 
-// 히트 코트 ID 리스트로 카드 재생성 (없으면 생성, 있으면 유지)
+// 현재 레이아웃에 따라 표시할 코트 목록 반환
+function getCourtsForCurrentLayout(){
+  if(currentLayout==='12'){
+    return activeCourtsFor12.slice(0,12);
+  } else if(currentLayout==='4'&&currentLayout4Courts){
+    return currentLayout4Courts.slice(0,4);
+  } else if(currentLayout==='1'&&focusCourt){
+    return [focusCourt];
+  }
+  return activeCourtsFor12.slice(0,12); // fallback
+}
+
+// 그리드 스타일 적용
+function applyGridStyle(layout,n){
+  const wrap=document.getElementById('courts-wrap');
+  wrap.className=`layout-${layout}`;
+  if(layout==='12'){
+    const cols=n<=6?n:6;
+    const rows=n<=6?1:2;
+    wrap.style.gridTemplateColumns=`repeat(${cols},1fr)`;
+    wrap.style.gridTemplateRows=`repeat(${rows},1fr)`;
+    wrap.style.gridAutoRows='0';
+    wrap.style.gridAutoColumns='0';
+  } else if(layout==='4'){
+    wrap.style.gridTemplateColumns='repeat(2,1fr)';
+    wrap.style.gridTemplateRows='repeat(2,1fr)';
+    wrap.style.gridAutoRows='0';
+    wrap.style.gridAutoColumns='0';
+  } else if(layout==='1'){
+    wrap.style.gridTemplateColumns='1fr';
+    wrap.style.gridTemplateRows='1fr';
+    wrap.style.gridAutoRows='0';
+    wrap.style.gridAutoColumns='0';
+  }
+}
+
+// 히트 코트 ID 리스트로 카드 재생성 (DOM에서 모두 제거 후 새로 생성)
 function rebuildCourtCards(courtIds){
   const wrap=document.getElementById('courts-wrap');
-  // 첫 호출이면 placeholder 제거
-  const placeholder=wrap.querySelector('div[style*="WAITING"]');
-  if(placeholder)wrap.innerHTML='';
+  // 항상 전체 초기화 후 새로 만들기
+  wrap.innerHTML='';
 
-  // 기존 카드 ID 수집
-  const existing=new Set();
-  wrap.querySelectorAll('.court-card').forEach(c=>existing.add(c.dataset.court));
+  if(!courtIds||courtIds.length===0){
+    wrap.innerHTML='<div id="placeholder-msg" style="grid-column:1/-1;grid-row:1/-1;display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:rgba(255,255,255,.3);font-family:Bebas Neue,sans-serif;letter-spacing:.2em;font-size:14px">WAITING FOR DATA...</div>';
+    return;
+  }
 
-  // 없는 카드 추가
   courtIds.forEach(cid=>{
-    if(existing.has(cid))return;
     const card=document.createElement('div');
     card.className='court-card';
     card.id='court-'+cid;
@@ -533,22 +549,7 @@ function rebuildCourtCards(courtIds){
       </div>`;
     wrap.appendChild(card);
   });
-
-  // 히트에 없는 카드는 제거 (선택사항 - 일단 유지)
-  // 12분할 그리드 자동 조정
-  const n=courtIds.length;
-  if(currentLayout==='12'){
-    if(n<=6){
-      wrap.style.gridTemplateColumns=`repeat(${n},1fr)`;
-      wrap.style.gridTemplateRows='1fr';
-    } else if(n<=12){
-      wrap.style.gridTemplateColumns='repeat(6,1fr)';
-      wrap.style.gridTemplateRows='repeat(2,1fr)';
-    } else {
-      wrap.style.gridTemplateColumns=`repeat(${Math.ceil(n/2)},1fr)`;
-      wrap.style.gridTemplateRows='repeat(2,1fr)';
-    }
-  }
+  console.log(`[Viewer] Rebuilt ${courtIds.length} court cards:`,courtIds);
 }
 
 function updateStatus(state){
