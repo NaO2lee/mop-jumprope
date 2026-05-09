@@ -324,25 +324,33 @@ function saveConfig(){
 // ── 레이아웃 전환 ──
 let currentLayout='12';
 let focusCourt=null;
+let activeCourtsFor12=[]; // 현재 히트의 실제 코트 목록
 
 function setLayout(layout, courts){
   currentLayout=layout;
   const wrap=document.getElementById('courts-wrap');
   wrap.className=`layout-${layout}`;
-  // 모든 카드 숨기기 먼저
-  document.querySelectorAll('.court-card').forEach(c=>c.style.display='');
 
-  if(layout==='4'&&courts&&courts.length>0){
-    // 선택된 코트 4개만 표시
+  if(layout==='12'){
+    // 12분할: activeCourtsFor12에 있는 것만, 없으면 A~L 전체 표시
+    const show=activeCourtsFor12.length>0 ? activeCourtsFor12 : null;
+    document.querySelectorAll('.court-card').forEach(c=>{
+      c.style.display=show ? (show.includes(c.dataset.court)?'':'none') : '';
+    });
+  } else if(layout==='4'&&courts&&courts.length>0){
+    // 4분할: 선택된 코트만
     document.querySelectorAll('.court-card').forEach(c=>{
       c.style.display=courts.includes(c.dataset.court)?'':'none';
     });
   } else if(layout==='1'&&focusCourt){
+    // 풀스크린: 포커스 코트만
     document.querySelectorAll('.court-card').forEach(c=>{
       c.style.display=c.dataset.court===focusCourt?'':'none';
     });
+  } else {
+    // fallback: 모두 표시
+    document.querySelectorAll('.court-card').forEach(c=>c.style.display='');
   }
-  // 12분할은 모두 표시
 }
 
 // ── 초기화 ──
@@ -358,13 +366,13 @@ function init(){
     logoEl.src=config.logo;logoEl.style.display='block';
   }
 
-  // 코트 카드 생성 (기본 display:flex — 처음에 모두 보여주고 나중에 필터)
-  const wrap=document.getElementById('courts-wrap');
-  const totalCourts=24;
+  // 코트 카드 생성
+  // 초기엔 A~L (12개)만 표시 — Firebase 데이터 오면 실제 히트 코트로 교체
   for(let i=1;i<=totalCourts;i++){
     const cid=String.fromCharCode(64+i); // A~X
+    const isVisible=i<=12;
     wrap.innerHTML+=`
-      <div class="court-card" id="court-${cid}" data-court="${cid}">
+      <div class="court-card" id="court-${cid}" data-court="${cid}" style="${isVisible?'':'display:none'}">
         <div class="court-id-badge">${cid}</div>
         <div class="video-wrap" id="vid-${cid}">
           <div class="no-signal">NO SIGNAL</div>
@@ -377,12 +385,6 @@ function init(){
           <div class="info-score" id="score-${cid}">—</div>
         </div>
       </div>`;
-  }
-  // 초기엔 A~L (12개)만 표시 (히트 데이터 오기 전 기본값)
-  for(let i=1;i<=totalCourts;i++){
-    const cid=String.fromCharCode(64+i);
-    const card=document.getElementById('court-'+cid);
-    if(card)card.style.display=i<=12?'':'none';
   }
 
   // PeerJS 카메라 수신
@@ -439,15 +441,13 @@ function loadHeatInfo(heatNo){
     const h=s.val();if(!h)return;
     document.getElementById('top-event').textContent=h.event_name||h.event||'—';
 
-    // 히트에 포함된 코트들만 표시 (12분할 기준)
-    if(currentLayout==='12'){
-      const activeCourts=Object.keys(h.courts||{});
-      document.querySelectorAll('.court-card').forEach(c=>{
-        c.style.display=activeCourts.includes(c.dataset.court)?'':'none';
-      });
-    }
+    // 이 히트의 실제 코트 목록 업데이트
+    activeCourtsFor12=Object.keys(h.courts||{});
 
-    // 코트별 선수 정보 업데이트
+    // 12분할이면 히트 코트에 맞게 바로 재적용
+    if(currentLayout==='12') setLayout('12',[]);
+
+    // 코트별 선수 정보 업데이트 (숨기기 없음 — 오직 내용만)
     Object.entries(h.courts||{}).forEach(([cid,c])=>{
       const ath=c.athlete;
       if(!ath)return;
