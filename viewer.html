@@ -563,11 +563,16 @@ function init(){
   // PeerJS 카메라 수신 (페이지별 ID)
   const peerId=`mop-${config.room}-viewer-p${currentPage}`;
   peer=new Peer(peerId);
-  peer.on('open',id=>console.log('뷰어 온라인:',id));
-  peer.on('call',call=>{
+  peer.on('open',id=>console.log('뷰어 온라인 (페이지별):',id));
+  peer.on('error',e=>console.warn('[Viewer] PeerJS error:',e.type,e));
+
+  // call 받기 핸들러 (재사용)
+  const handleCall=call=>{
+    console.log('[Viewer] 카메라 콜 수신:',call.peer);
     call.answer();
     call.on('stream',stream=>{
       const courtNum=call.peer.split('-cam-').pop();
+      console.log('[Viewer] 영상 스트림 받음 - court:',courtNum);
       const box=document.getElementById('vid-'+courtNum);
       if(box){
         box.innerHTML='';
@@ -576,9 +581,26 @@ function init(){
         box.appendChild(v);
         const card=document.getElementById('court-'+courtNum);
         if(card)card.classList.add('has-signal');
+      } else {
+        console.warn('[Viewer] vid-'+courtNum+' 카드 없음 (코트가 이 페이지에 없음)');
       }
     });
-  });
+    call.on('error',e=>console.warn('[Viewer] call error:',e));
+  };
+  peer.on('call',handleCall);
+
+  // ★ 하위 호환: 페이지 1은 옛날 ID(mop-room-viewer)로도 등록
+  // → 옛날 camera.html이 호출해도 받을 수 있음
+  if(currentPage===1){
+    try{
+      const legacyPeer=new Peer(`mop-${config.room}-viewer`);
+      legacyPeer.on('open',id=>console.log('뷰어 온라인 (호환):',id));
+      legacyPeer.on('call',handleCall);
+      legacyPeer.on('error',e=>{
+        if(e.type!=='unavailable-id')console.warn('[Viewer] legacy peer error:',e.type);
+      });
+    }catch(e){console.warn('[Viewer] legacy peer init failed:',e);}
+  }
 
   subscribeOperator();
   subscribeJudges();
