@@ -172,7 +172,11 @@ function initPeer(){
 function callViewer(){
   if(!peer||peer.destroyed||!localStream)return;
   clearTimeout(retryTimer);
-  const viewerId=`mop-${roomId}-viewer`;
+  // 코트 번호에 따라 viewer page 자동 결정 (1~12 → p1, 13~24 → p2)
+  const courtNum=parseInt(courtId);
+  const targetPage=(!isNaN(courtNum)&&courtNum>=13)?2:1;
+  const viewerId=`mop-${roomId}-viewer-p${targetPage}`;
+  console.log(`[Camera] court ${courtId} → calling ${viewerId}`);
   try{
     currentCall=peer.call(viewerId,localStream,{metadata:{court:courtId,room:roomId}});
     if(!currentCall){retryTimer=setTimeout(callViewer,2500);return;}
