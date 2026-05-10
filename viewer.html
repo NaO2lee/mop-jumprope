@@ -30,11 +30,15 @@ html,body{width:100%;height:100%;background:#03050C;color:#fff;font-family:'Noto
 .top-sep{width:1px;height:18px;background:rgba(0,229,255,.2);flex-shrink:0;}
 .top-page{
   font-size:11px;font-weight:700;
-  padding:3px 10px;border-radius:20px;
+  padding:4px 12px;border-radius:20px;
   background:rgba(0,229,255,.1);
   color:#00e5ff;border:1px solid rgba(0,229,255,.3);
   white-space:nowrap;flex-shrink:0;
+  cursor:pointer;transition:all .15s;
+  display:inline-flex;align-items:center;gap:5px;
 }
+.top-page:hover{background:rgba(0,229,255,.2);transform:scale(1.03);}
+.top-page-arrow{font-size:9px;opacity:.6;}
 .top-spacer{flex:1;}
 #top-logo{height:24px;opacity:.85;flex-shrink:0;}
 
@@ -311,11 +315,6 @@ html,body{width:100%;height:100%;background:#03050C;color:#fff;font-family:'Noto
     <div class="cfg-title">📺 전광판 설정</div>
     <div class="cfg-lbl">Room ID</div>
     <input class="cfg-inp" id="inp-room" placeholder="예: room_001">
-    <div class="cfg-lbl">페이지 (코트 그룹)</div>
-    <div class="cfg-row">
-      <button class="cfg-pg-btn active" id="pg-btn-1" onclick="selectPage(1)">📄 Page 1<br><span style="font-size:10px;opacity:.7">코트 1~12</span></button>
-      <button class="cfg-pg-btn" id="pg-btn-2" onclick="selectPage(2)">📄 Page 2<br><span style="font-size:10px;opacity:.7">코트 13~24</span></button>
-    </div>
     <div class="cfg-lbl">대회 로고 URL (선택)</div>
     <input class="cfg-inp" id="inp-logo" placeholder="https://...logo.png">
     <button class="cfg-btn" onclick="saveConfig()">저장 및 시작</button>
@@ -331,7 +330,7 @@ html,body{width:100%;height:100%;background:#03050C;color:#fff;font-family:'Noto
     <img id="top-logo" src="" alt="" style="display:none">
     <span class="top-comp" id="top-comp">모두의 플레이</span>
     <div class="top-sep"></div>
-    <span class="top-page" id="top-page">PAGE 1 · 코트 1~12</span>
+    <span class="top-page" id="top-page" onclick="switchPage()" title="페이지 전환 (또는 URL 직접: ?page=1 또는 ?page=2)">PAGE 1 · 코트 1~12<span class="top-page-arrow">⇄</span></span>
     <div class="top-spacer"></div>
   </div>
 
@@ -406,17 +405,26 @@ localStorage.setItem('mop_viewer_v5',JSON.stringify(config));
 
 let selectedPage=currentPage;
 function selectPage(p){
+  // (deprecated, kept for backwards compatibility)
   selectedPage=p;
-  document.getElementById('pg-btn-1').classList.toggle('active',p===1);
-  document.getElementById('pg-btn-2').classList.toggle('active',p===2);
+}
+
+// 페이지 전환 (현재 URL의 page 파라미터 변경하고 리로드)
+function switchPage(){
+  const newPage=currentPage===1?2:1;
+  const url=new URL(window.location.href);
+  url.searchParams.set('page',newPage);
+  if(config.room)url.searchParams.set('room',config.room);
+  window.location.href=url.toString();
 }
 
 function saveConfig(){
   config.room=document.getElementById('inp-room').value.trim();
   config.logo=document.getElementById('inp-logo').value.trim();
-  config.page=selectedPage;
+  // 페이지는 현재 URL 파라미터 유지
   localStorage.setItem('mop_viewer_v5',JSON.stringify(config));
-  window.location.href=`${window.location.pathname}?room=${encodeURIComponent(config.room)}&page=${config.page}`;
+  const page=currentPage||1;
+  window.location.href=`${window.location.pathname}?room=${encodeURIComponent(config.room)}&page=${page}`;
 }
 
 // ── 상태 ──
@@ -444,16 +452,16 @@ function getPageCourts(allCourts,page){
 function init(){
   document.getElementById('inp-room').value=config.room||'';
   document.getElementById('inp-logo').value=config.logo||'';
-  selectPage(config.page||1);
 
   if(!config.room){document.getElementById('cfg').classList.add('show');return;}
 
   console.log('[MOP Viewer] Room:',config.room,'Page:',currentPage);
   document.title=`뷰어 P${currentPage} — ${config.room}`;
 
-  // 상단 페이지 표시
+  // 상단 페이지 표시 (클릭하면 페이지 전환)
   const range=currentPage===1?'코트 1~12':'코트 13~24';
-  document.getElementById('top-page').textContent=`PAGE ${currentPage} · ${range}`;
+  document.getElementById('top-page').innerHTML=
+    `PAGE ${currentPage} · ${range} <span class="top-page-arrow">⇄</span>`;
 
   // 로고
   if(config.logo){
