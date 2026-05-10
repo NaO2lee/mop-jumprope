@@ -49,15 +49,15 @@ html,body{width:100%;height:100%;background:#03050C;color:#fff;font-family:'Noto
 }
 #video-area.fading{opacity:0;}
 
-/* 사이드바 */
+/* 사이드바 — 좁게 조정 (영상 9:16 비율 확보 위해) */
 #sidebar{
-  width:280px;flex-shrink:0;
+  width:220px;flex-shrink:0;
   background:linear-gradient(180deg,#050D1F,#000814);
   border-left:1px solid rgba(0,229,255,.2);
   display:flex;flex-direction:column;overflow:hidden;
 }
-@media (min-width:2200px){#sidebar{width:380px;}}
-@media (max-width:1500px){#sidebar{width:230px;}}
+@media (min-width:2200px){#sidebar{width:300px;}}
+@media (max-width:1500px){#sidebar{width:180px;}}
 
 /* HEAT 정보 섹션 (운영앱처럼 크게) */
 .sb-heat-section{
@@ -127,30 +127,45 @@ html,body{width:100%;height:100%;background:#03050C;color:#fff;font-family:'Noto
   grid-auto-rows:0 !important;
   grid-auto-columns:0 !important;
   overflow:hidden;
+  /* 영상 9:16 비율 유지 + 위아래 자동 정렬 */
+  align-content:center;
+  justify-content:center;
 }
 .layout-12{
-  grid-template-columns:repeat(6,1fr) !important;
-  grid-template-rows:repeat(2,1fr) !important;
+  /* 6열 2행, 셀이 9:16 비율 자동 */
+  grid-template-columns:repeat(6,minmax(0,1fr)) !important;
+  grid-template-rows:repeat(2,minmax(0,1fr)) !important;
 }
 .layout-4{
-  grid-template-columns:repeat(2,1fr) !important;
-  grid-template-rows:repeat(2,1fr) !important;
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  grid-template-rows:repeat(2,minmax(0,1fr)) !important;
 }
 .layout-1{
   grid-template-columns:1fr !important;
   grid-template-rows:1fr !important;
 }
 
-/* 코트 카드 — 영상이 꽉 채움, 정보는 오버레이 */
+/* 코트 카드 — 9:16 비율 강제 */
 .court-card{
   background:#080C18;
   border:1px solid rgba(255,255,255,.08);
   border-radius:4px;
   position:relative;overflow:hidden;
   transition:border-color .3s;
+  /* 9:16 비율 유지 — 셀이 가로 더 넓으면 좌우 여백 */
+  aspect-ratio:9/16;
+  max-width:100%;max-height:100%;
+  margin:0 auto;
+  align-self:center;justify-self:center;
 }
 .court-card.has-signal{border-color:rgba(0,229,255,.25);}
 .court-card.has-score{border-color:rgba(0,255,136,.35);}
+
+/* 4분할/풀스크린은 비율 자유 (4분할은 16:9도 가능) */
+.layout-4 .court-card,.layout-1 .court-card{
+  aspect-ratio:auto;
+  width:100%;height:100%;
+}
 
 /* 영상 = 셀 전체 채움 (cover) */
 .video-wrap{
