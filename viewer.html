@@ -86,23 +86,27 @@ html,body{width:100%;height:100%;background:#03050C;color:#fff;font-family:'Noto
 #sidebar.collapsed .sb-heat-section{padding:14px 6px;text-align:center;}
 #sidebar.collapsed .sb-heat-lbl{font-size:8px;letter-spacing:.15em;}
 
-/* 토글 손잡이 — 사이드바 안쪽 우측 가장자리 */
+/* 토글 버튼 — 사이드바 하단 가운데 */
 #sb-toggle{
-  position:absolute;top:50%;right:4px;transform:translateY(-50%);
-  width:24px;height:54px;
+  position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
+  width:44px;height:32px;
   background:rgba(0,229,255,.15);
-  border:1px solid rgba(0,229,255,.4);
-  border-radius:6px;
-  color:#00e5ff;font-size:12px;
-  cursor:pointer;z-index:25;
+  border:1.5px solid rgba(0,229,255,.4);
+  border-radius:8px;
+  color:#00e5ff;font-size:13px;
+  cursor:pointer;z-index:30;
   display:flex;align-items:center;justify-content:center;
-  transition:background .2s;
+  transition:all .2s;
   font-family:'Bebas Neue',sans-serif;
+  letter-spacing:.05em;
 }
-#sb-toggle:hover{background:rgba(0,229,255,.3);}
-
-/* 축소 모드일 때 토글 버튼 위치 조정 — 좁아진 사이드바 안에 보이게 */
-#sidebar.collapsed #sb-toggle{right:4px;}
+#sb-toggle:hover{
+  background:rgba(0,229,255,.3);
+  transform:translateX(-50%) scale(1.05);
+}
+#sidebar.collapsed #sb-toggle{
+  width:32px;height:32px;font-size:11px;
+}
 
 /* HEAT 정보 섹션 (운영앱처럼 크게) */
 .sb-heat-section{
@@ -123,7 +127,7 @@ html,body{width:100%;height:100%;background:#03050C;color:#fff;font-family:'Noto
 /* 순위 섹션 */
 .sb-rank-section{
   flex:1;min-height:0;
-  padding:12px 10px;
+  padding:12px 10px 60px; /* 하단 60px - 토글 버튼 자리 */
   display:flex;flex-direction:column;overflow:hidden;
 }
 .sb-rank-title{
@@ -533,17 +537,24 @@ function subscribeOperator(){
 }
 
 function loadHeatInfo(heatNo){
+  console.log(`[Viewer] loadHeatInfo(${heatNo}) - page=${currentPage}`);
   db.ref(`${config.room}/heats/heat_${heatNo}`).once('value',s=>{
-    const h=s.val();if(!h)return;
+    const h=s.val();
+    if(!h){console.warn(`[Viewer] Heat ${heatNo} 데이터 없음`);return;}
+    console.log('[Viewer] heat data received:',h);
+
     document.getElementById('sb-event').textContent=h.event_name||h.event||'—';
     document.getElementById('sb-div').textContent=h.division||'—';
 
     // 페이지 코트 분할
     const allCourts=Object.keys(h.courts||{});
+    console.log(`[Viewer] all courts in heat:`,allCourts);
     activeCourtsForPage=getPageCourts(allCourts,currentPage);
+    console.log(`[Viewer] page ${currentPage} courts:`,activeCourtsForPage);
 
     // 코트 카드 생성 (현재 레이아웃 기준)
     const courtsToShow=getCourtsForCurrentLayout();
+    console.log(`[Viewer] courts to show (layout=${currentLayout}):`,courtsToShow);
     rebuildCourtCards(courtsToShow);
 
     // 모든 코트의 선수 정보 (LIVE RANK용 — 페이지 내 12개만)
@@ -710,10 +721,11 @@ function subscribeJudges(){
 let prevRankPositions={}; // cid → top px
 function updateRankList(){
   const list=document.getElementById('sb-rank-list');
-  // 페이지 내 코트만, 점수순 정렬
+  // 페이지 내 코트만, 점수순 정렬, 최대 10위까지
   const sorted=Object.entries(liveScores)
     .filter(([cid,v])=>activeCourtsForPage.includes(cid)&&(v.name||v.score>0))
-    .sort((a,b)=>(b[1].score||0)-(a[1].score||0));
+    .sort((a,b)=>(b[1].score||0)-(a[1].score||0))
+    .slice(0,10); // ★ 최대 10위까지만
 
   if(sorted.length===0){
     list.innerHTML='<div style="text-align:center;color:rgba(255,255,255,.3);font-size:11px;padding:30px 0">점수 대기 중...</div>';
