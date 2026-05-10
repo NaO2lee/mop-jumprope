@@ -9,69 +9,125 @@
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
-/* ── 기본 초기화 ── */
 *{box-sizing:border-box;margin:0;padding:0;}
-html,body{
-  width:100%;height:100%;
-  background:#03050C;
-  color:#fff;
-  font-family:'Noto Sans KR',sans-serif;
-  overflow:hidden;
-}
+html,body{width:100%;height:100%;background:#03050C;color:#fff;font-family:'Noto Sans KR',sans-serif;overflow:hidden;}
 
-/* ── 전체 레이아웃 ── */
 #app{display:flex;flex-direction:column;width:100vw;height:100vh;}
 
-/* ── 상단 헤더 (대회명 + 히트 + 종목) ── */
+/* ── 상단 바 (대회명 + 페이지) ── */
 #top-bar{
-  height:44px;flex-shrink:0;
+  height:38px;flex-shrink:0;
   background:linear-gradient(135deg,#050D1F,#091428);
-  border-bottom:1px solid rgba(0,229,255,.25);
+  border-bottom:1px solid rgba(0,229,255,.2);
   display:flex;align-items:center;
-  padding:0 16px;gap:16px;
+  padding:0 14px;gap:12px;
 }
 .top-comp{
   font-family:'Bebas Neue',sans-serif;
-  font-size:22px;color:#00e5ff;
-  letter-spacing:.06em;
-  text-shadow:0 0 20px rgba(0,229,255,.4);
-  white-space:nowrap;
+  font-size:18px;color:#00e5ff;letter-spacing:.06em;
+  text-shadow:0 0 18px rgba(0,229,255,.4);white-space:nowrap;
 }
-.top-sep{width:1px;height:22px;background:rgba(0,229,255,.2);flex-shrink:0;}
-.top-heat{
-  font-family:'Bebas Neue',sans-serif;
-  font-size:16px;color:#ffd60a;
-  letter-spacing:.1em;white-space:nowrap;
-}
-.top-event{
-  font-size:13px;color:rgba(255,255,255,.7);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  flex:1;
-}
-.top-status{
+.top-sep{width:1px;height:18px;background:rgba(0,229,255,.2);flex-shrink:0;}
+.top-page{
   font-size:11px;font-weight:700;
-  padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0;
+  padding:3px 10px;border-radius:20px;
+  background:rgba(0,229,255,.1);
+  color:#00e5ff;border:1px solid rgba(0,229,255,.3);
+  white-space:nowrap;flex-shrink:0;
 }
-.st-idle    {background:rgba(74,85,104,.3);color:#718096;}
-.st-calling {background:rgba(255,214,10,.2);color:#ffd60a;}
-.st-racing  {background:rgba(0,229,255,.2);color:#00e5ff;}
+.top-spacer{flex:1;}
+#top-logo{height:24px;opacity:.85;flex-shrink:0;}
+
+/* ── 메인 영역 = 영상 + 사이드바 ── */
+#main-area{flex:1;min-height:0;display:flex;overflow:hidden;}
+
+#video-area{
+  flex:1;min-width:0;
+  position:relative;
+  padding:6px;
+  transition:opacity .35s ease;
+}
+#video-area.fading{opacity:0;}
+
+/* 사이드바 */
+#sidebar{
+  width:280px;flex-shrink:0;
+  background:linear-gradient(180deg,#050D1F,#000814);
+  border-left:1px solid rgba(0,229,255,.2);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+@media (min-width:2200px){#sidebar{width:380px;}}
+@media (max-width:1500px){#sidebar{width:230px;}}
+
+/* HEAT 정보 섹션 (운영앱처럼 크게) */
+.sb-heat-section{
+  padding:14px 14px 12px;
+  background:linear-gradient(135deg,rgba(255,214,10,.08),transparent);
+  border-bottom:1px solid rgba(255,214,10,.15);
+}
+.sb-heat-lbl{font-size:9px;letter-spacing:.3em;color:#ffd60a;text-transform:uppercase;margin-bottom:2px;}
+.sb-heat-num{font-family:'Bebas Neue',sans-serif;font-size:50px;color:#ffd60a;line-height:.9;text-shadow:0 0 24px rgba(255,214,10,.4);}
+.sb-event{font-size:13px;font-weight:700;color:#fff;margin-top:7px;line-height:1.3;}
+.sb-div{font-size:11px;color:rgba(255,255,255,.55);margin-top:2px;}
+.sb-status-pill{display:inline-block;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;margin-top:8px;}
+.st-idle{background:rgba(74,85,104,.3);color:#718096;}
+.st-calling{background:rgba(255,214,10,.2);color:#ffd60a;}
+.st-racing{background:rgba(0,229,255,.2);color:#00e5ff;}
 .st-finished{background:rgba(0,255,136,.2);color:#00ff88;}
 
-/* 로고 영역 */
-#top-logo{height:32px;object-fit:contain;opacity:.85;flex-shrink:0;}
-
-/* ── 코트 그리드 영역 ── */
-#courts-wrap{
+/* 순위 섹션 */
+.sb-rank-section{
   flex:1;min-height:0;
-  display:grid;gap:3px;padding:3px;
-  transition:all .4s ease;
-  /* 자동 확장 방지 */
+  padding:12px 10px;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.sb-rank-title{
+  font-family:'Bebas Neue',sans-serif;font-size:12px;
+  color:#00e5ff;letter-spacing:.3em;
+  margin-bottom:8px;padding-left:4px;
+  display:flex;align-items:center;gap:6px;
+}
+.sb-rank-list{
+  flex:1;display:flex;flex-direction:column;gap:4px;
+  overflow:hidden;position:relative;
+}
+
+/* 순위 아이템 — 슬라이드 애니메이션 */
+.sb-rank-item{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 8px;border-radius:6px;
+  background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.05);
+  position:relative;
+  /* FLIP 애니메이션을 위한 transition */
+  transition:transform .6s cubic-bezier(.22,.68,0,1.2);
+}
+.sb-rank-item.rank-1{
+  background:linear-gradient(90deg,rgba(255,214,10,.15),rgba(255,214,10,.03));
+  border-color:rgba(255,214,10,.4);
+}
+.sb-rank-item.rank-2{background:linear-gradient(90deg,rgba(148,163,184,.12),transparent);border-color:rgba(148,163,184,.3);}
+.sb-rank-item.rank-3{background:linear-gradient(90deg,rgba(205,124,84,.12),transparent);border-color:rgba(205,124,84,.3);}
+.sb-r-num{font-family:'Bebas Neue',sans-serif;font-size:16px;width:20px;text-align:center;flex-shrink:0;line-height:1;}
+.sb-r-num.gold{color:#ffd60a;text-shadow:0 0 8px rgba(255,214,10,.5);}
+.sb-r-num.silver{color:#94a3b8;}
+.sb-r-num.bronze{color:#cd7c54;}
+.sb-r-num.other{color:rgba(255,255,255,.4);}
+.sb-r-cid{font-family:'Bebas Neue',sans-serif;font-size:11px;color:rgba(0,229,255,.55);width:24px;flex-shrink:0;}
+.sb-r-info{flex:1;min-width:0;}
+.sb-r-name{font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sb-r-club{font-size:9px;color:rgba(255,255,255,.4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sb-r-score{font-family:'Bebas Neue',sans-serif;font-size:18px;color:#00e5ff;flex-shrink:0;line-height:1;}
+
+/* ── 코트 그리드 ── */
+#courts-wrap{
+  width:100%;height:100%;
+  display:grid;gap:5px;
+  transition:opacity .35s ease;
   grid-auto-rows:0 !important;
   grid-auto-columns:0 !important;
   overflow:hidden;
 }
-
-/* 레이아웃 프리셋 */
 .layout-12{
   grid-template-columns:repeat(6,1fr) !important;
   grid-template-rows:repeat(2,1fr) !important;
@@ -85,175 +141,140 @@ html,body{
   grid-template-rows:1fr !important;
 }
 
-/* 코트 카드 */
+/* 코트 카드 — 영상이 꽉 채움, 정보는 오버레이 */
 .court-card{
   background:#080C18;
   border:1px solid rgba(255,255,255,.08);
-  border-radius:3px;
-  display:flex;flex-direction:column;
+  border-radius:4px;
   position:relative;overflow:hidden;
   transition:border-color .3s;
 }
-.court-card.has-signal{border-color:rgba(0,229,255,.2);}
-.court-card.has-score{border-color:rgba(0,255,136,.3);}
+.court-card.has-signal{border-color:rgba(0,229,255,.25);}
+.court-card.has-score{border-color:rgba(0,255,136,.35);}
 
-/* 비디오 영역 (남은 공간 채우기) */
+/* 영상 = 셀 전체 채움 (cover) */
 .video-wrap{
-  flex:1;position:relative;background:#000;overflow:hidden;
+  position:absolute;inset:0;
+  background:#000;
 }
-.video-wrap video{width:100%;height:100%;object-fit:cover;display:block;}
+.video-wrap video{
+  width:100%;height:100%;
+  object-fit:cover; /* 9:16 영상이 셀에 맞춰 cover */
+  display:block;
+}
 .no-signal{
-  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
   font-family:'Bebas Neue',sans-serif;font-size:clamp(10px,1.5vw,16px);
   color:rgba(255,255,255,.12);letter-spacing:.2em;
 }
 
-/* 코트 ID 오버레이 */
+/* 코트 ID 오버레이 (좌상단) */
 .court-id-badge{
-  position:absolute;top:5px;left:5px;z-index:3;
+  position:absolute;top:6px;left:8px;z-index:3;
   font-family:'Bebas Neue',sans-serif;
-  font-size:clamp(14px,2vw,22px);
+  font-size:clamp(16px,2.2vw,28px);
   color:#00e5ff;line-height:1;
-  text-shadow:0 0 12px rgba(0,229,255,.7);
+  text-shadow:0 0 14px rgba(0,229,255,.8),0 2px 6px rgba(0,0,0,.9);
+  pointer-events:none;
 }
 
-/* 하단 정보 바 */
-.info-bar{
-  background:rgba(0,0,0,.88);
-  padding:4px 8px;
-  display:flex;align-items:center;justify-content:space-between;
-  gap:6px;flex-shrink:0;
+/* 정보 오버레이 (반투명 그라데이션, 영상 위) */
+.info-overlay{
+  position:absolute;left:0;right:0;bottom:0;z-index:2;
+  background:linear-gradient(0deg,rgba(0,0,0,.85),rgba(0,0,0,.5) 60%,transparent);
+  padding:14px 8px 6px;
+  display:flex;justify-content:space-between;align-items:flex-end;
+  gap:6px;
+  pointer-events:none;
 }
 .info-left{flex:1;min-width:0;}
 .info-name{
-  font-size:clamp(10px,1.4vw,15px);
-  font-weight:800;
+  font-size:clamp(11px,1.4vw,16px);
+  font-weight:800;color:#fff;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   line-height:1.2;
+  text-shadow:0 1px 4px rgba(0,0,0,.9);
 }
 .info-club{
   font-size:clamp(8px,1vw,11px);
-  color:rgba(255,255,255,.5);
+  color:rgba(255,255,255,.7);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  line-height:1.2;margin-top:1px;
+  line-height:1.2;margin-top:2px;
+  text-shadow:0 1px 3px rgba(0,0,0,.9);
 }
 .info-score{
   font-family:'Bebas Neue',sans-serif;
-  font-size:clamp(22px,4vw,52px);
+  font-size:clamp(24px,4.5vw,56px);
   color:#00e5ff;line-height:1;
-  text-shadow:0 0 16px rgba(0,229,255,.5);
+  text-shadow:0 0 18px rgba(0,229,255,.6),0 2px 6px rgba(0,0,0,.9);
   flex-shrink:0;
-  transition:color .15s;
+  transition:color .15s,transform .15s;
 }
-.info-score.bump{color:#00ff88;text-shadow:0 0 20px rgba(0,255,136,.6);}
+.info-score.bump{
+  color:#00ff88;
+  text-shadow:0 0 24px rgba(0,255,136,.7),0 2px 6px rgba(0,0,0,.9);
+  transform:scale(1.08);
+}
 
-/* 4분할 전용: 더 큰 정보 표시 */
-.layout-4 .info-bar{padding:8px 14px;}
-.layout-4 .info-name{font-size:clamp(14px,2vw,22px);}
-.layout-4 .info-club{font-size:clamp(10px,1.2vw,14px);}
-.layout-4 .info-score{font-size:clamp(40px,7vw,88px);}
-.layout-4 .court-id-badge{font-size:clamp(20px,3vw,36px);}
+/* 4분할에서는 더 큰 정보 */
+.layout-4 .court-id-badge{font-size:clamp(24px,3.5vw,42px);}
+.layout-4 .info-name{font-size:clamp(16px,2.4vw,28px);}
+.layout-4 .info-club{font-size:clamp(11px,1.4vw,16px);}
+.layout-4 .info-score{font-size:clamp(48px,8vw,100px);}
+.layout-4 .info-overlay{padding:30px 14px 10px;}
 
-/* 1분할 전용 */
-.layout-1 .info-bar{padding:12px 20px;}
-.layout-1 .info-name{font-size:clamp(18px,3vw,32px);}
-.layout-1 .info-club{font-size:clamp(12px,1.5vw,18px);}
-.layout-1 .info-score{font-size:clamp(60px,12vw,140px);}
-.layout-1 .court-id-badge{font-size:clamp(28px,4vw,48px);}
-
-/* ── 하단 순위 바 (고정 위치, 내용만 교체) ── */
-#rank-board{
-  height:40px;flex-shrink:0;
-  background:#000814;
-  border-top:2px solid rgba(0,229,255,.25);
-  display:flex;align-items:stretch;
-  overflow:hidden;position:relative;
-}
-.rank-tag{
-  font-family:'Bebas Neue',sans-serif;font-size:12px;
-  color:#00e5ff;letter-spacing:.15em;
-  padding:0 12px;white-space:nowrap;
-  border-right:1px solid rgba(0,229,255,.2);
-  flex-shrink:0;display:flex;align-items:center;
-  background:rgba(0,229,255,.05);
-  gap:6px;
-}
-.rank-page-dot{font-size:8px;color:rgba(0,229,255,.4);}
-
-/* 순위 콘텐츠 영역 — 두 레이어 겹쳐서 crossfade */
-.rank-content-wrap{
-  flex:1;position:relative;overflow:hidden;
-}
-.rank-layer{
-  position:absolute;inset:0;
-  display:flex;align-items:center;
-  padding:0 4px;gap:0;
-  transition:opacity .5s ease;
-}
-.rank-layer.visible{opacity:1;pointer-events:auto;}
-.rank-layer.hidden{opacity:0;pointer-events:none;}
-
-/* 순위 아이템 */
-.rank-item{
-  display:inline-flex;align-items:center;gap:6px;
-  padding:0 14px;height:100%;
-  border-right:1px solid rgba(255,255,255,.06);
-  flex-shrink:0;white-space:nowrap;
-}
-.r-rank{
-  font-family:'Bebas Neue',sans-serif;font-size:16px;
-  line-height:1;flex-shrink:0;width:18px;text-align:center;
-}
-.r-rank.gold  {color:#ffd60a;}
-.r-rank.silver{color:#94a3b8;}
-.r-rank.bronze{color:#cd7c54;}
-.r-rank.other {color:rgba(255,255,255,.3);}
-.r-court{font-family:'Bebas Neue',sans-serif;font-size:12px;color:rgba(0,229,255,.6);}
-.r-name{font-size:12px;font-weight:700;color:rgba(255,255,255,.85);}
-.r-club{font-size:10px;color:rgba(255,255,255,.4);}
-.r-score{
-  font-family:'Bebas Neue',sans-serif;font-size:20px;
-  color:#00e5ff;margin-left:2px;
-  text-shadow:0 0 8px rgba(0,229,255,.4);
-}
+/* 1분할 풀스크린 */
+.layout-1 .court-id-badge{font-size:clamp(36px,5vw,60px);top:14px;left:18px;}
+.layout-1 .info-name{font-size:clamp(22px,3.5vw,40px);}
+.layout-1 .info-club{font-size:clamp(14px,1.8vw,22px);}
+.layout-1 .info-score{font-size:clamp(70px,14vw,180px);}
+.layout-1 .info-overlay{padding:60px 24px 18px;}
 
 /* ── 안내 방송 팝업 ── */
 #ann-popup{
   display:none;position:fixed;
-  bottom:50px;left:50%;transform:translateX(-50%);z-index:999;
+  bottom:60px;left:50%;transform:translateX(-50%);z-index:999;
   background:rgba(3,8,25,.97);
   border:2px solid rgba(0,229,255,.7);
   border-radius:16px;padding:20px 36px;
   max-width:820px;width:92%;
-  box-shadow:0 0 60px rgba(0,229,255,.25),0 0 120px rgba(0,229,255,.08);
+  box-shadow:0 0 60px rgba(0,229,255,.25);
   backdrop-filter:blur(16px);
   text-align:center;animation:annPop .4s cubic-bezier(.22,.68,0,1.2);
 }
 #ann-icon{font-size:26px;margin-bottom:7px;}
-#ann-text{font-size:clamp(18px,3vw,26px);font-weight:700;color:#fff;line-height:1.7;letter-spacing:.02em;}
+#ann-text{font-size:clamp(18px,3vw,26px);font-weight:700;color:#fff;line-height:1.7;}
 #ann-text-en{font-size:clamp(12px,1.8vw,17px);color:rgba(0,229,255,.65);margin-top:6px;font-style:italic;}
 #ann-bar{height:3px;background:rgba(0,229,255,.15);border-radius:3px;margin-top:12px;overflow:hidden;}
-#ann-fill{height:100%;background:linear-gradient(90deg,#00e5ff,#00ff88);transform-origin:left;transition:transform linear;}
+#ann-fill{height:100%;background:linear-gradient(90deg,#00e5ff,#00ff88);transform-origin:left;}
 @keyframes annPop{from{opacity:0;transform:translateX(-50%) translateY(28px) scale(.95);}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}}
 
-/* ── 설정 모달 ── */
+/* 설정 모달 */
 #cfg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:100;align-items:center;justify-content:center;}
 #cfg.show{display:flex;}
 .cfg-box{background:#0d1117;border:1px solid rgba(0,229,255,.3);border-radius:16px;padding:24px;width:380px;max-width:92vw;}
 .cfg-title{font-family:'Bebas Neue',sans-serif;font-size:22px;color:#00e5ff;margin-bottom:16px;text-align:center;}
 .cfg-lbl{font-size:10px;color:#718096;letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px;margin-top:10px;}
 .cfg-inp{width:100%;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 14px;font-size:14px;color:#fff;font-family:monospace;}
+.cfg-row{display:flex;gap:8px;}
+.cfg-pg-btn{flex:1;padding:10px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;}
+.cfg-pg-btn.active{background:rgba(0,229,255,.2);border-color:#00e5ff;color:#00e5ff;}
 .cfg-btn{width:100%;padding:12px;background:#00e5ff;border:none;border-radius:10px;font-size:15px;font-weight:700;color:#000;cursor:pointer;margin-top:14px;}
 </style>
 </head>
 <body>
 
-<!-- 설정 모달 -->
 <div id="cfg">
   <div class="cfg-box">
     <div class="cfg-title">📺 전광판 설정</div>
     <div class="cfg-lbl">Room ID</div>
     <input class="cfg-inp" id="inp-room" placeholder="예: room_001">
+    <div class="cfg-lbl">페이지 (코트 그룹)</div>
+    <div class="cfg-row">
+      <button class="cfg-pg-btn active" id="pg-btn-1" onclick="selectPage(1)">📄 Page 1<br><span style="font-size:10px;opacity:.7">코트 1~12</span></button>
+      <button class="cfg-pg-btn" id="pg-btn-2" onclick="selectPage(2)">📄 Page 2<br><span style="font-size:10px;opacity:.7">코트 13~24</span></button>
+    </div>
     <div class="cfg-lbl">대회 로고 URL (선택)</div>
     <input class="cfg-inp" id="inp-logo" placeholder="https://...logo.png">
     <button class="cfg-btn" onclick="saveConfig()">저장 및 시작</button>
@@ -261,7 +282,7 @@ html,body{
 </div>
 
 <button onclick="document.getElementById('cfg').classList.add('show')"
-  style="position:fixed;top:6px;right:8px;z-index:200;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.3);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;line-height:1.5;">⚙</button>
+  style="position:fixed;top:6px;right:8px;z-index:200;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.3);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">⚙</button>
 
 <div id="app">
   <!-- 상단 바 -->
@@ -269,23 +290,35 @@ html,body{
     <img id="top-logo" src="" alt="" style="display:none">
     <span class="top-comp" id="top-comp">모두의 플레이</span>
     <div class="top-sep"></div>
-    <span class="top-heat" id="top-heat">HEAT —</span>
-    <span class="top-event" id="top-event">—</span>
-    <span class="top-status st-idle" id="top-status">⏸ 대기</span>
+    <span class="top-page" id="top-page">PAGE 1 · 코트 1~12</span>
+    <div class="top-spacer"></div>
   </div>
 
-  <!-- 코트 그리드 -->
-  <div id="courts-wrap" class="layout-12"></div>
-
-  <!-- 순위 바 (고정 위치, 내용 교체) -->
-  <div id="rank-board">
-    <div class="rank-tag">
-      LIVE RANK
-      <span class="rank-page-dot" id="rank-page-ind">●●●</span>
+  <!-- 메인 = 영상 + 사이드바 -->
+  <div id="main-area">
+    <div id="video-area">
+      <div id="courts-wrap" class="layout-12"></div>
     </div>
-    <div class="rank-content-wrap">
-      <div class="rank-layer visible" id="rank-layer-a"></div>
-      <div class="rank-layer hidden"  id="rank-layer-b"></div>
+    <div id="sidebar">
+      <!-- HEAT 정보 -->
+      <div class="sb-heat-section">
+        <div class="sb-heat-lbl">CURRENT</div>
+        <div class="sb-heat-num" id="sb-heat-num">HEAT —</div>
+        <div class="sb-event" id="sb-event">—</div>
+        <div class="sb-div" id="sb-div">—</div>
+        <div class="sb-status-pill st-idle" id="sb-status">⏸ 대기</div>
+      </div>
+      <!-- 순위 -->
+      <div class="sb-rank-section">
+        <div class="sb-rank-title">
+          🏆 LIVE RANK
+        </div>
+        <div class="sb-rank-list" id="sb-rank-list">
+          <div style="text-align:center;color:rgba(255,255,255,.3);font-size:11px;padding:30px 0">
+            점수 대기 중...
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -308,72 +341,76 @@ firebase.initializeApp({
 });
 const db=firebase.database();
 
-// localStorage 키 통합 (이전 버전 마이그레이션)
+// ── 설정 ──
 function loadConfig(){
-  // 현재 키 먼저
-  let cfg=JSON.parse(localStorage.getItem('mop_viewer_v4')||'{}');
-  // room이 없으면 이전 버전 키에서 마이그레이션
+  let cfg=JSON.parse(localStorage.getItem('mop_viewer_v5')||'{}');
+  // 마이그레이션
   if(!cfg.room){
-    const v3=JSON.parse(localStorage.getItem('mop_viewer_v3')||'{}');
-    const v2=JSON.parse(localStorage.getItem('mop_viewer_v2')||'{}');
-    if(v3.room){cfg.room=v3.room;cfg.logo=v3.logo||'';}
-    else if(v2.room){cfg.room=v2.room;}
-    if(cfg.room)localStorage.setItem('mop_viewer_v4',JSON.stringify(cfg));
+    const v4=JSON.parse(localStorage.getItem('mop_viewer_v4')||'{}');
+    if(v4.room){cfg=v4;localStorage.setItem('mop_viewer_v5',JSON.stringify(cfg));}
   }
   return cfg;
 }
 let config=loadConfig();
-let peer=null;
-let liveScores={}; // courtId → {name,club,score,bib}
-let annTimer=null;
-const ANN_DUR=15000;
 
-// URL 파라미터 우선 (URL에 있으면 localStorage보다 우선)
+// URL 파라미터
 const urlP=new URLSearchParams(window.location.search);
-if(urlP.get('room')){
-  config.room=urlP.get('room');
-  localStorage.setItem('mop_viewer_v4',JSON.stringify(config));
+if(urlP.get('room')){config.room=urlP.get('room');}
+const urlPage=parseInt(urlP.get('page'));
+let currentPage=([1,2].includes(urlPage))?urlPage:(config.page||1);
+config.page=currentPage;
+localStorage.setItem('mop_viewer_v5',JSON.stringify(config));
+
+let selectedPage=currentPage;
+function selectPage(p){
+  selectedPage=p;
+  document.getElementById('pg-btn-1').classList.toggle('active',p===1);
+  document.getElementById('pg-btn-2').classList.toggle('active',p===2);
 }
-if(urlP.get('logo'))config.logo=urlP.get('logo');
 
 function saveConfig(){
   config.room=document.getElementById('inp-room').value.trim();
   config.logo=document.getElementById('inp-logo').value.trim();
-  localStorage.setItem('mop_viewer_v4',JSON.stringify(config));
-  // 저장 후 URL에 room 파라미터 추가해서 이동
-  window.location.href=window.location.pathname+'?room='+encodeURIComponent(config.room);
+  config.page=selectedPage;
+  localStorage.setItem('mop_viewer_v5',JSON.stringify(config));
+  window.location.href=`${window.location.pathname}?room=${encodeURIComponent(config.room)}&page=${config.page}`;
 }
 
-// ── 레이아웃 전환 ──
+// ── 상태 ──
+let peer=null;
+let liveScores={};       // courtId → {name,club,score,bib}
 let currentLayout='12';
+let activeCourtsForPage=[]; // 현재 페이지에 표시할 코트 (12개)
+let currentLayout4Courts=[];
 let focusCourt=null;
-let activeCourtsFor12=[]; // 현재 히트의 실제 코트 목록
-let currentLayout4Courts=[]; // 4분할 시 선택된 코트
+let annTimer=null;
+const ANN_DUR=15000;
 
-function setLayout(layout, courts){
-  currentLayout=layout;
-  if(layout==='4')currentLayout4Courts=courts||[];
-
-  const courtsToShow=getCourtsForCurrentLayout();
-  rebuildCourtCards(courtsToShow);
-  applyGridStyle(layout,courtsToShow.length);
-  console.log(`[Viewer] setLayout(${layout}):`,courtsToShow);
+// 페이지별 코트 분리 (코트 정렬 기준)
+function getPageCourts(allCourts,page){
+  const sorted=[...allCourts].sort((a,b)=>{
+    const an=parseInt(a),bn=parseInt(b);
+    if(!isNaN(an)&&!isNaN(bn))return an-bn;
+    return String(a).localeCompare(String(b));
+  });
+  const start=(page-1)*12;
+  return sorted.slice(start,start+12);
 }
 
 // ── 초기화 ──
 function init(){
-  // 설정 모달 현재 값 채우기
   document.getElementById('inp-room').value=config.room||'';
   document.getElementById('inp-logo').value=config.logo||'';
+  selectPage(config.page||1);
 
-  if(!config.room){
-    document.getElementById('cfg').classList.add('show');
-    return;
-  }
+  if(!config.room){document.getElementById('cfg').classList.add('show');return;}
 
-  // 현재 Room ID 상단에 표시 (디버그용)
-  console.log('[MOP Viewer] Room ID:', config.room);
-  document.title=`뷰어 — ${config.room}`;
+  console.log('[MOP Viewer] Room:',config.room,'Page:',currentPage);
+  document.title=`뷰어 P${currentPage} — ${config.room}`;
+
+  // 상단 페이지 표시
+  const range=currentPage===1?'코트 1~12':'코트 13~24';
+  document.getElementById('top-page').textContent=`PAGE ${currentPage} · ${range}`;
 
   // 로고
   if(config.logo){
@@ -381,12 +418,9 @@ function init(){
     logoEl.src=config.logo;logoEl.style.display='block';
   }
 
-  // 코트 카드 영역 — 동적 생성 (히트 데이터 받으면 그 코트 ID로 생성)
-  const wrap=document.getElementById('courts-wrap');
-  wrap.innerHTML='<div id="placeholder-msg" style="grid-column:1/-1;grid-row:1/-1;display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:rgba(255,255,255,.3);font-family:Bebas Neue,sans-serif;letter-spacing:.2em;font-size:14px">WAITING FOR DATA...</div>';
-
-  // PeerJS 카메라 수신
-  peer=new Peer('mop-'+config.room+'-viewer');
+  // PeerJS 카메라 수신 (페이지별 ID)
+  const peerId=`mop-${config.room}-viewer-p${currentPage}`;
+  peer=new Peer(peerId);
   peer.on('open',id=>console.log('뷰어 온라인:',id));
   peer.on('call',call=>{
     call.answer();
@@ -404,50 +438,26 @@ function init(){
     });
   });
 
-  // Firebase 구독들
   subscribeOperator();
   subscribeJudges();
   subscribeAnnouncements();
   heartbeat();
 }
 
-// ── 운영앱 구독 (히트/종목/레이아웃/포커스코트) ──
+// ── 운영앱 구독 ──
 function subscribeOperator(){
-  // Firebase 연결 상태 표시
-  db.ref('.info/connected').on('value',s=>{
-    const el=document.getElementById('top-status');
-    if(!s.val()){
-      el.className='top-status st-calling';
-      el.textContent='🔴 Firebase 연결 중...';
-    } else {
-      // 연결됨 - heatStatus가 있으면 그걸로, 없으면 idle
-      if(!el.dataset.hasState){
-        el.className='top-status st-idle';
-        el.textContent='⏸ 대기';
-      }
-    }
-  });
-
   db.ref(`${config.room}/operator`).on('value',s=>{
     const v=s.val();if(!v)return;
-    const el=document.getElementById('top-status');
-    el.dataset.hasState='1'; // 데이터 받았다 마킹
-
-    // 히트/종목 표시
     if(v.currentHeatNo){
-      document.getElementById('top-heat').textContent=`HEAT ${v.currentHeatNo}`;
+      document.getElementById('sb-heat-num').textContent=`HEAT ${v.currentHeatNo}`;
       loadHeatInfo(v.currentHeatNo);
     }
     if(v.heatStatus)updateStatus(v.heatStatus);
     else updateStatus('idle');
 
-    // ★ 레이아웃 제어 (운영앱에서 설정)
+    // 레이아웃 제어
     if(v.viewerLayout){
-      const layout=v.viewerLayout;
-      const courts=v.viewerCourts||[];
-      const focus=v.viewerFocus||null;
-      focusCourt=focus;
-      setLayout(layout,courts);
+      setLayout(v.viewerLayout,v.viewerCourts||[],v.viewerFocus||null);
     }
   });
 }
@@ -455,24 +465,21 @@ function subscribeOperator(){
 function loadHeatInfo(heatNo){
   db.ref(`${config.room}/heats/heat_${heatNo}`).once('value',s=>{
     const h=s.val();if(!h)return;
-    document.getElementById('top-event').textContent=h.event_name||h.event||'—';
+    document.getElementById('sb-event').textContent=h.event_name||h.event||'—';
+    document.getElementById('sb-div').textContent=h.division||'—';
 
-    // 이 히트의 실제 코트 목록 (정렬)
-    const heatCourts=Object.keys(h.courts||{}).sort((a,b)=>{
-      const an=parseInt(a),bn=parseInt(b);
-      if(!isNaN(an)&&!isNaN(bn))return an-bn;
-      return String(a).localeCompare(String(b));
-    });
-    activeCourtsFor12=heatCourts;
+    // 페이지 코트 분할
+    const allCourts=Object.keys(h.courts||{});
+    activeCourtsForPage=getPageCourts(allCourts,currentPage);
 
-    // 현재 레이아웃에 맞는 코트만 카드로 생성
+    // 코트 카드 생성 (현재 레이아웃 기준)
     const courtsToShow=getCourtsForCurrentLayout();
     rebuildCourtCards(courtsToShow);
-    applyGridStyle(currentLayout,courtsToShow.length);
 
-    // 코트별 선수 정보 업데이트 (전체 히트 코트 기준 — RANK용)
-    Object.entries(h.courts||{}).forEach(([cid,c])=>{
-      const ath=c.athlete;
+    // 모든 코트의 선수 정보 (LIVE RANK용 — 페이지 내 12개만)
+    activeCourtsForPage.forEach(cid=>{
+      const c=h.courts[cid];
+      const ath=c?.athlete;
       if(!ath)return;
       const nameEl=document.getElementById('name-'+cid);
       const clubEl=document.getElementById('club-'+cid);
@@ -483,62 +490,55 @@ function loadHeatInfo(heatNo){
       liveScores[cid].club=ath.club||'';
       liveScores[cid].bib=ath.bib||'';
     });
-    updateRankBoard();
+    updateRankList();
   });
 }
 
-// 현재 레이아웃에 따라 표시할 코트 목록 반환
+// 현재 레이아웃에 따라 표시할 코트 목록
 function getCourtsForCurrentLayout(){
   if(currentLayout==='12'){
-    return activeCourtsFor12.slice(0,12);
-  } else if(currentLayout==='4'&&currentLayout4Courts){
-    return currentLayout4Courts.slice(0,4);
+    return activeCourtsForPage.slice(0,12);
+  } else if(currentLayout==='4'&&currentLayout4Courts.length>0){
+    // 4분할: 페이지 내에서만 4개
+    return currentLayout4Courts.filter(c=>activeCourtsForPage.includes(c)).slice(0,4);
   } else if(currentLayout==='1'&&focusCourt){
-    return [focusCourt];
+    return activeCourtsForPage.includes(focusCourt)?[focusCourt]:[];
   }
-  return activeCourtsFor12.slice(0,12); // fallback
+  return activeCourtsForPage.slice(0,12);
 }
 
-// 그리드 스타일 적용
-function applyGridStyle(layout,n){
+function setLayout(layout,courts,focus){
+  // 페이드 아웃
   const wrap=document.getElementById('courts-wrap');
-  wrap.className=`layout-${layout}`;
-  if(layout==='12'){
-    const cols=n<=6?n:6;
-    const rows=n<=6?1:2;
-    wrap.style.gridTemplateColumns=`repeat(${cols},1fr)`;
-    wrap.style.gridTemplateRows=`repeat(${rows},1fr)`;
-    wrap.style.gridAutoRows='0';
-    wrap.style.gridAutoColumns='0';
-  } else if(layout==='4'){
-    wrap.style.gridTemplateColumns='repeat(2,1fr)';
-    wrap.style.gridTemplateRows='repeat(2,1fr)';
-    wrap.style.gridAutoRows='0';
-    wrap.style.gridAutoColumns='0';
-  } else if(layout==='1'){
-    wrap.style.gridTemplateColumns='1fr';
-    wrap.style.gridTemplateRows='1fr';
-    wrap.style.gridAutoRows='0';
-    wrap.style.gridAutoColumns='0';
-  }
+  wrap.style.opacity='0';
+
+  setTimeout(()=>{
+    currentLayout=layout;
+    if(layout==='4')currentLayout4Courts=courts||[];
+    if(layout==='1')focusCourt=focus;
+
+    const courtsToShow=getCourtsForCurrentLayout();
+    rebuildCourtCards(courtsToShow);
+    wrap.className=`layout-${layout}`;
+
+    // 페이드 인
+    requestAnimationFrame(()=>{
+      wrap.style.opacity='1';
+    });
+  },350);
 }
 
-// 히트 코트 ID 리스트로 카드 재생성 (DOM에서 모두 제거 후 새로 생성)
+// 코트 카드 재생성
 function rebuildCourtCards(courtIds){
   const wrap=document.getElementById('courts-wrap');
-  // 안전장치: 레이아웃별 최대 개수 강제 제한
   let maxCount=12;
   if(currentLayout==='4')maxCount=4;
   else if(currentLayout==='1')maxCount=1;
   const limited=(courtIds||[]).slice(0,maxCount);
 
-  console.log(`[Viewer] rebuildCourtCards: layout=${currentLayout}, max=${maxCount}, limited to ${limited.length} cards:`,limited);
-
-  // 항상 전체 초기화 후 새로 만들기
   wrap.innerHTML='';
-
   if(limited.length===0){
-    wrap.innerHTML='<div id="placeholder-msg" style="grid-column:1/-1;grid-row:1/-1;display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:rgba(255,255,255,.3);font-family:Bebas Neue,sans-serif;letter-spacing:.2em;font-size:14px">WAITING FOR DATA...</div>';
+    wrap.innerHTML='<div style="grid-column:1/-1;grid-row:1/-1;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.25);font-family:Bebas Neue,sans-serif;letter-spacing:.2em;font-size:13px">대기 중...</div>';
     return;
   }
 
@@ -548,11 +548,11 @@ function rebuildCourtCards(courtIds){
     card.id='court-'+cid;
     card.dataset.court=cid;
     card.innerHTML=`
-      <div class="court-id-badge">${cid}</div>
       <div class="video-wrap" id="vid-${cid}">
         <div class="no-signal">NO SIGNAL</div>
       </div>
-      <div class="info-bar">
+      <div class="court-id-badge">${cid}</div>
+      <div class="info-overlay">
         <div class="info-left">
           <div class="info-name" id="name-${cid}">—</div>
           <div class="info-club" id="club-${cid}">—</div>
@@ -561,21 +561,23 @@ function rebuildCourtCards(courtIds){
       </div>`;
     wrap.appendChild(card);
   });
+  console.log(`[Viewer] Rebuilt ${limited.length} cards:`,limited);
 }
 
 function updateStatus(state){
-  const el=document.getElementById('top-status');
+  const el=document.getElementById('sb-status');
   const map={
-    idle:    {c:'st-idle',    t:'⏸ 대기'},
-    calling: {c:'st-calling', t:'📢 소집'},
-    racing:  {c:'st-racing',  t:'▶ 진행 중'},
+    idle:{c:'st-idle',t:'⏸ 대기'},
+    calling:{c:'st-calling',t:'📢 소집'},
+    racing:{c:'st-racing',t:'▶ 진행 중'},
     finished:{c:'st-finished',t:'✓ 완료'},
   };
   const s=map[state]||map.idle;
-  el.className='top-status '+s.c;el.textContent=s.t;
+  el.className='sb-status-pill '+s.c;
+  el.textContent=s.t;
 }
 
-// ── 심판 실시간 점수 구독 ──
+// ── 심판 점수 구독 ──
 function subscribeJudges(){
   db.ref(`${config.room}/monitoring/judges`).on('value',s=>{
     const judges=s.val()||{};
@@ -585,79 +587,72 @@ function subscribeJudges(){
       if(scoreEl&&sc!==null){
         scoreEl.textContent=sc;
         scoreEl.classList.add('bump');
-        setTimeout(()=>scoreEl.classList.remove('bump'),200);
+        setTimeout(()=>scoreEl.classList.remove('bump'),250);
         const card=document.getElementById('court-'+cid);
         if(card&&sc>0)card.classList.add('has-score');
       }
       if(!liveScores[cid])liveScores[cid]={};
       liveScores[cid].score=sc??0;
     });
-    updateRankBoard();
+    updateRankList();
   });
 }
 
-// ── 순위 바 (고정 위치, 내용만 crossfade 교체) ──
-let rankData=[];
-let rankPage=0;
-const RANK_PER_PAGE=5;
-let rankTimer=null;
-let activeLayer='a';
-
-function buildRankItems(entries){
-  const cls=['gold','silver','bronze'];
-  return entries.map(e=>`
-    <div class="rank-item">
-      <span class="r-rank ${cls[e.rank-1]||'other'}">${e.rank}</span>
-      <span class="r-court">${e.cid}</span>
-      <span class="r-name">${e.name||'—'}</span>
-      ${e.club?`<span class="r-club">${e.club}</span>`:''}
-      <span class="r-score">${e.score??'—'}</span>
-    </div>`).join('');
-}
-
-function showRankPage(page){
-  const totalPages=Math.max(1,Math.ceil(rankData.length/RANK_PER_PAGE));
-  const p=((page%totalPages)+totalPages)%totalPages;
-  const slice=rankData.slice(p*RANK_PER_PAGE,(p+1)*RANK_PER_PAGE);
-  if(!slice.length)return;
-
-  const next=activeLayer==='a'?'b':'a';
-  const nextEl=document.getElementById(`rank-layer-${next}`);
-  const curEl=document.getElementById(`rank-layer-${activeLayer}`);
-
-  // 다음 레이어에 새 내용 미리 로드
-  nextEl.innerHTML=buildRankItems(slice);
-  // crossfade
-  nextEl.classList.remove('hidden');nextEl.classList.add('visible');
-  curEl.classList.remove('visible');curEl.classList.add('hidden');
-  activeLayer=next;
-
-  // 페이지 인디케이터
-  const ind=document.getElementById('rank-page-ind');
-  if(ind)ind.textContent='●'.repeat(totalPages).split('').map((d,i)=>i===p?'●':'○').join('');
-}
-
-function startRankCycle(){
-  clearInterval(rankTimer);
-  showRankPage(0);rankPage=0;
-  if(rankData.length<=RANK_PER_PAGE)return; // 5개 이하면 그냥 고정
-  rankTimer=setInterval(()=>{
-    rankPage=(rankPage+1)%Math.ceil(rankData.length/RANK_PER_PAGE);
-    showRankPage(rankPage);
-  },4000);
-}
-
-function updateRankBoard(){
+// ── 사이드바 순위 (FLIP 애니메이션) ──
+let prevRankPositions={}; // cid → top px
+function updateRankList(){
+  const list=document.getElementById('sb-rank-list');
+  // 페이지 내 코트만, 점수순 정렬
   const sorted=Object.entries(liveScores)
-    .filter(([,v])=>v.name||v.score>0)
-    .sort((a,b)=>(b[1].score||0)-(a[1].score||0))
-    .map(([cid,v],i)=>({rank:i+1,cid,name:v.name||'—',club:v.club||'',score:v.score??0}));
-  rankData=sorted;
-  rankPage=0;
-  startRankCycle();
+    .filter(([cid,v])=>activeCourtsForPage.includes(cid)&&(v.name||v.score>0))
+    .sort((a,b)=>(b[1].score||0)-(a[1].score||0));
+
+  if(sorted.length===0){
+    list.innerHTML='<div style="text-align:center;color:rgba(255,255,255,.3);font-size:11px;padding:30px 0">점수 대기 중...</div>';
+    return;
+  }
+
+  // 이전 위치 기록 (FLIP "First")
+  const prevRects={};
+  list.querySelectorAll('.sb-rank-item').forEach(el=>{
+    prevRects[el.dataset.cid]=el.getBoundingClientRect().top;
+  });
+
+  // 새 DOM 생성
+  const cls=['gold','silver','bronze'];
+  list.innerHTML=sorted.map(([cid,v],i)=>{
+    const rk=i+1;
+    const rkClass=cls[rk-1]||'other';
+    return `<div class="sb-rank-item rank-${rk}" data-cid="${cid}">
+      <span class="sb-r-num ${rkClass}">${rk}</span>
+      <span class="sb-r-cid">${cid}</span>
+      <div class="sb-r-info">
+        <div class="sb-r-name">${v.name||'—'}</div>
+        ${v.club?`<div class="sb-r-club">${v.club}</div>`:''}
+      </div>
+      <span class="sb-r-score">${v.score??'—'}</span>
+    </div>`;
+  }).join('');
+
+  // FLIP "Last + Invert + Play"
+  list.querySelectorAll('.sb-rank-item').forEach(el=>{
+    const cid=el.dataset.cid;
+    const newTop=el.getBoundingClientRect().top;
+    const oldTop=prevRects[cid];
+    if(oldTop!==undefined&&Math.abs(newTop-oldTop)>1){
+      // 반대로 이동했다고 가정한 transform 부여 → transition으로 원위치
+      const dy=oldTop-newTop;
+      el.style.transform=`translateY(${dy}px)`;
+      el.style.transition='none';
+      requestAnimationFrame(()=>{
+        el.style.transition='transform .6s cubic-bezier(.22,.68,0,1.2)';
+        el.style.transform='translateY(0)';
+      });
+    }
+  });
 }
 
-// ── 안내 방송 팝업 ──
+// ── 안내 방송 ──
 function subscribeAnnouncements(){
   db.ref(`${config.room}/announcements/current`).on('value',s=>{
     const v=s.val();
@@ -665,7 +660,6 @@ function subscribeAnnouncements(){
     showAnn(v);
   });
 }
-
 function showAnn(v){
   const ko=v.text_ko||'';const en=v.text_en||'';
   const icons={'소집':'📢','시작':'▶','수고':'🎉','폐회':'🏁','개회':'🏆'};
@@ -685,10 +679,10 @@ function showAnn(v){
   annTimer=setTimeout(()=>document.getElementById('ann-popup').style.display='none',ANN_DUR);
 }
 
-// ── Heartbeat ──
 function heartbeat(){
-  db.ref(`${config.room}/monitoring/viewer`).update({online:true,lastSeen:Date.now()});
-  setInterval(()=>db.ref(`${config.room}/monitoring/viewer`).update({online:true,lastSeen:Date.now()}),5000);
+  const path=`${config.room}/monitoring/viewer_p${currentPage}`;
+  db.ref(path).update({online:true,page:currentPage,lastSeen:Date.now()});
+  setInterval(()=>db.ref(path).update({online:true,page:currentPage,lastSeen:Date.now()}),5000);
 }
 
 window.onload=init;
