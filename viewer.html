@@ -127,9 +127,63 @@ html,body{width:100%;height:100%;background:#03050C;color:#fff;font-family:'Noto
 /* 순위 섹션 */
 .sb-rank-section{
   flex:1;min-height:0;
-  padding:12px 10px 60px; /* 하단 60px - 토글 버튼 자리 */
+  padding:10px 10px 60px;
   display:flex;flex-direction:column;overflow:hidden;
 }
+
+/* 탭 (순위 / 시상등급) */
+.sb-tabs{
+  display:flex;gap:4px;margin-bottom:8px;
+}
+.sb-tab{
+  flex:1;padding:7px 4px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:7px;
+  color:rgba(255,255,255,.45);
+  font-size:11px;font-weight:700;cursor:pointer;
+  transition:all .15s;
+  font-family:'Noto Sans KR',sans-serif;
+}
+.sb-tab.active{
+  background:rgba(0,229,255,.18);
+  border-color:rgba(0,229,255,.5);
+  color:#00e5ff;
+}
+.sb-tab:hover{background:rgba(255,255,255,.08);}
+.sb-tab.active:hover{background:rgba(0,229,255,.28);}
+
+/* 페이지/등급 버튼 */
+.sb-page-btns{
+  display:flex;gap:3px;margin-bottom:8px;flex-wrap:wrap;
+}
+.sb-pg{
+  flex:1;min-width:0;padding:5px 3px;
+  background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:5px;
+  color:rgba(255,255,255,.5);
+  font-size:10px;font-weight:700;cursor:pointer;
+  font-family:'Bebas Neue',sans-serif;letter-spacing:.05em;
+  transition:all .15s;
+}
+.sb-pg.active{
+  background:rgba(0,229,255,.15);
+  border-color:rgba(0,229,255,.4);
+  color:#00e5ff;
+}
+.sb-pg:hover{background:rgba(255,255,255,.06);}
+
+/* 시상등급 표시 (순위 모드에서) */
+.rank-award-tag{
+  font-size:9px;font-weight:700;
+  padding:1px 5px;border-radius:4px;
+  margin-left:4px;
+}
+.rank-award-grand{background:rgba(255,214,10,.25);color:#ffd60a;}
+.rank-award-gold{background:rgba(218,165,32,.2);color:#daa520;}
+.rank-award-silver{background:rgba(192,192,192,.2);color:#c0c0c0;}
+.rank-award-bronze{background:rgba(205,127,50,.2);color:#cd7f32;}
 .sb-rank-title{
   font-family:'Bebas Neue',sans-serif;font-size:12px;
   color:#00e5ff;letter-spacing:.3em;
@@ -366,11 +420,28 @@ html,body{width:100%;height:100%;background:#03050C;color:#fff;font-family:'Noto
         <div class="sb-div" id="sb-div">—</div>
         <div class="sb-status-pill st-idle" id="sb-status">⏸ 대기</div>
       </div>
-      <!-- 순위 -->
+      <!-- 순위 / 시상등급 탭 -->
       <div class="sb-rank-section">
-        <div class="sb-rank-title">
-          🏆 LIVE RANK
+        <div class="sb-tabs">
+          <button class="sb-tab active" id="tab-rank" onclick="switchRankMode('rank')">순위</button>
+          <button class="sb-tab" id="tab-award" onclick="switchRankMode('award')">시상등급</button>
         </div>
+
+        <!-- 순위 모드: 페이지 버튼 -->
+        <div class="sb-page-btns" id="rank-page-btns">
+          <button class="sb-pg active" data-page="1" onclick="setRankPage(1)">1-10</button>
+          <button class="sb-pg" data-page="2" onclick="setRankPage(2)">11-20</button>
+          <button class="sb-pg" data-page="3" onclick="setRankPage(3)">21-30</button>
+        </div>
+
+        <!-- 시상등급 모드: 등급 버튼 -->
+        <div class="sb-page-btns" id="award-page-btns" style="display:none">
+          <button class="sb-pg active" data-award="grand" onclick="setAwardTab('grand')">대상</button>
+          <button class="sb-pg" data-award="gold" onclick="setAwardTab('gold')">금상</button>
+          <button class="sb-pg" data-award="silver" onclick="setAwardTab('silver')">은상</button>
+          <button class="sb-pg" data-award="bronze" onclick="setAwardTab('bronze')">동상</button>
+        </div>
+
         <div class="sb-rank-list" id="sb-rank-list">
           <div style="text-align:center;color:rgba(255,255,255,.3);font-size:11px;padding:30px 0">
             점수 대기 중...
@@ -516,6 +587,17 @@ function init(){
   subscribeJudges();
   subscribeAnnouncements();
   heartbeat();
+
+  // ★ 강제로 현재 히트 즉시 fetch (구독 이벤트 안 와도)
+  setTimeout(()=>{
+    db.ref(`${config.room}/operator`).once('value',s=>{
+      const v=s.val();
+      console.log('[Viewer] forced init fetch — operator:',v);
+      const heatNo=v?.currentHeatNo||1;
+      document.getElementById('sb-heat-num').textContent=`HEAT ${heatNo}`;
+      loadHeatInfo(heatNo);
+    });
+  },500);
 }
 
 // ── 운영앱 구독 ──
@@ -545,6 +627,9 @@ function loadHeatInfo(heatNo){
 
     document.getElementById('sb-event').textContent=h.event_name||h.event||'—';
     document.getElementById('sb-div').textContent=h.division||'—';
+    // 시상 기준 매칭용
+    currentEvent=h.event_name||h.event||'';
+    currentDivision=h.division||'';
 
     // 페이지 코트 분할
     const allCourts=Object.keys(h.courts||{});
@@ -719,48 +804,167 @@ function subscribeJudges(){
 
 // ── 사이드바 순위 (FLIP 애니메이션) ──
 let prevRankPositions={}; // cid → top px
+// ── 시상 기준 더미 데이터 (KRSA 규정집 기반) ──
+// TODO: Setup 앱에서 입력 받아서 Firebase로 동기화
+const KRSA_AWARDS={
+  '30초번갈아뛰기': {
+    '유치부': {gold:41, silver:36, bronze:30},
+    '초등1,2부': {gold:45, silver:40, bronze:35},
+    '초등3,4부': {gold:56, silver:51, bronze:45},
+    '초등5,6부': {gold:66, silver:61, bronze:55},
+    '중등부': {gold:66, silver:61, bronze:55},
+    '고등부': {gold:66, silver:61, bronze:55},
+    '일반부': {gold:66, silver:61, bronze:55},
+  },
+  '30초이중뛰기': {
+    '유치부': {gold:41, silver:36, bronze:30},
+    '초등1,2부': {gold:45, silver:40, bronze:35},
+    '초등3,4부': {gold:56, silver:51, bronze:45},
+    '초등5,6부': {gold:66, silver:61, bronze:55},
+    '중등부': {gold:66, silver:61, bronze:55},
+    '고등부': {gold:66, silver:61, bronze:55},
+    '일반부': {gold:66, silver:61, bronze:55},
+  },
+  // SR Speed (영문 종목명 매핑용)
+  'Single Rope Speed Sprint': {
+    '유치부': {gold:41, silver:36, bronze:30},
+    '초등1,2부': {gold:45, silver:40, bronze:35},
+    '초등3,4부': {gold:56, silver:51, bronze:45},
+    '초등5,6부': {gold:66, silver:61, bronze:55},
+    '프라이머리 남자': {gold:45, silver:40, bronze:35},
+    '프라이머리 여자': {gold:45, silver:40, bronze:35},
+    '주니어 남자': {gold:56, silver:51, bronze:45},
+    '주니어 여자': {gold:56, silver:51, bronze:45},
+    '시니어 남자': {gold:66, silver:61, bronze:55},
+    '시니어 여자': {gold:66, silver:61, bronze:55},
+  },
+};
+const GRAND_AWARD_COUNT=3; // 대상 인원 (고정)
+
+// 현재 히트의 시상 기준 가져오기
+let currentEvent='';
+let currentDivision='';
+function getAwardThresholds(){
+  const ev=currentEvent||'';
+  const div=currentDivision||'';
+  if(KRSA_AWARDS[ev]&&KRSA_AWARDS[ev][div])return KRSA_AWARDS[ev][div];
+  // fallback: 종목명에 부분 일치
+  for(const evKey of Object.keys(KRSA_AWARDS)){
+    if(ev.includes(evKey)||evKey.includes(ev)){
+      if(KRSA_AWARDS[evKey][div])return KRSA_AWARDS[evKey][div];
+    }
+  }
+  return null;
+}
+
+// 점수로 시상 등급 판정
+function getAwardLevel(score,rank){
+  if(rank<=GRAND_AWARD_COUNT)return 'grand'; // 대상은 순위 기준
+  const t=getAwardThresholds();
+  if(!t)return null;
+  if(score>=t.gold)return 'gold';
+  if(score>=t.silver)return 'silver';
+  if(score>=t.bronze)return 'bronze';
+  return null;
+}
+
+// ── 순위 모드 / 시상등급 모드 전환 ──
+let rankMode='rank';      // 'rank' or 'award'
+let rankPage=1;            // 1=1-10, 2=11-20, 3=21-30
+let awardTab='grand';      // 'grand', 'gold', 'silver', 'bronze'
+
+function switchRankMode(mode){
+  rankMode=mode;
+  document.getElementById('tab-rank').classList.toggle('active',mode==='rank');
+  document.getElementById('tab-award').classList.toggle('active',mode==='award');
+  document.getElementById('rank-page-btns').style.display=mode==='rank'?'flex':'none';
+  document.getElementById('award-page-btns').style.display=mode==='award'?'flex':'none';
+  updateRankList();
+}
+
+function setRankPage(p){
+  rankPage=p;
+  document.querySelectorAll('#rank-page-btns .sb-pg').forEach(b=>{
+    b.classList.toggle('active',parseInt(b.dataset.page)===p);
+  });
+  updateRankList();
+}
+
+function setAwardTab(t){
+  awardTab=t;
+  document.querySelectorAll('#award-page-btns .sb-pg').forEach(b=>{
+    b.classList.toggle('active',b.dataset.award===t);
+  });
+  updateRankList();
+}
+
 function updateRankList(){
   const list=document.getElementById('sb-rank-list');
-  // 페이지 내 코트만, 점수순 정렬, 최대 10위까지
+  // 페이지 내 코트만, 점수순 정렬
   const sorted=Object.entries(liveScores)
     .filter(([cid,v])=>activeCourtsForPage.includes(cid)&&(v.name||v.score>0))
-    .sort((a,b)=>(b[1].score||0)-(a[1].score||0))
-    .slice(0,10); // ★ 최대 10위까지만
+    .sort((a,b)=>(b[1].score||0)-(a[1].score||0));
 
   if(sorted.length===0){
     list.innerHTML='<div style="text-align:center;color:rgba(255,255,255,.3);font-size:11px;padding:30px 0">점수 대기 중...</div>';
     return;
   }
 
-  // 이전 위치 기록 (FLIP "First")
+  // 모드별 필터링
+  let filtered=[];
+  if(rankMode==='rank'){
+    // 순위 페이지: 1-10, 11-20, 21-30
+    const start=(rankPage-1)*10;
+    filtered=sorted.slice(start,start+10).map((e,i)=>({...e,_rank:start+i+1}));
+  } else {
+    // 시상등급별 필터링
+    sorted.forEach((e,i)=>{
+      const lv=getAwardLevel(e[1].score||0,i+1);
+      if(lv===awardTab)filtered.push({...e,_rank:i+1,_level:lv});
+    });
+  }
+
+  if(filtered.length===0){
+    const msg=rankMode==='rank'?`${(rankPage-1)*10+1}~${rankPage*10}위 없음`:`${{grand:'대상',gold:'금상',silver:'은상',bronze:'동상'}[awardTab]} 해당자 없음`;
+    list.innerHTML=`<div style="text-align:center;color:rgba(255,255,255,.3);font-size:11px;padding:30px 0">${msg}</div>`;
+    return;
+  }
+
+  // 이전 위치 (FLIP)
   const prevRects={};
   list.querySelectorAll('.sb-rank-item').forEach(el=>{
     prevRects[el.dataset.cid]=el.getBoundingClientRect().top;
   });
 
-  // 새 DOM 생성
+  // DOM 생성
   const cls=['gold','silver','bronze'];
-  list.innerHTML=sorted.map(([cid,v],i)=>{
-    const rk=i+1;
-    const rkClass=cls[rk-1]||'other';
+  list.innerHTML=filtered.map(item=>{
+    const cid=item[0]||item.cid;
+    const v=item[1]||item;
+    const rk=item._rank;
+    const score=v.score??0;
+    const rkClass=rk<=3?cls[rk-1]:'other';
+    // 시상등급 태그
+    const lv=getAwardLevel(score,rk);
+    const lvLabels={grand:'대상',gold:'금상',silver:'은상',bronze:'동상'};
+    const lvTag=lv?`<span class="rank-award-tag rank-award-${lv}">${lvLabels[lv]}</span>`:'';
     return `<div class="sb-rank-item rank-${rk}" data-cid="${cid}">
       <span class="sb-r-num ${rkClass}">${rk}</span>
       <span class="sb-r-cid">${cid}</span>
       <div class="sb-r-info">
-        <div class="sb-r-name">${v.name||'—'}</div>
+        <div class="sb-r-name">${v.name||'—'}${lvTag}</div>
         ${v.club?`<div class="sb-r-club">${v.club}</div>`:''}
       </div>
-      <span class="sb-r-score">${v.score??'—'}</span>
+      <span class="sb-r-score">${score}</span>
     </div>`;
   }).join('');
 
-  // FLIP "Last + Invert + Play"
+  // FLIP 애니메이션
   list.querySelectorAll('.sb-rank-item').forEach(el=>{
     const cid=el.dataset.cid;
     const newTop=el.getBoundingClientRect().top;
     const oldTop=prevRects[cid];
     if(oldTop!==undefined&&Math.abs(newTop-oldTop)>1){
-      // 반대로 이동했다고 가정한 transform 부여 → transition으로 원위치
       const dy=oldTop-newTop;
       el.style.transform=`translateY(${dy}px)`;
       el.style.transition='none';
