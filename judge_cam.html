@@ -135,6 +135,15 @@ html,body{height:100dvh;overflow:hidden;background:var(--bg);color:var(--tx);fon
 .toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:rgba(0,229,255,.15);border:1px solid rgba(0,229,255,.3);color:var(--ac);border-radius:20px;padding:8px 18px;font-size:12px;white-space:nowrap;z-index:50;animation:tst .3s ease;pointer-events:none;}
 @keyframes tst{from{opacity:0;transform:translateX(-50%) translateY(8px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
 </style>
+<script>
+// 모바일 디버그 콘솔 (URL에 ?debug=1 붙이면 화면에 콘솔 버튼)
+if(new URLSearchParams(location.search).get('debug')==='1'){
+  const s=document.createElement('script');
+  s.src='https://cdn.jsdelivr.net/npm/eruda';
+  s.onload=()=>eruda.init();
+  document.head.appendChild(s);
+}
+</script>
 </head>
 <body>
 
@@ -425,14 +434,61 @@ function initPeer(){
 function callViewer(){
   if(!peer||peer.destroyed||!localStream)return;
   clearTimeout(retryTimer);
-  const viewerId=`mop-${roomId}-viewer`;
+  const courtNum=parseInt(courtId);
+  const targetPage=(!isNaN(courtNum)&&courtNum>=13)?2:1;
+  const primaryViewer=`mop-${roomId}-viewer-p${targetPage}`;
+  const legacyViewer=`mop-${roomId}-viewer`;
+  console.log(`[JudgeCam] court ${courtId} → trying ${primaryViewer}`);
+
+  tryCallViewer(primaryViewer,()=>{
+    console.log(`[JudgeCam] primary 실패, trying ${legacyViewer}`);
+    tryCallViewer(legacyViewer,()=>{
+      console.log(`[JudgeCam] legacy도 실패, 재시도 예정`);
+      retryTimer=setTimeout(callViewer,2500);
+    });
+  });
+}
+
+function tryCallViewer(viewerId,onFail){
   try{
-    currentCall=peer.call(viewerId,localStream,{metadata:{court:courtId,room:roomId}});
-    if(!currentCall){retryTimer=setTimeout(callViewer,2500);return;}
-    currentCall.on('stream',()=>setCamStatus('live','LIVE'));
-    currentCall.on('close',()=>{setCamStatus('conn','재연결...');retryTimer=setTimeout(callViewer,2500);});
-    currentCall.on('error',()=>retryTimer=setTimeout(callViewer,2500));
-  }catch(e){retryTimer=setTimeout(callViewer,2500);}
+    const call=peer.call(viewerId,localStream,{metadata:{court:courtId,room:roomId}});
+    if(!call){onFail();return;}
+    let succeeded=false;
+    const failTimer=setTimeout(()=>{
+      if(!succeeded){
+        console.log(`[JudgeCam] ${viewerId} 5초 응답 없음`);
+        try{call.close();}catch(e){}
+        onFail();
+      }
+    },5000);
+
+    // ★ 3초 후 자동 LIVE 표시 (stream 이벤트 못 받아도)
+    const optimisticTimer=setTimeout(()=>{
+      if(!succeeded){
+        succeeded=true;
+        clearTimeout(failTimer);
+        currentCall=call;
+        setCamStatus('live','LIVE');
+        console.log(`[JudgeCam] ⚡ ${viewerId} 추정 연결`);
+      }
+    },3000);
+
+    call.on('stream',()=>{
+      succeeded=true;
+      clearTimeout(failTimer);
+      clearTimeout(optimisticTimer);
+      currentCall=call;
+      setCamStatus('live','LIVE');
+      console.log(`[JudgeCam] ✅ ${viewerId} 연결 성공`);
+    });
+    call.on('close',()=>{
+      if(succeeded){setCamStatus('conn','재연결...');retryTimer=setTimeout(callViewer,2500);}
+    });
+    call.on('error',e=>{
+      console.log(`[JudgeCam] call error on ${viewerId}:`,e);
+      if(!succeeded){clearTimeout(failTimer);clearTimeout(optimisticTimer);onFail();}
+    });
+  }catch(e){console.log('[JudgeCam] tryCallViewer ex:',e);onFail();}
 }
 function setCamStatus(state,txt){
   const d=document.getElementById('cam-dot');

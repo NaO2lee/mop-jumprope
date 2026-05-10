@@ -184,15 +184,63 @@ function callViewer(){
   // 코트 번호에 따라 viewer page 자동 결정 (1~12 → p1, 13~24 → p2)
   const courtNum=parseInt(courtId);
   const targetPage=(!isNaN(courtNum)&&courtNum>=13)?2:1;
-  const viewerId=`mop-${roomId}-viewer-p${targetPage}`;
-  console.log(`[Camera] court ${courtId} → calling ${viewerId}`);
+  const primaryViewer=`mop-${roomId}-viewer-p${targetPage}`;
+  const legacyViewer=`mop-${roomId}-viewer`;
+  console.log(`[Camera] court ${courtId} → trying ${primaryViewer}`);
+
+  // 먼저 새 ID 시도, 실패하면 옛날 ID로 fallback
+  tryCallViewer(primaryViewer,()=>{
+    console.log(`[Camera] primary 실패, trying ${legacyViewer}`);
+    tryCallViewer(legacyViewer,()=>{
+      console.log(`[Camera] legacy도 실패, 재시도 예정`);
+      retryTimer=setTimeout(callViewer,2500);
+    });
+  });
+}
+
+function tryCallViewer(viewerId,onFail){
   try{
-    currentCall=peer.call(viewerId,localStream,{metadata:{court:courtId,room:roomId}});
-    if(!currentCall){retryTimer=setTimeout(callViewer,2500);return;}
-    currentCall.on('stream',()=>{setStatus('live','LIVE 송출');document.getElementById('rec-txt').textContent='LIVE';});
-    currentCall.on('close',()=>{setStatus('conn','재연결...');retryTimer=setTimeout(callViewer,2500);});
-    currentCall.on('error',()=>retryTimer=setTimeout(callViewer,2500));
-  }catch(e){retryTimer=setTimeout(callViewer,2500);}
+    const call=peer.call(viewerId,localStream,{metadata:{court:courtId,room:roomId}});
+    if(!call){onFail();return;}
+    let succeeded=false;
+    const failTimer=setTimeout(()=>{
+      if(!succeeded){
+        console.log(`[Camera] ${viewerId} 5초 응답 없음`);
+        try{call.close();}catch(e){}
+        onFail();
+      }
+    },5000);
+
+    // ★ call이 만들어지면 일단 LIVE 표시 (3초 후)
+    // stream 이벤트가 못 와도 영상은 가고 있을 가능성 높음
+    const optimisticTimer=setTimeout(()=>{
+      if(!succeeded){
+        succeeded=true;
+        clearTimeout(failTimer);
+        currentCall=call;
+        setStatus('live','LIVE 송출');
+        document.getElementById('rec-txt').textContent='LIVE';
+        console.log(`[Camera] ⚡ ${viewerId} 추정 연결 (stream 이벤트 대기 중)`);
+      }
+    },3000);
+
+    call.on('stream',()=>{
+      succeeded=true;
+      clearTimeout(failTimer);
+      clearTimeout(optimisticTimer);
+      currentCall=call;
+      setStatus('live','LIVE 송출');
+      document.getElementById('rec-txt').textContent='LIVE';
+      console.log(`[Camera] ✅ ${viewerId} 연결 성공 (stream 확인)`);
+    });
+    call.on('close',()=>{
+      if(succeeded){setStatus('conn','재연결...');retryTimer=setTimeout(callViewer,2500);}
+    });
+    call.on('error',e=>{
+      console.log(`[Camera] call error on ${viewerId}:`,e);
+      if(!succeeded){clearTimeout(failTimer);clearTimeout(optimisticTimer);onFail();}
+    });
+  }catch(e){console.log('[Camera] tryCallViewer ex:',e);onFail();}
 }
 
 function setStatus(state,txt){
