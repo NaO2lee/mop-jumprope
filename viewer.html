@@ -38,26 +38,52 @@ html,body{width:100%;height:100%;background:#03050C;color:#fff;font-family:'Noto
 .top-spacer{flex:1;}
 #top-logo{height:24px;opacity:.85;flex-shrink:0;}
 
-/* ── 메인 영역 = 영상 + 사이드바 ── */
-#main-area{flex:1;min-height:0;display:flex;overflow:hidden;}
+/* 메인 영역 = 영상(풀사이즈) + 사이드바(오버레이) */
+#main-area{flex:1;min-height:0;display:flex;overflow:hidden;position:relative;}
 
 #video-area{
   flex:1;min-width:0;
   position:relative;
   padding:6px;
-  transition:opacity .35s ease;
+  /* 영상 영역은 항상 풀사이즈 */
 }
-#video-area.fading{opacity:0;}
 
-/* 사이드바 — 좁게 조정 (영상 9:16 비율 확보 위해) */
+/* 사이드바 — 영상 위에 떠 있는 오버레이 */
 #sidebar{
-  width:220px;flex-shrink:0;
-  background:linear-gradient(180deg,#050D1F,#000814);
-  border-left:1px solid rgba(0,229,255,.2);
+  position:absolute;top:0;left:0;bottom:0;
+  width:240px;z-index:20;
+  background:linear-gradient(180deg,rgba(5,13,31,.94),rgba(0,8,20,.92));
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  border-right:1px solid rgba(0,229,255,.25);
+  box-shadow:8px 0 30px rgba(0,0,0,.4);
   display:flex;flex-direction:column;overflow:hidden;
+  transition:transform .55s cubic-bezier(.22,.68,0,1.2);
 }
-@media (min-width:2200px){#sidebar{width:300px;}}
-@media (max-width:1500px){#sidebar{width:180px;}}
+@media (min-width:2200px){#sidebar{width:320px;}}
+@media (max-width:1500px){#sidebar{width:200px;}}
+
+/* 축소(슬라이드 아웃) — 거의 다 숨김, 손잡이만 살짝 보임 */
+#sidebar.collapsed{
+  transform:translateX(calc(-100% + 36px));
+}
+
+/* 토글 손잡이 — 사이드바에 항상 붙어있음 */
+#sb-toggle{
+  position:absolute;top:50%;right:0;transform:translate(100%,-50%);
+  width:30px;height:64px;
+  background:linear-gradient(90deg,rgba(0,229,255,.18),rgba(0,229,255,.08));
+  border:1px solid rgba(0,229,255,.45);
+  border-left:none;
+  border-radius:0 10px 10px 0;
+  color:#00e5ff;font-size:14px;
+  cursor:pointer;z-index:21;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .2s;
+  font-family:'Bebas Neue',sans-serif;
+  letter-spacing:0;
+}
+#sb-toggle:hover{background:linear-gradient(90deg,rgba(0,229,255,.3),rgba(0,229,255,.15));}
 
 /* HEAT 정보 섹션 (운영앱처럼 크게) */
 .sb-heat-section{
@@ -309,13 +335,12 @@ html,body{width:100%;height:100%;background:#03050C;color:#fff;font-family:'Noto
     <div class="top-spacer"></div>
   </div>
 
-  <!-- 메인 = 영상 + 사이드바 -->
+  <!-- 메인 = 사이드바(좌) + 영상(우) -->
   <div id="main-area">
-    <div id="video-area">
-      <div id="courts-wrap" class="layout-12"></div>
-    </div>
     <div id="sidebar">
-      <!-- HEAT 정보 -->
+      <!-- 토글 버튼 (수동 제어) -->
+      <button id="sb-toggle" onclick="toggleSidebar()" title="사이드바 토글">◀</button>
+      <!-- HEAT 정보 (항상 표시) -->
       <div class="sb-heat-section">
         <div class="sb-heat-lbl">CURRENT</div>
         <div class="sb-heat-num" id="sb-heat-num">HEAT —</div>
@@ -334,6 +359,9 @@ html,body{width:100%;height:100%;background:#03050C;color:#fff;font-family:'Noto
           </div>
         </div>
       </div>
+    </div>
+    <div id="video-area">
+      <div id="courts-wrap" class="layout-12"></div>
     </div>
   </div>
 </div>
@@ -590,6 +618,44 @@ function updateStatus(state){
   const s=map[state]||map.idle;
   el.className='sb-status-pill '+s.c;
   el.textContent=s.t;
+  // 자동 사이드바 토글
+  autoToggleSidebar(state);
+}
+
+// ── 사이드바 토글 (자동 + 수동) ──
+let sbAutoMode=true;
+let sbManualOverride=false;
+let sbManualTimer=null;
+
+function toggleSidebar(){
+  // 수동 토글 → 30초간 자동 무시
+  sbManualOverride=true;
+  clearTimeout(sbManualTimer);
+  sbManualTimer=setTimeout(()=>{sbManualOverride=false;console.log('[Viewer] 자동 모드 복귀');},30000);
+
+  const sb=document.getElementById('sidebar');
+  sb.classList.toggle('collapsed');
+  document.getElementById('sb-toggle').textContent=
+    sb.classList.contains('collapsed')?'▶':'◀';
+}
+
+function autoToggleSidebar(state){
+  if(!sbAutoMode||sbManualOverride)return;
+  const sb=document.getElementById('sidebar');
+  const toggle=document.getElementById('sb-toggle');
+  // racing(진행 중) → 축소 (영상 집중)
+  // 그 외 → 펼침 (정보 노출)
+  if(state==='racing'){
+    if(!sb.classList.contains('collapsed')){
+      sb.classList.add('collapsed');
+      if(toggle)toggle.textContent='▶';
+    }
+  } else {
+    if(sb.classList.contains('collapsed')){
+      sb.classList.remove('collapsed');
+      if(toggle)toggle.textContent='◀';
+    }
+  }
 }
 
 // ── 심판 점수 구독 ──
