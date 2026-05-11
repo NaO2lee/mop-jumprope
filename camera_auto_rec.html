@@ -265,13 +265,25 @@ function watchHeatSignal(){
       console.log(`[REC] 히트 ${heatNo} 시작 감지 → 자동 녹화 시작`);
       startAutoRec();
     }
-    else if((status==='finished'||status==='idle') && prevHeatStatus==='running'){
-      // 히트 종료 → 자동 녹화 중지 + 저장
-      console.log(`[REC] 히트 ${heatNo} 종료 감지 → 자동 녹화 중지`);
+    else if((status==='finished'||status==='idle') && prevHeatStatus==='racing'){
+      console.log(`[REC] 히트 ${heatNo} heatStatus 종료 감지 → 자동 녹화 중지`);
       stopAutoRec();
     }
 
     prevHeatStatus=status;
+  });
+
+  // ★ signals/current type:"end" 신호 감시 (백업 트리거)
+  let lastSignalTs=0;
+  db.ref(`${roomId}/signals/current`).on('value', snap=>{
+    const v=snap.val();
+    if(!v||!v.ts||!v.type) return;
+    if(v.ts===lastSignalTs) return; // 중복 방지
+    lastSignalTs=v.ts;
+    if(v.type==='end'){
+      console.log('[REC] signals end 신호 감지 → 자동 녹화 중지');
+      stopAutoRec();
+    }
   });
 }
 

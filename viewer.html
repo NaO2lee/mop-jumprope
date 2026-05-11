@@ -621,6 +621,7 @@ function init(){
 
 // ── 운영앱 구독 ──
 let lastLoadedHeatNo=null; // ★ 히트 번호 변경 감지용
+let lastLayout=null;       // ★ 레이아웃 변경 감지용
 
 function subscribeOperator(){
   db.ref(`${config.room}/operator`).on('value',s=>{
@@ -636,8 +637,9 @@ function subscribeOperator(){
     if(v.heatStatus)updateStatus(v.heatStatus);
     else updateStatus('idle');
 
-    // 레이아웃 제어
-    if(v.viewerLayout){
+    // ★ 레이아웃도 실제로 바뀔 때만 setLayout 호출
+    if(v.viewerLayout && v.viewerLayout !== lastLayout){
+      lastLayout=v.viewerLayout;
       setLayout(v.viewerLayout,v.viewerCourts||[],v.viewerFocus||null);
     }
   });
