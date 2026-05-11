@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>카메라 송출 — 모두의 플레이</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#050810;--sur2:#161b24;--ac:#00e5ff;--ac2:#ff3d71;--gn:#00ff88;--tx:#e8eaf2;--mu:#4a5568;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100dvh;overflow:hidden;background:#000;color:var(--tx);font-family:'Noto Sans KR',sans-serif;touch-action:manipulation;}
+
+/* 설정 화면 */
+#s-setup{display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;min-height:100dvh;background:radial-gradient(ellipse at 30% 20%,#0a1628,var(--bg) 60%);}
+#s-setup.show{display:flex;}
+.logo-txt{font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:.4em;color:var(--mu);}
+.big-title{font-family:'Bebas Neue',sans-serif;font-size:40px;color:var(--ac);letter-spacing:.06em;}
+.sub-txt{font-size:11px;color:#718096;text-align:center;}
+.card{width:100%;max-width:340px;background:var(--sur2);border:1.5px solid #1e2535;border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:12px;}
+.fld{display:flex;flex-direction:column;gap:5px;}
+.fld label{font-size:10px;color:#718096;letter-spacing:.1em;text-transform:uppercase;}
+.inp{background:#080b12;border:1.5px solid #1e2535;border-radius:11px;padding:12px 14px;font-size:16px;color:var(--tx);outline:none;width:100%;font-family:monospace;transition:border-color .2s;}
+.inp:focus{border-color:var(--ac);}
+.big-btn{width:100%;padding:15px;border:none;border-radius:13px;font-size:16px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .15s;}
+.big-btn:active{transform:scale(.97);}
+.btn-ac{background:var(--ac);color:#000;}
+
+/* 카메라 전체 화면 */
+#s-cam{display:none;position:relative;width:100vw;height:100dvh;background:#000;}
+#s-cam.show{display:block;}
+#cam-video{width:100%;height:100%;object-fit:cover;display:block;}
+
+/* 오버레이 */
+.cam-top{position:absolute;top:0;left:0;right:0;z-index:2;
+background:linear-gradient(180deg,rgba(0,0,0,.8),transparent);
+padding:16px 16px 40px;
+display:flex;justify-content:space-between;align-items:flex-start;}
+.cam-info{display:flex;flex-direction:column;gap:2px;}
+.cam-room{font-size:10px;color:rgba(255,255,255,.4);letter-spacing:.12em;}
+.cam-court{font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--ac);line-height:1;text-shadow:0 0 20px rgba(0,229,255,.5);}
+.status-pill{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.65);
+border-radius:20px;padding:5px 12px;backdrop-filter:blur(8px);
+border:1px solid rgba(255,255,255,.1);font-size:11px;}
+.dot{width:7px;height:7px;border-radius:50%;}
+.dot.live{background:var(--ac2);animation:pls .7s ease-in-out infinite alternate;}
+.dot.conn{background:var(--ac);animation:pls .6s ease-in-out infinite alternate;}
+.dot.off{background:var(--mu);}
+@keyframes pls{from{opacity:.3;}to{opacity:1;}}
+
+.cam-bot{position:absolute;bottom:0;left:0;right:0;z-index:2;
+background:linear-gradient(0deg,rgba(0,0,0,.8),transparent);
+padding:40px 20px 28px;
+display:flex;justify-content:flex-end;align-items:flex-end;gap:10px;}
+.cam-btn{width:48px;height:48px;border:1.5px solid rgba(255,255,255,.25);
+border-radius:50%;background:rgba(0,0,0,.6);color:white;font-size:20px;
+cursor:pointer;display:flex;align-items:center;justify-content:center;
+backdrop-filter:blur(8px);}
+.cam-btn:active{transform:scale(.9);}
+
+/* 녹화 버튼 — 상태에 따라 색 변경 */
+#rec-btn{border-color:rgba(255,61,113,.6);}
+#rec-btn.recording{background:rgba(255,61,113,.25);border-color:var(--ac2);animation:recPulse 1.2s ease-in-out infinite;}
+@keyframes recPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,61,113,0);}50%{box-shadow:0 0 0 8px rgba(255,61,113,.25);}}
+
+/* 상단 배지 */
+.rec-badge{position:absolute;top:16px;left:50%;transform:translateX(-50%);
+z-index:3;background:rgba(255,61,113,.15);border:1px solid rgba(255,61,113,.5);
+border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;color:var(--ac2);
+display:flex;align-items:center;gap:6px;white-space:nowrap;}
+.rec-dot{width:6px;height:6px;border-radius:50%;background:var(--ac2);animation:pls .7s ease-in-out infinite alternate;}
+
+/* 녹화 타이머 */
+#rec-timer{display:none;position:absolute;top:54px;left:50%;transform:translateX(-50%);
+z-index:3;font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--ac2);
+text-shadow:0 0 12px rgba(255,61,113,.7);letter-spacing:.08em;}
+
+/* 저장 토스트 */
+#toast{position:absolute;bottom:110px;left:50%;transform:translateX(-50%);
+z-index:10;background:rgba(0,255,136,.15);border:1px solid rgba(0,255,136,.5);
+border-radius:14px;padding:8px 18px;font-size:12px;color:var(--gn);
+display:none;white-space:nowrap;backdrop-filter:blur(8px);}
+</style>
+
+<script>
+if(new URLSearchParams(location.search).get('debug')==='1'){
+  const s=document.createElement('script');
+  s.src='https://cdn.jsdelivr.net/npm/eruda';
+  s.onload=()=>eruda.init();
+  document.head.appendChild(s);
+}
+</script>
+</head>
+<body>
+
+<!-- 설정 화면 -->
+<div id="s-setup" class="show">
+  <div class="logo-txt">모두의 플레이</div>
+  <div class="big-title">📷 카메라 송출</div>
+  <div class="sub-txt">뷰어 전광판에 실시간 송출합니다</div>
+  <div class="card">
+    <div class="fld"><label>📡 Room ID</label>
+      <input class="inp" id="inp-room" placeholder="예: room_001"></div>
+    <div class="fld"><label>🏟 담당 코트</label>
+      <input class="inp" id="inp-court" placeholder="예: A" oninput="this.value=this.value.toUpperCase()"></div>
+    <button class="big-btn btn-ac" onclick="startCam()">📡 송출 시작</button>
+  </div>
+</div>
+
+<!-- 카메라 화면 -->
+<div id="s-cam">
+  <video id="cam-video" playsinline autoplay muted></video>
+
+  <div class="rec-badge">
+    <div class="rec-dot"></div>
+    <span id="rec-txt">연결 중...</span>
+  </div>
+
+  <div id="rec-timer">00:00</div>
+  <div id="toast">✅ 저장 완료</div>
+
+  <div class="cam-top">
+    <div class="cam-info">
+      <div class="cam-room" id="cam-room">ROOM: —</div>
+      <div class="cam-court" id="cam-court">C-A</div>
+    </div>
+    <div class="status-pill">
+      <div class="dot off" id="status-dot"></div>
+      <span id="status-txt" style="color:rgba(255,255,255,.6)">연결 중...</span>
+    </div>
+  </div>
+
+  <div class="cam-bot">
+    <!-- ⏺ 녹화 버튼 추가 -->
+    <div class="cam-btn" id="rec-btn" onclick="toggleRec()" title="녹화">⏺</div>
+    <div class="cam-btn" onclick="flipCam()" title="전후면 전환">🔄</div>
+    <div class="cam-btn" onclick="goBack()" title="뒤로">✕</div>
+  </div>
+</div>
+
+<script>
+firebase.initializeApp({
+  apiKey:"AIzaSyDOrKZDSNiA4sLnkNBiLVehE8xtrU-2JLY",
+  authDomain:"mop-jumprope.firebaseapp.com",
+  databaseURL:"https://mop-jumprope-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"mop-jumprope",storageBucket:"mop-jumprope.firebasestorage.app",
+  messagingSenderId:"875740425909",appId:"1:875740425909:web:59768e633b7a42733918fc"
+});
+const db=firebase.database();
+
+let roomId='',courtId='';
+let peer=null,currentCall=null,retryTimer=null;
+let localStream=null,facingMode='environment';
+
+// ── 녹화 관련 변수 ──────────────────────────────
+let mediaRecorder=null;
+let recChunks=[];
+let recStartTime=null;
+let recTimerInterval=null;
+let currentHeatInfo={heat:'',player:''};  // Firebase에서 히트/선수 정보 수신용
+
+// URL 파라미터 자동 인식
+(function(){
+  const p=new URLSearchParams(window.location.search);
+  if(p.get('room'))document.getElementById('inp-room').value=p.get('room');
+  if(p.get('court'))document.getElementById('inp-court').value=p.get('court').toUpperCase();
+  if(p.get('room')&&p.get('court'))setTimeout(startCam,300);
+})();
+
+async function startCam(){
+  roomId=document.getElementById('inp-room').value.trim();
+  courtId=document.getElementById('inp-court').value.trim().toUpperCase();
+  if(!roomId||!courtId){alert('Room ID와 코트를 입력하세요');return;}
+
+  document.getElementById('cam-room').textContent='ROOM: '+roomId;
+  document.getElementById('cam-court').textContent='C-'+courtId;
+
+  try{
+    localStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode,width:{ideal:1280},height:{ideal:720},frameRate:{ideal:24}},audio:false
+    });
+    document.getElementById('cam-video').srcObject=localStream;
+  }catch(e){alert('카메라 오류: '+e.message);return;}
+
+  document.getElementById('s-setup').classList.remove('show');
+  document.getElementById('s-cam').classList.add('show');
+
+  initPeer();
+  startHeartbeat();
+  watchHeatInfo();  // Firebase에서 히트 정보 구독
+}
+
+// ── Firebase에서 현재 히트/선수 정보 실시간 수신 ──
+function watchHeatInfo(){
+  db.ref(`${roomId}/courts/${courtId}/currentHeat`).on('value', snap=>{
+    const v=snap.val();
+    if(v){
+      currentHeatInfo.heat=v.heat||'';
+      currentHeatInfo.player=v.player||'';
+    }
+  });
+}
+
+// ── 녹화 토글 ──────────────────────────────────
+function toggleRec(){
+  if(mediaRecorder&&mediaRecorder.state==='recording'){
+    stopRec();
+  } else {
+    startRec();
+  }
+}
+
+function getSupportedMimeType(){
+  // iOS Safari는 video/mp4, Android Chrome은 video/webm 지원
+  const types=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm','video/mp4'];
+  for(const t of types){
+    if(MediaRecorder.isTypeSupported(t)) return t;
+  }
+  return '';
+}
+
+function startRec(){
+  if(!localStream){alert('카메라가 준비되지 않았습니다');return;}
+  recChunks=[];
+  const mimeType=getSupportedMimeType();
+  try{
+    mediaRecorder=new MediaRecorder(localStream, mimeType?{mimeType}:{});
+  }catch(e){
+    alert('녹화 시작 오류: '+e.message);return;
+  }
+
+  mediaRecorder.ondataavailable=e=>{
+    if(e.data&&e.data.size>0) recChunks.push(e.data);
+  };
+
+  mediaRecorder.onstop=()=>saveRec();
+
+  mediaRecorder.start(1000); // 1초마다 청크 수집 (안정성)
+  recStartTime=Date.now();
+
+  // UI 업데이트
+  document.getElementById('rec-btn').classList.add('recording');
+  document.getElementById('rec-btn').textContent='⏹';
+  document.getElementById('rec-timer').style.display='block';
+  updateRecTimer();
+  recTimerInterval=setInterval(updateRecTimer,1000);
+}
+
+function stopRec(){
+  if(!mediaRecorder||mediaRecorder.state==='inactive') return;
+  mediaRecorder.stop();
+  clearInterval(recTimerInterval);
+
+  // UI 복원
+  document.getElementById('rec-btn').classList.remove('recording');
+  document.getElementById('rec-btn').textContent='⏺';
+  document.getElementById('rec-timer').style.display='none';
+}
+
+function saveRec(){
+  const mimeType=mediaRecorder.mimeType||'video/webm';
+  const ext=mimeType.includes('mp4')?'mp4':'webm';
+  const blob=new Blob(recChunks,{type:mimeType});
+
+  // 파일명: 코트_히트_선수명_날짜시간
+  const now=new Date();
+  const dateStr=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+  const timeStr=`${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+  const heatStr=currentHeatInfo.heat?`_히트${currentHeatInfo.heat}`:'';
+  const playerStr=currentHeatInfo.player?`_${currentHeatInfo.player}`:'';
+  const filename=`코트${courtId}${heatStr}${playerStr}_${dateStr}_${timeStr}.${ext}`;
+
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=filename;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),5000);
+
+  showToast(`✅ ${filename} 저장`);
+}
+
+function updateRecTimer(){
+  if(!recStartTime) return;
+  const elapsed=Math.floor((Date.now()-recStartTime)/1000);
+  const m=String(Math.floor(elapsed/60)).padStart(2,'0');
+  const s=String(elapsed%60).padStart(2,'0');
+  document.getElementById('rec-timer').textContent=`⏺ ${m}:${s}`;
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.style.display='block';
+  setTimeout(()=>t.style.display='none',3000);
+}
+
+// ── PeerJS ─────────────────────────────────────
+function initPeer(){
+  const myId=`mop-${roomId}-cam-${courtId}`;
+  if(peer){try{peer.destroy();}catch(e){}}
+  peer=new Peer(myId,{host:'0.peerjs.com',port:443,path:'/',secure:true,debug:0});
+  peer.on('open',()=>{setStatus('conn','뷰어 연결 중...');callViewer();});
+  peer.on('error',e=>{
+    if(e.type==='peer-unavailable'){setStatus('conn','뷰어 대기 중...');retryTimer=setTimeout(callViewer,2500);}
+    else{setStatus('off','오류: '+e.type);retryTimer=setTimeout(initPeer,4000);}
+  });
+  peer.on('disconnected',()=>{setStatus('conn','재연결 중...');setTimeout(()=>{if(peer&&!peer.destroyed)peer.reconnect();},2000);});
+}
+
+function callViewer(){
+  if(!peer||peer.destroyed||!localStream)return;
+  clearTimeout(retryTimer);
+  const courtNum=parseInt(courtId);
+  const targetPage=(!isNaN(courtNum)&&courtNum>=13)?2:1;
+  const primaryViewer=`mop-${roomId}-viewer-p${targetPage}`;
+  const legacyViewer=`mop-${roomId}-viewer`;
+  tryCallViewer(primaryViewer,()=>{
+    tryCallViewer(legacyViewer,()=>{
+      retryTimer=setTimeout(callViewer,2500);
+    });
+  });
+}
+
+function tryCallViewer(viewerId,onFail){
+  try{
+    const call=peer.call(viewerId,localStream,{metadata:{court:courtId,room:roomId}});
+    if(!call){onFail();return;}
+    let succeeded=false;
+    const failTimer=setTimeout(()=>{
+      if(!succeeded){try{call.close();}catch(e){}onFail();}
+    },5000);
+    const optimisticTimer=setTimeout(()=>{
+      if(!succeeded){
+        succeeded=true;clearTimeout(failTimer);currentCall=call;
+        setStatus('live','LIVE 송출');
+        document.getElementById('rec-txt').textContent='LIVE';
+      }
+    },3000);
+    call.on('stream',()=>{
+      succeeded=true;clearTimeout(failTimer);clearTimeout(optimisticTimer);
+      currentCall=call;setStatus('live','LIVE 송출');
+      document.getElementById('rec-txt').textContent='LIVE';
+    });
+    call.on('close',()=>{if(succeeded){setStatus('conn','재연결...');retryTimer=setTimeout(callViewer,2500);}});
+    call.on('error',e=>{if(!succeeded){clearTimeout(failTimer);clearTimeout(optimisticTimer);onFail();}});
+  }catch(e){onFail();}
+}
+
+function setStatus(state,txt){
+  const d=document.getElementById('status-dot');
+  d.className='dot '+(state==='live'?'live':state==='conn'?'conn':'off');
+  document.getElementById('status-txt').textContent=txt;
+  if(state==='live')document.getElementById('rec-txt').textContent='LIVE 송출 중';
+  else document.getElementById('rec-txt').textContent=txt;
+}
+
+async function flipCam(){
+  facingMode=facingMode==='environment'?'user':'environment';
+  if(localStream)localStream.getTracks().forEach(t=>t.stop());
+  try{
+    localStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode,width:{ideal:1280},height:{ideal:720}},audio:false
+    });
+    document.getElementById('cam-video').srcObject=localStream;
+    if(currentCall)currentCall.close();
+    callViewer();
+  }catch(e){console.warn(e);}
+}
+
+function startHeartbeat(){
+  function beat(){db.ref(`${roomId}/monitoring/cameras/${courtId}`).update({online:true,court:courtId,lastSeen:Date.now()});}
+  beat();setInterval(beat,5000);
+  window.addEventListener('beforeunload',()=>{
+    if(mediaRecorder&&mediaRecorder.state==='recording')stopRec();
+    db.ref(`${roomId}/monitoring/cameras/${courtId}/online`).set(false);
+  });
+}
+
+function goBack(){
+  if(mediaRecorder&&mediaRecorder.state==='recording'){
+    if(!confirm('녹화 중입니다. 종료하면 현재까지 저장됩니다. 계속하시겠습니까?'))return;
+    stopRec();
+  }
+  clearTimeout(retryTimer);
+  if(currentCall)currentCall.close();
+  if(peer){try{peer.destroy();}catch(e){}peer=null;}
+  if(localStream)localStream.getTracks().forEach(t=>t.stop());
+  document.getElementById('s-cam').classList.remove('show');
+  document.getElementById('s-setup').classList.add('show');
+}
+</script>
+</body>
+</html>
