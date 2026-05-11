@@ -620,12 +620,18 @@ function init(){
 }
 
 // ── 운영앱 구독 ──
+let lastLoadedHeatNo=null; // ★ 히트 번호 변경 감지용
+
 function subscribeOperator(){
   db.ref(`${config.room}/operator`).on('value',s=>{
     const v=s.val();if(!v)return;
     if(v.currentHeatNo){
       document.getElementById('sb-heat-num').textContent=`HEAT ${v.currentHeatNo}`;
-      loadHeatInfo(v.currentHeatNo);
+      // ★ 히트 번호가 바뀔 때만 loadHeatInfo 호출 (영상 날아가는 버그 방지)
+      if(v.currentHeatNo !== lastLoadedHeatNo){
+        lastLoadedHeatNo=v.currentHeatNo;
+        loadHeatInfo(v.currentHeatNo);
+      }
     }
     if(v.heatStatus)updateStatus(v.heatStatus);
     else updateStatus('idle');

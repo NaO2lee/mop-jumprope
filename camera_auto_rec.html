@@ -260,7 +260,7 @@ function watchHeatSignal(){
     watchAthleteInfo(heatNo);
 
     // ── 자동 녹화 트리거 ──────────────────────
-    if(status==='running' && prevHeatStatus!=='running'){
+    if(status==='racing' && prevHeatStatus!=='racing'){
       // 히트 시작 → 자동 녹화 시작
       console.log(`[REC] 히트 ${heatNo} 시작 감지 → 자동 녹화 시작`);
       startAutoRec();
