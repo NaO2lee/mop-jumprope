@@ -346,7 +346,10 @@ html,body{width:100%;height:100%;background:#03050C;color:#fff;font-family:'Noto
 .layout-1 .info-score{font-size:clamp(70px,14vw,180px);}
 .layout-1 .info-overlay{padding:60px 24px 18px;}
 
-/* ── 안내 방송 팝업 ── */
+.info-name,.sb-r-name,.ath-name-sm{
+  font-family:'Noto Sans KR','Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif;
+}
+
 #ann-popup{
   display:none;position:fixed;
   bottom:60px;left:50%;transform:translateX(-50%);z-index:999;
@@ -650,36 +653,41 @@ function loadHeatInfo(heatNo){
   db.ref(`${config.room}/heats/heat_${heatNo}`).once('value',s=>{
     const h=s.val();
     if(!h){console.warn(`[Viewer] Heat ${heatNo} 데이터 없음`);return;}
-    console.log('[Viewer] heat data received:',h);
 
     document.getElementById('sb-event').textContent=h.event_name||h.event||'—';
     document.getElementById('sb-div').textContent=h.division||'—';
-    // 시상 기준 매칭용
     currentEvent=h.event_name||h.event||'';
     currentDivision=h.division||'';
 
-    // 페이지 코트 분할
     const allCourts=Object.keys(h.courts||{});
-    console.log(`[Viewer] all courts in heat:`,allCourts);
     activeCourtsForPage=getPageCourts(allCourts,currentPage);
-    console.log(`[Viewer] page ${currentPage} courts:`,activeCourtsForPage);
 
-    // 코트 카드 생성 (현재 레이아웃 기준)
     const courtsToShow=getCourtsForCurrentLayout();
-    console.log(`[Viewer] courts to show (layout=${currentLayout}):`,courtsToShow);
-    rebuildCourtCards(courtsToShow);
 
-    // 모든 코트의 선수 정보 (LIVE RANK용 — 페이지 내 12개만)
+    // ★ 코트 구성이 바뀔 때만 rebuildCourtCards (영상 유지)
+    const currentCardIds=Array.from(document.querySelectorAll('.court-card')).map(c=>c.dataset.court).sort();
+    const newIds=[...courtsToShow].sort();
+    const courtsChanged=JSON.stringify(newIds)!==JSON.stringify(currentCardIds);
+    if(courtsChanged){
+      console.log('[Viewer] 코트 구성 변경 → rebuild');
+      rebuildCourtCards(courtsToShow);
+    } else {
+      console.log('[Viewer] 코트 구성 동일 → 영상 유지, 선수 정보만 업데이트');
+    }
+
+    // 선수 정보 업데이트 (이모지 제거)
     activeCourtsForPage.forEach(cid=>{
       const c=h.courts[cid];
       const ath=c?.athlete;
       if(!ath)return;
+      // ★ 깨진 문자(☒)만 제거, 국기·이모지는 유지
+      const cleanName=(ath.name||'').replace(/\uFFFD/g,'').trim();
       const nameEl=document.getElementById('name-'+cid);
       const clubEl=document.getElementById('club-'+cid);
-      if(nameEl)nameEl.textContent=ath.name||'—';
+      if(nameEl)nameEl.textContent=cleanName||'—';
       if(clubEl)clubEl.textContent=ath.club||'—';
       if(!liveScores[cid])liveScores[cid]={};
-      liveScores[cid].name=ath.name||'';
+      liveScores[cid].name=cleanName||'';
       liveScores[cid].club=ath.club||'';
       liveScores[cid].bib=ath.bib||'';
     });

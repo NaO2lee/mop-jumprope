@@ -131,6 +131,21 @@ html,body{height:100dvh;overflow:hidden;background:var(--bg);color:var(--tx);fon
 .fold-btn{width:34px;height:34px;border:1.5px solid rgba(255,255,255,.2);border-radius:50%;background:rgba(0,0,0,.6);color:white;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .fold-btn:active{transform:scale(.9);}
 
+/* 녹화 상태 표시 */
+#rec-auto-badge{
+  display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);
+  z-index:5;background:rgba(255,61,113,.15);border:1px solid rgba(255,61,113,.5);
+  border-radius:20px;padding:3px 12px;font-size:10px;font-weight:700;color:var(--ac2);
+  white-space:nowrap;display:none;align-items:center;gap:5px;
+}
+#rec-auto-badge.show{display:flex;}
+.rec-dot-sm{width:5px;height:5px;border-radius:50%;background:var(--ac2);animation:pls .7s ease-in-out infinite alternate;}
+#rec-timer-sm{
+  position:absolute;bottom:48px;left:50%;transform:translateX(-50%);
+  font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--ac2);
+  text-shadow:0 0 10px rgba(255,61,113,.6);display:none;z-index:5;white-space:nowrap;
+}
+
 /* 토스트 */
 .toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:rgba(0,229,255,.15);border:1px solid rgba(0,229,255,.3);color:var(--ac);border-radius:20px;padding:8px 18px;font-size:12px;white-space:nowrap;z-index:50;animation:tst .3s ease;pointer-events:none;}
 @keyframes tst{from{opacity:0;transform:translateX(-50%) translateY(8px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
@@ -168,6 +183,9 @@ if(new URLSearchParams(location.search).get('debug')==='1'){
   <!-- 상단: 카메라 -->
   <div id="cam-panel">
     <video id="cam-video" playsinline autoplay muted></video>
+    <!-- 자동 녹화 배지 -->
+    <div id="rec-auto-badge"><div class="rec-dot-sm"></div>AUTO REC</div>
+    <div id="rec-timer-sm"></div>
     <div class="cam-overlay">
       <div class="cam-top">
         <div class="cam-court-lbl" id="cam-court-lbl">C-A</div>
@@ -269,6 +287,85 @@ let lastSignalTs=0;
 const FOLD_STEPS=[30,40,50,60,70];
 let foldIdx=2;
 
+// ── 녹화 변수 ──────────────────────────────
+let mediaRecorder=null;
+let recChunks=[];
+let recStartTime=null;
+let recTimerInterval=null;
+let isAutoRec=false;
+let prevHeatStatus='';
+let recHeatInfo={heatNo:'',playerName:'',playerBib:''};
+
+function getSupportedMimeType(){
+  const types=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm','video/mp4'];
+  for(const t of types){if(MediaRecorder.isTypeSupported(t))return t;}
+  return '';
+}
+
+function startAutoRec(){
+  if(isAutoRec||!localStream)return;
+  isAutoRec=true;
+  recChunks=[];
+  // 현재 선수 정보 스냅샷
+  recHeatInfo.heatNo=currentHeatNo;
+  recHeatInfo.playerName=document.getElementById('ath-name').textContent.replace(/\uFFFD/g,'').trim();
+  recHeatInfo.playerBib=document.getElementById('ath-bib').textContent.replace('#','').trim();
+
+  const mimeType=getSupportedMimeType();
+  try{
+    mediaRecorder=new MediaRecorder(localStream,mimeType?{mimeType}:{});
+  }catch(e){isAutoRec=false;console.error('MediaRecorder 오류:',e);return;}
+
+  mediaRecorder.ondataavailable=e=>{if(e.data&&e.data.size>0)recChunks.push(e.data);};
+  mediaRecorder.onstop=()=>saveRec();
+  mediaRecorder.start(1000);
+  recStartTime=Date.now();
+
+  document.getElementById('rec-auto-badge').classList.add('show');
+  document.getElementById('rec-timer-sm').style.display='block';
+  updateRecTimer();
+  recTimerInterval=setInterval(updateRecTimer,1000);
+  console.log('[REC] 자동 녹화 시작');
+}
+
+function stopAutoRec(){
+  if(!isAutoRec)return;
+  isAutoRec=false;
+  if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();
+  clearInterval(recTimerInterval);
+  document.getElementById('rec-auto-badge').classList.remove('show');
+  document.getElementById('rec-timer-sm').style.display='none';
+  console.log('[REC] 자동 녹화 중지');
+}
+
+function saveRec(){
+  if(!recChunks.length)return;
+  const mimeType=mediaRecorder.mimeType||'video/webm';
+  const ext=mimeType.includes('mp4')?'mp4':'webm';
+  const blob=new Blob(recChunks,{type:mimeType});
+  const now=new Date();
+  const dateStr=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+  const timeStr=`${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+  const bibStr=recHeatInfo.playerBib?`_${recHeatInfo.playerBib}`:'';
+  const nameStr=recHeatInfo.playerName&&recHeatInfo.playerName!=='선수 대기 중...'
+    ?`_${recHeatInfo.playerName.replace(/\s/g,'')}`:'';
+  const filename=`코트${courtId}_히트${recHeatInfo.heatNo}${bibStr}${nameStr}_${dateStr}_${timeStr}.${ext}`;
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=filename;a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),5000);
+  showToast(`✅ ${filename}`);
+  recChunks=[];
+}
+
+function updateRecTimer(){
+  if(!recStartTime)return;
+  const elapsed=Math.floor((Date.now()-recStartTime)/1000);
+  const m=String(Math.floor(elapsed/60)).padStart(2,'0');
+  const s=String(elapsed%60).padStart(2,'0');
+  document.getElementById('rec-timer-sm').textContent=`⏺ ${m}:${s}`;
+}
+
 // URL 파라미터 자동 인식
 (function(){
   const p=new URLSearchParams(window.location.search);
@@ -322,6 +419,8 @@ function connectFirebase(){
     if(!v||v.ts===lastSignalTs||Date.now()-v.ts>5000)return;
     lastSignalTs=v.ts;
     playSignal(v.type);
+    // ★ end 신호 → 자동 녹화 중지
+    if(v.type==='end') stopAutoRec();
   });
 
   loadHeatData();
@@ -360,6 +459,14 @@ function updateHeatState(state){
   el.className='hstate-pill '+s.c;el.textContent=s.t;
   document.getElementById('btn-plus1').style.background=
     state==='racing'?'rgba(0,229,255,.15)':'rgba(0,229,255,.08)';
+
+  // ── 자동 녹화 트리거 ──
+  if(state==='racing'&&prevHeatStatus!=='racing'){
+    startAutoRec();
+  } else if((state==='finished'||state==='idle')&&prevHeatStatus==='racing'){
+    stopAutoRec();
+  }
+  prevHeatStatus=state;
 }
 
 // ── 카운팅 ──
@@ -538,6 +645,7 @@ function startHeartbeat(){
   }
   beat();setInterval(beat,5000);
   window.addEventListener('beforeunload',()=>{
+    if(mediaRecorder&&mediaRecorder.state==='recording')stopAutoRec();
     db.ref(`${roomId}/monitoring/judges/${courtId}/online`).set(false);
     db.ref(`${roomId}/monitoring/cameras/${courtId}/online`).set(false);
   });
