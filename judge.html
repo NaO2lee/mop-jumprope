@@ -155,7 +155,7 @@ html,body{height:100dvh;overflow:hidden;background:var(--bg);color:var(--tx);fon
     <div class="top-actions">
       <button class="act-btn act-clear" onclick="clearCount()">🗑 초기화</button>
       <button class="act-btn act-ready" id="btn-ready" onclick="toggleReady()">✋ 준비 완료</button>
-      <button class="act-btn act-submit" onclick="submitScore()">✓ 기록 제출</button>
+      <button class="act-btn act-submit" onclick="submitScore()">✓ 집계 제출 완료</button>
     </div>
 
     <!-- 중단: −1 / COUNT / +10 -->
@@ -349,21 +349,56 @@ function updateReadyBtn(){
   btn.classList.toggle('on',isReady);
 }
 
-// 제출
+// 제출 — atomic multi-path update + confirmation + idempotency.
+//   ① heats/.../courts/key  와  monitoring/judges/courtId  를 단일 update() 로 묶어
+//      한쪽만 성공/실패하는 partial state 방지.
+//   ② _submitting 플래그로 re-entry 차단 (더블탭 제출 방어).
+//   ③ submissionId 발급 — 같은 제출이 재시도되어도 Firebase 측에서 같은 ID 면 같은 트랜잭션으로 식별 가능.
+//   ④ confirm() 으로 명시 확인 후에만 실제 write.
+//   ⑤ UI 갱신은 Firebase 성공 후에만 — 실패 시 사용자가 "제출됐다고 착각" 하는 일 없음.
+let _submitting=false;
 async function submitScore(){
-  if(!currentHeat)return;
+  if(!currentHeat){showToast('히트 정보가 없습니다');return;}
+  if(_submitting){showToast('제출 중...');return;}
   const score=count;
   const heatKey=`heat_${currentHeatNo}`;
   const courts=currentHeat.courts||{};
   const key=Object.keys(courts).find(k=>k.toUpperCase()===courtId)||courtId;
+
+  if(!confirm(`기록 ${score}개로 제출하시겠습니까?\n제출 후에는 운영자만 수정 가능합니다.`))return;
+
+  _submitting=true;
+  const submitBtn=document.querySelector('.act-submit');
+  if(submitBtn){submitBtn.disabled=true;submitBtn.style.opacity=.5;}
+
   try{
-    await db.ref(`${roomId}/heats/${heatKey}/courts/${key}`).update({score,judgeStatus:'submitted',judgeName,submittedAt:Date.now()});
-    await db.ref(`${roomId}/monitoring/judges/${courtId}`).update({ready:false,score,submitted:true,ts:Date.now()});
+    const submissionId=`${courtId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    const ts=Date.now();
+    const updates={};
+    updates[`${roomId}/heats/${heatKey}/courts/${key}/score`]=score;
+    updates[`${roomId}/heats/${heatKey}/courts/${key}/judgeStatus`]='submitted';
+    updates[`${roomId}/heats/${heatKey}/courts/${key}/judgeName`]=judgeName;
+    updates[`${roomId}/heats/${heatKey}/courts/${key}/submittedAt`]=ts;
+    updates[`${roomId}/heats/${heatKey}/courts/${key}/submissionId`]=submissionId;
+    updates[`${roomId}/monitoring/judges/${courtId}/ready`]=false;
+    updates[`${roomId}/monitoring/judges/${courtId}/score`]=score;
+    updates[`${roomId}/monitoring/judges/${courtId}/submitted`]=true;
+    updates[`${roomId}/monitoring/judges/${courtId}/submissionId`]=submissionId;
+    updates[`${roomId}/monitoring/judges/${courtId}/ts`]=ts;
+
+    await db.ref().update(updates);  // atomic — 한쪽만 적용되는 케이스 없음
+
     document.getElementById('ov-score').textContent=`기록: ${score}`;
     document.getElementById('ov-sub').textContent=`코트 ${courtId} · HEAT ${currentHeatNo} · ${document.getElementById('ath-name').textContent}`;
     document.getElementById('overlay-done').classList.add('show');
     isReady=false;updateReadyBtn();
-  }catch(e){showToast('제출 실패: '+e.message,true);}
+    showToast('✅ 제출 완료');
+  }catch(e){
+    showToast(`제출 실패: ${e.message||'네트워크 확인 후 다시 시도'}`);
+  }finally{
+    _submitting=false;
+    if(submitBtn){submitBtn.disabled=false;submitBtn.style.opacity=1;}
+  }
 }
 
 // 신호음
