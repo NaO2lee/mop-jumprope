@@ -9,6 +9,17 @@
 <title>카메라 송출 — 모두의 플레이</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<!-- 청크 단위 업로드 + R2/로컬 백엔드 추상화. 백엔드는 window.RECORDING_BACKEND 로 전환 -->
+<script src="recording.js"></script>
+<script>
+  // R2 사용 시 (선택): index 페이지에서 미리 설정해두거나 URL 파라미터로 전달
+  const _p = new URLSearchParams(location.search);
+  if (_p.get('r2')) {
+    window.RECORDING_BACKEND = 'r2-worker';
+    if (_p.get('r2_url')) window.R2_WORKER_URL = _p.get('r2_url');
+    if (_p.get('r2_token')) window.R2_UPLOAD_TOKEN = _p.get('r2_token');
+  }
+</script>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -368,14 +379,18 @@ function getSupportedMimeType(){
 function startRecCore(){
   if(!localStream) return;
   recChunks=[];
-  const mimeType=getSupportedMimeType();
+  // ChunkedRecorder 사용 — 백엔드는 window.RECORDING_BACKEND (기본 'local').
+  // R2 모드일 때 5초마다 청크 자동 PUT.
   try{
-    mediaRecorder=new MediaRecorder(localStream,mimeType?{mimeType}:{});
+    mediaRecorder=new window.ChunkedRecorder({
+      courtId:courtId,
+      heatNo:currentInfo.heatNo||'',
+      playerBib:currentInfo.playerBib||'',
+      playerName:currentInfo.playerName||'',
+      chunkMs:5000,  // 사용자 요청: 5초 단위
+    });
+    mediaRecorder.start(localStream);
   }catch(e){console.error('MediaRecorder 오류:',e);return;}
-
-  mediaRecorder.ondataavailable=e=>{if(e.data&&e.data.size>0)recChunks.push(e.data);};
-  mediaRecorder.onstop=()=>saveRec();
-  mediaRecorder.start(1000);
   recStartTime=Date.now();
 
   document.getElementById('rec-timer').style.display='block';
@@ -385,8 +400,9 @@ function startRecCore(){
 
 // ── 공통 녹화 중지 ────────────────────────────
 function stopRecCore(){
-  if(!mediaRecorder||mediaRecorder.state==='inactive') return;
-  mediaRecorder.stop();
+  if(!mediaRecorder) return;
+  // ChunkedRecorder 는 내부에 MediaRecorder 인스턴스 가짐.
+  if(mediaRecorder.stop)mediaRecorder.stop();
   clearInterval(recTimerInterval);
   document.getElementById('rec-timer').style.display='none';
 }
