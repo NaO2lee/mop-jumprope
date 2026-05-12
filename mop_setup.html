@@ -2849,6 +2849,7 @@ exports.qrToImageData = function qrToImageData (imgData, qr, opts) {
 </script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="flags.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 <style>
 :root{
@@ -3082,7 +3083,8 @@ tr.added-row:hover td{background:#ffe8c2!important}
 .bib-evname{font-size:13px;font-weight:700;color:#333;margin-top:4px;text-align:center;letter-spacing:.02em}
 .bib-slot.empty .bib-evname{color:#999}
 .bib-center{display:flex;align-items:center;justify-content:center;gap:14px;padding:6px 0;border-top:1px solid #eaeaea;border-bottom:1px solid #eaeaea}
-.bib-flag{font-size:28px;line-height:1}
+.bib-flag{display:flex;align-items:center;justify-content:center;line-height:1}
+.bib-flag img{width:40px;height:30px;border-radius:3px;box-shadow:0 0 0 1px rgba(0,0,0,.12)}
 .bib-info{text-align:center}
 .bib-name{font-family:'Pretendard',sans-serif;font-size:22px;font-weight:800;color:#111;letter-spacing:.02em;line-height:1.1}
 .bib-club{font-size:13px;color:#444;margin-top:4px;border-bottom:1.5px dotted #c33;padding-bottom:1px}
@@ -3184,7 +3186,7 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
   .bib-name{font-size:11pt!important;font-weight:800!important;line-height:1.2!important}
   .bib-club{font-size:7pt!important;margin-top:1mm!important}
   .bib-bib-tag{font-size:9pt!important}
-  .bib-flag{font-size:16pt!important}
+  .bib-flag img{width:14mm!important;height:10.5mm!important;border-radius:1mm!important}
 
   /* ── 히트 목록/코트뷰 인쇄 ── */
   #heat-sidebar,#heat-search-bar,.no-print{display:none!important}
@@ -5706,7 +5708,7 @@ function renderHeatList(){
             <span style="font-size:12px;color:var(--mu2)">—</span>
           </div>`;
           const entryNo=a.bib;
-          const flag=a.country?`<span style="font-size:12px">${flagEmoji(a.country)}</span>`:'';
+          const flag=a.country?flagEmoji(a.country,16):'';
           const club=a.club?`<span style="font-size:11px;color:var(--mu2)">${athleteMatch?_highlight(a.club,q):a.club}</span>`:'';
           const team=a.teamKey?`<span class="badge b-team" style="font-size:10px">${a.teamKey}</span>`:'';
           return`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;
@@ -6398,18 +6400,7 @@ function buildEntryNumbers(){
   return numbers;
 }
 
-// 국가 코드 → 국기 이모지
-function flagEmoji(country){
-  if(!country)return '';
-  const c=country.toUpperCase();
-  const map={KOR:'🇰🇷',USA:'🇺🇸',JPN:'🇯🇵',CHN:'🇨🇳',HKG:'🇭🇰',TPE:'🇹🇼',
-    THA:'🇹🇭',VNM:'🇻🇳',VIE:'🇻🇳',IDN:'🇮🇩',MAS:'🇲🇾',SGP:'🇸🇬',PHI:'🇵🇭',
-    AUS:'🇦🇺',NZL:'🇳🇿',CAN:'🇨🇦',MEX:'🇲🇽',BRA:'🇧🇷',ARG:'🇦🇷',
-    GBR:'🇬🇧',FRA:'🇫🇷',GER:'🇩🇪',ITA:'🇮🇹',ESP:'🇪🇸',AUT:'🇦🇹',NED:'🇳🇱',
-    SWE:'🇸🇪',NOR:'🇳🇴',FIN:'🇫🇮',DEN:'🇩🇰',POL:'🇵🇱',CZE:'🇨🇿',
-    RUS:'🇷🇺',IND:'🇮🇳',ISR:'🇮🇱',EGY:'🇪🇬',RSA:'🇿🇦'};
-  return map[c]||'🏳️';
-}
+// flagEmoji(country, sizePx) → flags.js (외부 파일)
 
 function generateBibCards(){
   const fe=document.getElementById('qr-filter-ev').value;
@@ -6432,7 +6423,7 @@ function generateBibCards(){
   pool.forEach(a=>{
     const card=document.createElement('div');card.className='bib-card';
     const myEntries=entryNums[a.bib]||{};
-    const flag=flagEmoji(a.country);
+    const flag=flagEmoji(a.country,40);
 
     // ── 상단 5칸 (개인+페어스피드) ──
     const topRow=document.createElement('div');topRow.className='bib-row';

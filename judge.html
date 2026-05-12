@@ -8,6 +8,7 @@
 <title>심판 앱 — 모두의 플레이</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="flags.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#050810;--sur2:#161b24;--ac:#00e5ff;--ac2:#ff3d71;--gn:#00ff88;--yw:#ffd60a;--tx:#e8eaf2;--mu:#4a5568;}
@@ -168,7 +169,8 @@ html,body{height:100dvh;overflow:hidden;background:var(--bg);color:var(--tx);fon
     </div>
 
     <!-- 하단 전체: +1 (텍스트 없음, 색상만) -->
-    <button id="btn-plus1" onclick="addCount(1)" ontouchstart="handleTap(event)"></button>
+    <!-- pointerdown 단일 이벤트로 처리 — touchstart + click 동시 발화로 인한 이중 카운트 방지 -->
+    <button id="btn-plus1" type="button" onpointerdown="handleTap(event)"></button>
   </div>
 </div>
 
@@ -281,7 +283,13 @@ function loadHeatData(){
     if(ath){
       document.getElementById('ath-bib').textContent=`#${ath.bib||'—'}`;
       document.getElementById('ath-name').textContent=ath.name||'—';
-      document.getElementById('ath-club').textContent=[ath.club,ath.country].filter(Boolean).join(' · ')||'—';
+      // 국가 코드 → 국기 이미지 (flags.js). 클럽·국가 함께 표시.
+      const clubEl=document.getElementById('ath-club');
+      const parts=[];
+      if(ath.country&&typeof flagEmoji==='function')parts.push(flagEmoji(ath.country,16));
+      if(ath.club)parts.push(`<span>${ath.club}</span>`);
+      if(ath.country)parts.push(`<span style="color:#94a3b8;font-size:.85em">${ath.country}</span>`);
+      clubEl.innerHTML=parts.length?parts.join(' <span style="color:#cbd5e1">·</span> '):'—';
     } else {
       document.getElementById('ath-bib').textContent='#—';
       document.getElementById('ath-name').textContent='선수 미배정';
@@ -311,10 +319,22 @@ function addCount(n){
   setTimeout(()=>btn.style.filter='',100);
 }
 function clearCount(){count=0;document.getElementById('count-sm').textContent=0;}
+// 이중 카운트 방지:
+// 1) pointerdown 만 사용 (touchstart + click 동시 발화 회피)
+// 2) preventDefault + stopPropagation 으로 합성 click 차단
+// 3) 30ms 디바운스 — 캐패시티브 노이즈로 인한 연속 이벤트만 차단, 빠른 연타는 허용
 let lastTap=0;
 function handleTap(e){
-  e.preventDefault();
-  const now=Date.now();if(now-lastTap<150)return;lastTap=now;addCount(1);
+  if(e){
+    e.preventDefault();
+    if(e.stopPropagation)e.stopPropagation();
+    // pointerType==='touch' 일 때만 발생할 수 있는 짧은 노이즈 — pointerId 로 추가 보호
+    if(e.pointerType==='touch'&&e.isPrimary===false)return;
+  }
+  const now=Date.now();
+  if(now-lastTap<30)return;
+  lastTap=now;
+  addCount(1);
 }
 
 // 준비
