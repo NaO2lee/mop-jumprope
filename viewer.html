@@ -661,26 +661,29 @@ function loadHeatInfo(heatNo){
 
     const allCourts=Object.keys(h.courts||{});
     activeCourtsForPage=getPageCourts(allCourts,currentPage);
-
     const courtsToShow=getCourtsForCurrentLayout();
 
-    // ★ 코트 구성이 바뀔 때만 rebuildCourtCards (영상 유지)
-    const currentCardIds=Array.from(document.querySelectorAll('.court-card')).map(c=>c.dataset.court).sort();
-    const newIds=[...courtsToShow].sort();
-    const courtsChanged=JSON.stringify(newIds)!==JSON.stringify(currentCardIds);
-    if(courtsChanged){
-      console.log('[Viewer] 코트 구성 변경 → rebuild');
-      rebuildCourtCards(courtsToShow);
-    } else {
-      console.log('[Viewer] 코트 구성 동일 → 영상 유지, 선수 정보만 업데이트');
-    }
+    // ★ rebuild 전 기존 영상 스트림 저장
+    const savedStreams={};
+    document.querySelectorAll('.court-card').forEach(card=>{
+      const cid=card.dataset.court;
+      const v=card.querySelector('video');
+      if(v&&v.srcObject) savedStreams[cid]=v.srcObject;
+    });
 
-    // 선수 정보 업데이트 (이모지 제거)
+    rebuildCourtCards(courtsToShow);
+
+    // ★ rebuild 후 영상 스트림 복원
+    Object.entries(savedStreams).forEach(([cid,stream])=>{
+      const v=document.querySelector(`.court-card[data-court="${cid}"] video`);
+      if(v){v.srcObject=stream;v.play().catch(()=>{});}
+    });
+
+    // 선수 정보 업데이트
     activeCourtsForPage.forEach(cid=>{
       const c=h.courts[cid];
       const ath=c?.athlete;
       if(!ath)return;
-      // ★ 깨진 문자(☒)만 제거, 국기·이모지는 유지
       const cleanName=(ath.name||'').replace(/\uFFFD/g,'').trim();
       const nameEl=document.getElementById('name-'+cid);
       const clubEl=document.getElementById('club-'+cid);
