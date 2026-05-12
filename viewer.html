@@ -7,7 +7,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@400;700;900&family=Noto+Color+Emoji&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{width:100%;height:100%;background:#03050C;color:#fff;font-family:'Noto Sans KR',sans-serif;overflow:hidden;}
@@ -347,7 +347,7 @@ html,body{width:100%;height:100%;background:#03050C;color:#fff;font-family:'Noto
 .layout-1 .info-overlay{padding:60px 24px 18px;}
 
 .info-name,.sb-r-name,.ath-name-sm{
-  font-family:'Noto Sans KR','Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif;
+  font-family:'Noto Sans KR','Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji','Twemoji Mozilla',sans-serif;
 }
 
 #ann-popup{
@@ -758,7 +758,7 @@ function rebuildCourtCards(courtIds){
       <div class="court-id-badge">${cid}</div>
       <div class="info-overlay">
         <div class="info-left">
-          <div class="info-name" id="name-${cid}">—</div>
+          <div class="info-name" id="name-${cid}" style="font-family:'Noto Sans KR','Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif;">—</div>
           <div class="info-club" id="club-${cid}">—</div>
         </div>
         <div class="info-score" id="score-${cid}">—</div>
@@ -990,7 +990,7 @@ function updateRankList(){
       <span class="sb-r-num ${rkClass}">${rk}</span>
       <span class="sb-r-cid">${cid}</span>
       <div class="sb-r-info">
-        <div class="sb-r-name">${v.name||'—'}${lvTag}</div>
+        <div class="sb-r-name" style="font-family:'Noto Sans KR','Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif;">${v.name||'—'}${lvTag}</div>
         ${v.club?`<div class="sb-r-club">${v.club}</div>`:''}
       </div>
       <span class="sb-r-score">${score}</span>
