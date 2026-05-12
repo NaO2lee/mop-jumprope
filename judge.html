@@ -210,13 +210,53 @@ let count=0,isReady=false;
 let currentHeatNo=1,currentHeat=null;
 let lastSignalTs=0;
 
-// URL 파라미터 자동 인식
+// URL 파라미터 자동 인식.
+// 1) 기존: ?room=X&court=Y&judge=Z → 코트별 직접 진입
+// 2) 신규 (선수 QR 스캔): ?room=X&bib=N&event=CODE[&entry=R1-1]
+//    선수 QR 코드를 찍으면 자동으로 해당 선수가 배정된 코트(=현재 또는 다음 활성 히트)를 찾아서 setup.
+//    심판의 court 는 첫 진입 시 localStorage 에 저장된 값 사용 (없으면 setup 화면에서 입력).
+let pendingAthleteLookup=null;  // {bib, event, entry, name}
 (function(){
   const p=new URLSearchParams(window.location.search);
-  if(p.get('room'))document.getElementById('inp-room').value=p.get('room');
-  if(p.get('court'))document.getElementById('inp-court').value=p.get('court').toUpperCase();
-  if(p.get('judge'))document.getElementById('inp-judge').value=p.get('judge');
-  if(p.get('room')&&p.get('court'))setTimeout(startApp,300);
+  const room=p.get('room');
+  const court=p.get('court');
+  const judge=p.get('judge');
+  const bib=p.get('bib');
+  const event=p.get('event');
+  const entry=p.get('entry');
+  const name=p.get('name');
+
+  if(room)document.getElementById('inp-room').value=room;
+  if(court)document.getElementById('inp-court').value=court.toUpperCase();
+  if(judge)document.getElementById('inp-judge').value=judge;
+
+  // localStorage 폴백 — 같은 폰에서 두 번째 QR 부터는 코트·이름 기억
+  if(!court){
+    const lc=localStorage.getItem('mop_judge_court');
+    if(lc)document.getElementById('inp-court').value=lc;
+  }
+  if(!judge){
+    const ln=localStorage.getItem('mop_judge_name');
+    if(ln)document.getElementById('inp-judge').value=ln;
+  }
+
+  // 선수 QR 스캔 케이스 — 진입 후 Firebase 에서 heat 자동 lookup
+  if(bib&&event){
+    pendingAthleteLookup={bib,event,entry:entry||'',name:name||''};
+    // 코트 정보가 있으면 (URL 또는 localStorage) 즉시 시작
+    const courtFinal=document.getElementById('inp-court').value.trim();
+    if(room&&courtFinal)setTimeout(startApp,300);
+    else{
+      // 코트만 입력하면 진행하도록 안내
+      const banner=document.createElement('div');
+      banner.style.cssText='background:#fbbf24;color:#000;padding:10px 14px;border-radius:8px;margin:10px 14px;font-size:13px;font-weight:700;text-align:center';
+      banner.textContent=`📱 선수 QR 인식: #${bib} ${name||''} (${event}). 코트를 입력하면 진입합니다.`;
+      const setup=document.getElementById('s-setup');
+      if(setup)setup.insertBefore(banner,setup.firstChild);
+    }
+  }else if(room&&court){
+    setTimeout(startApp,300);
+  }
 })();
 
 function startApp(){
@@ -255,6 +295,44 @@ function connectFirebase(){
   });
 
   loadHeatData();
+
+  // 선수 QR 스캔 진입 케이스 → heats 에서 해당 (bib, event) 가 있는 heat 를 찾아 currentHeatNo 자동 설정.
+  // 같은 코트에 배정된 heat 우선, 없으면 가장 빠른 heat.
+  if(pendingAthleteLookup){
+    db.ref(`${roomId}/heats`).once('value').then(snap=>{
+      const heats=snap.val()||{};
+      const matches=[];
+      Object.entries(heats).forEach(([heatKey,h])=>{
+        if(!h||(h.event_code||h.event)!==pendingAthleteLookup.event)return;
+        const courts=h.courts||{};
+        Object.entries(courts).forEach(([cKey,cv])=>{
+          const ath=cv?.athlete;
+          if(ath&&String(ath.bib)===String(pendingAthleteLookup.bib)){
+            const heatNum=Number(heatKey.replace(/^heat_/,''))||h.no||0;
+            matches.push({heatKey,heatNum,courtKey:cKey,athlete:ath});
+          }
+        });
+      });
+      if(matches.length===0){
+        showToast(`⚠ #${pendingAthleteLookup.bib} 의 ${pendingAthleteLookup.event} 히트를 찾을 수 없음`);
+        return;
+      }
+      // 심판의 court 와 같은 매치 우선
+      const sameCourt=matches.find(m=>String(m.courtKey).toUpperCase()===courtId.toUpperCase());
+      const pick=sameCourt||matches[0];
+      if(!sameCourt){
+        showToast(`📍 이 선수는 코트 ${pick.courtKey} 에 배정됨 (현재 코트: ${courtId})`);
+      }
+      // 히트 점프
+      if(pick.heatNum&&pick.heatNum!==currentHeatNo){
+        currentHeatNo=pick.heatNum;
+        loadHeatData();
+      }
+      pendingAthleteLookup=null;
+    }).catch(e=>{
+      showToast('선수 정보 로드 실패: '+(e.message||'네트워크 확인'));
+    });
+  }
 }
 
 function resetJudgeState(){

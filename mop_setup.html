@@ -6499,8 +6499,18 @@ function generateBibCards(){
         qrEl.innerHTML='';
         const canvas=document.createElement('canvas');
         qrEl.appendChild(canvas);
-        const qrData=JSON.stringify({bib:a.bib,entry:entryNo,name:a.name,club:a.club,
-          event:ev.code,division:a.division,country:a.country,team:a.teamKey||''});
+        // QR 데이터 = judge.html 진입 URL.
+        // 휴대폰 카메라/QR 스캐너에서 자동으로 브라우저가 열리도록 절대 URL 로 구성.
+        // base = mop_setup.html 이 호스팅된 곳에서 judge.html 로 옮긴 경로 (보통 같은 디렉토리).
+        const _base=`${location.origin}${location.pathname.replace(/[^\/]*$/,'')}judge.html`;
+        const _qs=new URLSearchParams({
+          room:cfg.roomId||'room_001',
+          bib:a.bib||'',
+          event:ev.code||'',
+          entry:String(entryNo||''),
+          name:a.name||'',
+        });
+        const qrData=`${_base}?${_qs.toString()}`;
         QRCode.toCanvas(canvas, qrData, {width:72,margin:0,color:{dark:'#000',light:'#fff'}})
           .then(()=>qrOk++)
           .catch(e=>{qrFail++;console.warn('QR실패',a.bib,ev.code,e);});
