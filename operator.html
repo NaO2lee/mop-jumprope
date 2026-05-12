@@ -379,6 +379,7 @@ function App(){
   };
 
   const readyCnt=Object.values(judges).filter(j=>j.ready).length;
+  const noShowCnt=Object.values(judges).filter(j=>j.athleteStatus==='no_show').length;
   const onlineCnt=Object.values(judges).filter(j=>j.online&&Date.now()-j.lastSeen<15000).length;
   const camCnt=Object.values(cameras).filter(c=>c.online&&Date.now()-c.lastSeen<15000).length;
   const sc={'idle':'#4a5568','calling':'#ffd60a','racing':'#00e5ff','finished':'#00ff88'}[hState]||'#4a5568';
@@ -630,6 +631,7 @@ function App(){
               <div className="fd" style={{fontSize:18,color:'#fff'}}>코트 진행 보드</div>
               <div style={{marginLeft:'auto',display:'flex',gap:6}}>
                 <Pill color="#00ff88">⚖ {readyCnt}명 READY</Pill>
+                {noShowCnt>0&&<Pill color="#ff3d71">❌ {noShowCnt}명 부재</Pill>}
                 {/* CAM 빨간 LED 표시 */}
                 <div style={{display:'flex',alignItems:'center',gap:4,fontSize:11,padding:'3px 10px',borderRadius:20,
                   background:'rgba(255,61,113,.12)',border:'1px solid rgba(255,61,113,.4)',color:'#ff3d71',fontWeight:700}}>
@@ -721,8 +723,10 @@ function CourtLayout({curHeat,layout,cMode,judges,cameras}){
     const jOnline=js.online&&now-js.lastSeen<15000;
     const cOnline=cs.online&&now-cs.lastSeen<15000;
     const submitted=js.submitted;const ready=js.ready;
+    const noShow=js.athleteStatus==='no_show';
     let bg='rgba(255,255,255,.03)',bdr='rgba(255,255,255,.08)';
-    if(submitted){bg='rgba(0,255,136,.1)';bdr='rgba(0,255,136,.6)';}
+    if(noShow){bg='rgba(255,61,113,.18)';bdr='rgba(255,61,113,.7)';}
+    else if(submitted){bg='rgba(0,255,136,.1)';bdr='rgba(0,255,136,.6)';}
     else if(ready){bg='rgba(0,255,136,.06)';bdr='rgba(0,255,136,.35)';}
     else if(ath){bg='rgba(0,229,255,.04)';bdr='rgba(0,229,255,.25)';}
     return(
@@ -764,7 +768,8 @@ function CourtLayout({curHeat,layout,cMode,judges,cameras}){
               <span style={{fontSize:11,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{ath.name}</span>
             </div>
             <div style={{fontSize:9,color:'rgba(255,255,255,.3)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginTop:1}}>{ath.club||''}</div>
-            {ready&&!submitted&&<div style={{marginTop:3,fontSize:9,fontWeight:700,color:'#ffd60a',background:'rgba(255,214,10,.1)',padding:'1px 5px',borderRadius:3,display:'inline-block'}}>✋ READY</div>}
+            {noShow&&<div style={{marginTop:3,fontSize:9,fontWeight:800,color:'#fff',background:'#ff3d71',padding:'2px 6px',borderRadius:3,display:'inline-block',letterSpacing:'.05em'}}>❌ 선수 부재</div>}
+            {!noShow&&ready&&!submitted&&<div style={{marginTop:3,fontSize:9,fontWeight:700,color:'#ffd60a',background:'rgba(255,214,10,.1)',padding:'1px 5px',borderRadius:3,display:'inline-block'}}>✋ READY</div>}
           </>
         ):(<div style={{fontSize:20,color:'rgba(255,255,255,.1)',textAlign:'center',marginTop:8}}>✕</div>)}
       </div>

@@ -56,6 +56,13 @@ html,body{height:100dvh;overflow:hidden;background:var(--bg);color:var(--tx);fon
 .ath-name{font-size:16px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .ath-club{font-size:10px;color:#718096;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
+/* 선수 부재 토글 */
+.noshow-btn{flex-shrink:0;padding:6px 10px;font-size:11px;font-weight:700;border-radius:8px;border:1.5px solid rgba(255,61,113,.4);background:rgba(255,61,113,.1);color:var(--ac2);cursor:pointer;transition:all .15s;}
+.noshow-btn:active{transform:scale(.94);}
+.noshow-btn.on{background:var(--ac2);color:#fff;border-color:var(--ac2);}
+.ath-bar.no-show{background:rgba(255,61,113,.08);border-bottom-color:rgba(255,61,113,.3);}
+.ath-bar.no-show .ath-name{color:#94a3b8;text-decoration:line-through;}
+
 /* ━━━ 버튼 레이아웃 ━━━ */
 .judge-body{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;}
 
@@ -142,12 +149,13 @@ html,body{height:100dvh;overflow:hidden;background:var(--bg);color:var(--tx);fon
     </div>
   </div>
   <!-- 선수 -->
-  <div class="ath-bar">
+  <div class="ath-bar" id="ath-bar">
     <div class="ath-bib" id="ath-bib">#—</div>
     <div class="ath-info">
       <div class="ath-name" id="ath-name">선수 대기 중...</div>
       <div class="ath-club" id="ath-club">—</div>
     </div>
+    <button class="noshow-btn" id="btn-noshow" type="button" onclick="toggleNoShow()" title="선수 부재 신호 — 운영자에게 즉시 전달">❌ 선수 부재</button>
   </div>
 
   <div class="judge-body">
@@ -340,12 +348,14 @@ function connectFirebase(){
 }
 
 function resetJudgeState(){
-  // Firebase에서 이전 히트 ready/submitted 상태 제거
+  // Firebase에서 이전 히트 ready/submitted/athleteStatus 상태 제거
   db.ref(`${roomId}/monitoring/judges/${courtId}`).update({
-    ready:false,submitted:false,score:null,ts:Date.now()
-  });
+    ready:false,submitted:false,score:null,athleteStatus:'pending',ts:Date.now()
+  }).catch(e=>console.warn('reset 실패',e));
   isReady=false;
+  athleteStatus='pending';
   updateReadyBtn();
+  updateNoShowBtn();
   clearCount();
 }
 
@@ -449,14 +459,58 @@ function handleTap(e){
 
 // 준비
 function toggleReady(){
+  // no-show 상태에서는 ready 토글 차단 — 부재 토글 먼저 해제해야 함
+  if(athleteStatus==='no_show'){
+    showToast('⚠ 선수 부재 상태입니다. 먼저 해제하세요.');
+    return;
+  }
   isReady=!isReady;updateReadyBtn();
-  db.ref(`${roomId}/monitoring/judges/${courtId}`).update({ready:isReady,judgeName,court:courtId,ts:Date.now()});
+  // 입장 신호 (QR 진입 후 첫 ready → athleteStatus='arrived')
+  const update={ready:isReady,judgeName,court:courtId,ts:Date.now()};
+  if(isReady)update.athleteStatus='arrived';
+  db.ref(`${roomId}/monitoring/judges/${courtId}`).update(update)
+    .catch(e=>showToast('동기화 실패: '+(e.message||'네트워크 확인')));
   showToast(isReady?'✅ 준비 완료 전송':'⏸ 준비 취소');
 }
 function updateReadyBtn(){
   const btn=document.getElementById('btn-ready');
   btn.textContent=isReady?'✅ 준비됨':'✋ 준비 완료';
   btn.classList.toggle('on',isReady);
+}
+
+// 선수 부재 — 운영자에게 "이 코트 선수 안 옴" 신호.
+//   operator 화면이 monitoring/judges/{courtId}/athleteStatus 를 읽어
+//   해당 코트를 빨간 표시 → skip / 재호명 결정.
+let athleteStatus='pending';  // 'pending' | 'arrived' | 'no_show'
+function toggleNoShow(){
+  const next=(athleteStatus==='no_show')?'pending':'no_show';
+  if(next==='no_show'){
+    if(!confirm('선수가 코트에 없습니까?\n운영자에게 즉시 알립니다.'))return;
+    // no-show 시 ready 자동 해제 (시작 차단)
+    if(isReady){isReady=false;updateReadyBtn();}
+  }
+  athleteStatus=next;
+  updateNoShowBtn();
+  db.ref(`${roomId}/monitoring/judges/${courtId}`).update({
+    athleteStatus:next,
+    ready:isReady,
+    judgeName,court:courtId,ts:Date.now(),
+  }).catch(e=>showToast('동기화 실패: '+(e.message||'네트워크 확인')));
+  showToast(next==='no_show'?'❌ 선수 부재 — 운영자에게 알림':'✓ 선수 부재 해제');
+}
+function updateNoShowBtn(){
+  const btn=document.getElementById('btn-noshow');
+  const bar=document.getElementById('ath-bar');
+  if(!btn||!bar)return;
+  if(athleteStatus==='no_show'){
+    btn.textContent='✓ 부재 해제';
+    btn.classList.add('on');
+    bar.classList.add('no-show');
+  }else{
+    btn.textContent='❌ 선수 부재';
+    btn.classList.remove('on');
+    bar.classList.remove('no-show');
+  }
 }
 
 // 제출 — atomic multi-path update + confirmation + idempotency.
