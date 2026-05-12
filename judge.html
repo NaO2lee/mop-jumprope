@@ -271,6 +271,7 @@ function startApp(){
   document.getElementById('s-main').classList.add('show');
   connectFirebase();
   startHeartbeat();
+  recomputeGate();  // 초기 상태(idle)에서 버튼 비활성으로 표시
 }
 
 function connectFirebase(){
@@ -292,6 +293,9 @@ function connectFirebase(){
     if(!v||v.ts===lastSignalTs||Date.now()-v.ts>5000)return;
     lastSignalTs=v.ts;
     playSignal(v.type);
+    // 신호로 카운트 게이트 즉시 갱신 — heatStatus 가 finished 로 안 바뀌어도 비프와 동시에 차단됨
+    if(v.type==='start'){currentHeatStatus='racing';recomputeGate();}
+    else if(v.type==='end'){currentHeatStatus='finished';recomputeGate();}
   });
 
   loadHeatData();
@@ -376,25 +380,53 @@ function loadHeatData(){
   });
 }
 
+// 카운트 게이트 — 서버(operator) 신호 기준으로만 카운팅 허용.
+//   racing 상태에서만 +1 버튼 활성화. idle/calling/finished 면 비활성 (탭해도 무시).
+//   end 신호 들어오면 즉시 차단 (heatStatus 가 finished 로 안 바뀌어도 안전).
+let currentHeatStatus='idle';
+let gateOpen=false;
+function recomputeGate(){
+  gateOpen=(currentHeatStatus==='racing');
+  const btn=document.getElementById('btn-plus1');
+  if(!btn)return;
+  if(gateOpen){
+    btn.style.opacity='1';
+    btn.style.background='rgba(0,229,255,.15)';
+    btn.style.cursor='pointer';
+    btn.style.filter='';
+  }else{
+    btn.style.opacity='.35';
+    btn.style.background='rgba(74,85,104,.18)';
+    btn.style.cursor='not-allowed';
+    btn.style.filter='grayscale(.6)';
+  }
+}
+
 function updateHeatState(state){
   const el=document.getElementById('hstate');
   const map={idle:{c:'h-idle',t:'⏸ 대기'},calling:{c:'h-calling',t:'📢 소집'},racing:{c:'h-racing',t:'▶ 진행 중'},finished:{c:'h-finished',t:'✓ 완료'}};
   const s=map[state]||map.idle;
   el.className='hstate-pill '+s.c;el.textContent=s.t;
-  // 진행 시작 시 +1 버튼 강조
-  document.getElementById('btn-plus1').style.background=
-    state==='racing'?'rgba(0,229,255,.15)':'rgba(0,229,255,.09)';
+  currentHeatStatus=state;
+  recomputeGate();
 }
 
-// 카운팅
+// 카운팅 — gateOpen 인 동안만 +n 허용 (n<0 은 운영 보정용으로 항상 허용).
 function addCount(n){
+  if(n>0&&!gateOpen){
+    showToast('⏸ 시작 신호 대기 / 경기 종료됨');
+    return;
+  }
   count=Math.max(0,count+n);
   document.getElementById('count-sm').textContent=count;
-  db.ref(`${roomId}/monitoring/judges/${courtId}/liveCount`).set(count);
+  db.ref(`${roomId}/monitoring/judges/${courtId}/liveCount`).set(count)
+    .catch(e=>console.warn('liveCount 동기화 실패',e));
   // 버튼 플래시
   const btn=document.getElementById('btn-plus1');
-  btn.style.filter=n>0?'brightness(1.5)':'brightness(.7)';
-  setTimeout(()=>btn.style.filter='',100);
+  if(gateOpen){
+    btn.style.filter=n>0?'brightness(1.5)':'brightness(.7)';
+    setTimeout(()=>recomputeGate(),100);
+  }
 }
 function clearCount(){count=0;document.getElementById('count-sm').textContent=0;}
 // 이중 카운트 방지:
