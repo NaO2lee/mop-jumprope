@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>MOP 집계 — 모두의 플레이</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@500;700&family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7f8fc;
+  --sur:#ffffff;
+  --sur2:#ffffff;
+  --sur3:#f1f3f9;
+  --sur4:#e9ecf3;
+  --ac:#3b5bdb;
+  --ac-soft:#dbe4ff;
+  --ac2:#e03131;
+  --ac2-soft:#ffe3e3;
+  --gn:#2b8a3e;
+  --gn-soft:#d3f9d8;
+  --yw:#e67700;
+  --yw-soft:#fff4e6;
+  --pu:#7048e8;
+  --pu-soft:#e5dbff;
+  --bl:#1971c2;
+  --bl-soft:#d0ebff;
+  --tx:#1a1d2e;
+  --tx2:#3d4153;
+  --mu:#6c7086;
+  --mu2:#878c9b;
+  --bdr:#e0e3eb;
+  --bdr2:#cdd2dc;
+  --shadow:0 1px 3px rgba(0,0,0,.05);
+  --shadow-lg:0 4px 12px rgba(0,0,0,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--tx);font-family:'Pretendard',sans-serif;min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+.fd{font-family:'Bebas Neue',sans-serif;letter-spacing:.05em}
+.fm{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums}
+
+header{background:var(--sur);border-bottom:1px solid var(--bdr);padding:0 20px;height:58px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--ac);letter-spacing:.1em}
+.subtitle{font-size:13px;color:var(--mu);font-weight:500}
+.hdr-r{margin-left:auto;display:flex;align-items:center;gap:10px}
+.hdr-info{font-size:12px;color:var(--mu)}
+.hdr-info b{color:var(--tx);font-weight:600}
+
+.tabs{display:flex;border-bottom:1px solid var(--bdr);background:var(--sur);padding:0 20px;overflow-x:auto;flex-shrink:0;position:sticky;top:58px;z-index:99}
+.tab{padding:0 18px;height:50px;display:flex;align-items:center;font-size:14px;font-weight:600;color:var(--mu);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;gap:6px;background:none;font-family:inherit}
+.tab:hover{color:var(--tx)}
+.tab.active{color:var(--ac);border-bottom-color:var(--ac)}
+.tab-badge{background:var(--ac);color:#fff;border-radius:20px;padding:2px 8px;font-size:12px;font-weight:800;min-width:22px;text-align:center}
+.tab-badge.warn{background:var(--yw)}
+.tab-badge.danger{background:var(--ac2)}
+
+.view{display:none;padding:20px;max-width:1600px;margin:0 auto}
+.view.show{display:block}
+
+.card{background:var(--sur2);border:1px solid var(--bdr);border-radius:12px;padding:18px;box-shadow:var(--shadow);margin-bottom:14px}
+.card-title{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mu);margin-bottom:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+@media (max-width:900px){.grid-4{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:1fr}}
+
+.stat{background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;padding:14px;box-shadow:var(--shadow);transition:all .15s}
+.stat:hover{box-shadow:var(--shadow-lg);transform:translateY(-1px)}
+.stat .num{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--ac);line-height:1;letter-spacing:.02em}
+.stat .lbl{font-size:12px;color:var(--mu);margin-top:6px;font-weight:600}
+.stat .ic{font-size:18px;margin-bottom:4px}
+.stat.success .num{color:var(--gn)}
+.stat.warn .num{color:var(--yw)}
+.stat.danger .num{color:var(--ac2)}
+.stat.purple .num{color:var(--pu)}
+.stat.blue .num{color:var(--bl)}
+
+.btn{padding:8px 14px;background:var(--sur2);border:1.5px solid var(--bdr);color:var(--tx);border-radius:8px;font-family:'Pretendard',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--bdr2);background:var(--sur3)}
+.btn.lg{padding:10px 18px;font-size:14px}
+.btn.sm{padding:5px 9px;font-size:12px}
+.btn.primary{background:var(--ac);color:#fff;border-color:var(--ac)}
+.btn.primary:hover{background:#2f4dcc;border-color:#2f4dcc}
+.btn.danger{background:var(--ac2-soft);color:var(--ac2);border-color:#ffc9c9}
+.btn.danger:hover{background:var(--ac2);color:#fff;border-color:var(--ac2)}
+.btn.warn{background:var(--yw-soft);color:var(--yw);border-color:#ffd8a8}
+.btn.warn:hover{background:var(--yw);color:#fff;border-color:var(--yw)}
+.btn.success{background:var(--gn-soft);color:var(--gn);border-color:#b2f2bb}
+.btn.success:hover{background:var(--gn);color:#fff;border-color:var(--gn)}
+.btn.blue{background:var(--bl-soft);color:var(--bl);border-color:#a5d8ff}
+.btn.blue:hover{background:var(--bl);color:#fff;border-color:var(--bl)}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+
+.inp{background:var(--sur);border:1.5px solid var(--bdr);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--tx);font-family:'Pretendard',sans-serif;outline:none;transition:all .15s;width:100%}
+.inp:hover{border-color:var(--bdr2)}
+.inp:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-soft)}
+.inp.sm{padding:6px 10px;font-size:12px}
+select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path fill='%236c7086' d='M6 9L1 4h10z'/></svg>");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+
+.filter-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;padding:12px;background:var(--sur3);border-radius:10px}
+.filter-bar label{font-size:12px;color:var(--mu);font-weight:600}
+.filter-bar .inp{width:auto;min-width:140px}
+
+.table-wrap{overflow:auto;border:1px solid var(--bdr);border-radius:10px;max-height:650px}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:1000px}
+th{text-align:left;padding:11px 12px;background:var(--sur3);color:var(--tx);font-weight:700;border-bottom:2px solid var(--bdr);position:sticky;top:0;z-index:1;white-space:nowrap;font-size:12px}
+td{padding:10px 12px;border-bottom:1px solid var(--bdr);vertical-align:middle;color:var(--tx2)}
+tr:hover td{background:var(--sur3)}
+tr.row-protest{background:#fff8e1}
+tr.row-protest:hover td{background:#fff3cd}
+tr.row-rematch{background:#e7f5ff}
+tr.row-rematch:hover td{background:#d0ebff}
+tr.row-dq{background:#fff5f5;color:var(--mu2)}
+tr.row-dq td{text-decoration:line-through}
+tr.row-edited{background:#ebfbee}
+
+.badge{display:inline-block;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:.02em}
+.badge-normal{background:var(--sur3);color:var(--mu);border:1px solid var(--bdr)}
+.badge-edited{background:var(--gn-soft);color:var(--gn)}
+.badge-protest{background:var(--yw-soft);color:var(--yw)}
+.badge-rematch{background:var(--bl-soft);color:var(--bl)}
+.badge-dq{background:var(--ac2-soft);color:var(--ac2)}
+
+.alert{padding:14px 16px;background:var(--yw-soft);border:1px solid #ffd8a8;border-left:4px solid var(--yw);border-radius:8px;margin-bottom:14px;color:var(--tx2);font-size:13px;line-height:1.6}
+.alert.error{background:var(--ac2-soft);border-color:#ffc9c9;border-left-color:var(--ac2)}
+.alert.success{background:var(--gn-soft);border-color:#b2f2bb;border-left-color:var(--gn)}
+.alert.info{background:var(--ac-soft);border-color:#bac8ff;border-left-color:var(--ac)}
+.alert .title{font-weight:700;margin-bottom:6px;display:block;color:var(--tx)}
+
+.modal{position:fixed;inset:0;background:rgba(26,29,46,.5);backdrop-filter:blur(4px);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px}
+.modal.show{display:flex}
+.modal-content{background:var(--sur);border:1px solid var(--bdr);border-radius:14px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg)}
+.modal-header{padding:18px 22px;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center}
+.modal-header h2{font-size:17px;color:var(--tx);font-weight:700}
+.modal-body{padding:22px}
+.modal-footer{padding:14px 22px;border-top:1px solid var(--bdr);display:flex;gap:8px;justify-content:flex-end;background:var(--sur3);border-radius:0 0 14px 14px}
+.close-btn{background:none;border:none;color:var(--mu);font-size:24px;cursor:pointer;padding:0 4px;line-height:1}
+.close-btn:hover{color:var(--tx)}
+
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;color:var(--tx2);margin-bottom:5px;font-weight:600}
+.field label .req{color:var(--ac2)}
+.field input,.field select,.field textarea{width:100%;padding:9px 12px;background:var(--sur);border:1.5px solid var(--bdr);border-radius:8px;color:var(--tx);font-family:'Pretendard',sans-serif;font-size:13px;outline:none;transition:all .15s}
+.field textarea{min-height:80px;resize:vertical}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-soft)}
+.field input:read-only{background:var(--sur3);color:var(--mu)}
+
+.toast{position:fixed;bottom:24px;right:24px;background:var(--sur);border:1px solid var(--bdr);border-left:4px solid var(--ac);padding:14px 18px;border-radius:10px;z-index:2000;color:var(--tx);font-size:13px;box-shadow:var(--shadow-lg);animation:slideIn .25s;font-weight:500}
+.toast.error{border-left-color:var(--ac2)}
+.toast.success{border-left-color:var(--gn)}
+@keyframes slideIn{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
+
+.log-item{padding:12px 14px;background:var(--sur);border:1px solid var(--bdr);border-left:3px solid var(--ac);margin-bottom:8px;border-radius:8px;font-size:13px}
+.log-item .time{color:var(--mu);font-size:11px;font-weight:500}
+.log-item .action{color:var(--ac);font-weight:700;margin:3px 0;font-size:13px}
+.log-item .detail{color:var(--tx2);line-height:1.5}
+.log-item .editor{font-size:11px;color:var(--mu2);margin-top:4px}
+.log-item.log-protest{border-left-color:var(--yw)}
+.log-item.log-protest .action{color:var(--yw)}
+.log-item.log-rematch{border-left-color:var(--bl)}
+.log-item.log-rematch .action{color:var(--bl)}
+.log-item.log-dq{border-left-color:var(--ac2)}
+.log-item.log-dq .action{color:var(--ac2)}
+
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;flex-shrink:0}
+.dot.green{background:var(--gn);box-shadow:0 0 0 2px var(--gn-soft)}
+.dot.amber{background:var(--yw);box-shadow:0 0 0 2px var(--yw-soft)}
+.dot.red{background:var(--ac2);box-shadow:0 0 0 2px var(--ac2-soft)}
+.dot.blue{background:var(--bl);box-shadow:0 0 0 2px var(--bl-soft)}
+
+.empty{text-align:center;padding:50px 20px;color:var(--mu2)}
+.empty .ic{font-size:42px;margin-bottom:10px;opacity:.6}
+.empty .text{font-size:14px;color:var(--mu);font-weight:600}
+.empty .sub{font-size:12px;margin-top:4px;color:var(--mu2)}
+
+/* 이의제기 카드 */
+.protest-card{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:16px;margin-bottom:10px;box-shadow:var(--shadow)}
+.protest-card.reviewing{border-left:4px solid var(--yw)}
+.protest-card.accepted{border-left:4px solid var(--gn)}
+.protest-card.rejected{border-left:4px solid var(--ac2)}
+.protest-card .pc-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.protest-card .pc-title{font-size:14px;font-weight:700;color:var(--tx)}
+.protest-card .pc-meta{font-size:11px;color:var(--mu);margin-top:2px}
+.protest-card .pc-body{font-size:13px;line-height:1.7;color:var(--tx2)}
+.protest-card .pc-body strong{color:var(--tx);font-weight:600}
+.protest-card .pc-note{background:var(--ac-soft);padding:10px 12px;border-radius:8px;margin-top:10px;font-size:12px}
+.protest-card .pc-note strong{color:var(--ac)}
+
+/* 재경기 카드 */
+.tie-card{background:var(--sur);border:1px solid var(--bdr);border-left:4px solid var(--bl);border-radius:10px;padding:16px;margin-bottom:10px;box-shadow:var(--shadow)}
+.tie-card .tie-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.tie-card .tie-title{font-size:14px;font-weight:700;color:var(--tx);display:flex;align-items:center;gap:8px}
+.tie-card .tie-score{font-family:'Bebas Neue';font-size:22px;color:var(--bl);letter-spacing:.02em}
+.tie-card .tie-body{background:var(--sur3);border-radius:8px;padding:10px}
+.tie-card .tie-row{display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid var(--bdr);gap:10px}
+.tie-card .tie-row:last-child{border-bottom:none}
+.tie-card .tie-info{font-size:13px;color:var(--tx2)}
+.tie-card .tie-info strong{color:var(--tx)}
+.tie-card .tie-info .sub{color:var(--mu);font-size:11px;margin-left:6px}
+.tie-card .tie-hint{font-size:11px;color:var(--mu);margin-top:10px;padding:8px 10px;background:var(--ac-soft);border-radius:6px;color:var(--ac)}
+
+/* score-tiny */
+.scr-tiny{font-family:'Bebas Neue';font-size:14px;color:var(--mu)}
+.scr-final{font-family:'Bebas Neue';font-size:17px;color:var(--ac);font-weight:700}
+.scr-orig{font-family:'Bebas Neue';font-size:14px;color:var(--mu)}
+.scr-final .subscript{font-size:10px;color:var(--mu);font-weight:400;font-family:'Pretendard'}
+
+.rank-pill{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;font-family:'Bebas Neue';font-size:14px;font-weight:700;color:#fff;background:var(--mu2)}
+.rank-pill.r1{background:linear-gradient(135deg,#ffd700,#ffaa00);color:#1a1d2e}
+.rank-pill.r2{background:linear-gradient(135deg,#c0c0c0,#8e9092);color:#1a1d2e}
+.rank-pill.r3{background:linear-gradient(135deg,#cd7f32,#a05a23);color:#fff}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">🏆 MOP</span>
+  <span class="subtitle">집계 대시보드</span>
+  <div class="hdr-r">
+    <div class="hdr-info">ROOM <b id="room-id">-</b></div>
+    <div class="hdr-info">동기화 <b id="last-sync">-</b></div>
+    <button class="btn sm" onclick="manualRefresh()">🔄 새로고침</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" data-view="dashboard" onclick="switchTab('dashboard')">📊 대시보드</button>
+  <button class="tab" data-view="scores" onclick="switchTab('scores')">📝 점수 관리 <span class="tab-badge" id="badge-issues">0</span></button>
+  <button class="tab" data-view="rankings" onclick="switchTab('rankings')">🥇 종합 순위</button>
+  <button class="tab" data-view="protests" onclick="switchTab('protests')">⚠️ 이의제기 <span class="tab-badge warn" id="badge-protests">0</span></button>
+  <button class="tab" data-view="rematch" onclick="switchTab('rematch')">🔄 동순위/재경기 <span class="tab-badge warn" id="badge-rematch">0</span></button>
+  <button class="tab" data-view="logs" onclick="switchTab('logs')">📜 수정 이력</button>
+</div>
+
+<!-- 대시보드 -->
+<div class="view show" id="view-dashboard">
+  <div class="grid-4">
+    <div class="stat"><div class="ic">👥</div><div class="num" id="s-athletes">0</div><div class="lbl">총 참가자</div></div>
+    <div class="stat blue"><div class="ic">📋</div><div class="num" id="s-heats">0</div><div class="lbl">총 히트</div></div>
+    <div class="stat success"><div class="ic">✅</div><div class="num" id="s-scores">0</div><div class="lbl">제출된 점수</div></div>
+    <div class="stat purple"><div class="ic">📍</div><div class="num" id="s-progress">0/0</div><div class="lbl">진행 상황</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">⚡ 빠른 작업</div>
+    <div class="btn-row">
+      <button class="btn lg" onclick="switchTab('scores')">📝 점수 관리</button>
+      <button class="btn lg warn" onclick="switchTab('protests')">⚠️ 이의제기 처리</button>
+      <button class="btn lg blue" onclick="switchTab('rematch')">🔄 동순위 확인</button>
+      <button class="btn lg success" onclick="recalculateAll()">🔄 전체 재계산</button>
+    </div>
+  </div>
+
+  <div id="dashboard-alerts"></div>
+</div>
+
+<!-- 점수 관리 -->
+<div class="view" id="view-scores">
+  <div class="card">
+    <div class="card-title">📝 점수 관리 (이의제기·재경기·실격 처리)</div>
+    <div class="filter-bar">
+      <label>히트</label>
+      <select class="inp" id="filter-heat" onchange="renderScores()" style="min-width:200px"><option value="">전체</option></select>
+      <label>종목</label>
+      <select class="inp" id="filter-event" onchange="renderScores()" style="min-width:160px"><option value="">전체</option></select>
+      <label>상태</label>
+      <select class="inp" id="filter-status" onchange="renderScores()" style="min-width:120px">
+        <option value="">전체</option>
+        <option value="normal">정상</option>
+        <option value="edited">수정됨</option>
+        <option value="protest">이의제기</option>
+        <option value="rematch">재경기</option>
+        <option value="disqualified">실격</option>
+      </select>
+      <input type="text" class="inp" id="filter-search" placeholder="🔍 배번·이름·소속" oninput="renderScores()" style="min-width:200px">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>히트</th><th>코트</th><th>배번</th><th>이름</th><th>소속(팀)</th><th>부서/성별</th><th>종목</th><th>원점수</th><th>최종점수</th><th>상태</th><th>심판</th><th>작업</th></tr></thead>
+        <tbody id="scores-tbody"><tr><td colspan="12" class="empty">데이터 로딩 중...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- 종합 순위 -->
+<div class="view" id="view-rankings">
+  <div class="card">
+    <div class="card-title">🥇 종합 순위 (실시간 자동 계산)</div>
+    <div class="alert info">💡 종목+부서+성별별 자동 순위 계산. 재경기/수정 점수 반영, 실격 제외. Part 2에서 시상등급 분류 추가됩니다.</div>
+    <div class="filter-bar">
+      <label>종목+부서</label>
+      <select class="inp" id="rank-group" onchange="renderRankings()" style="min-width:340px"><option value="">선택...</option></select>
+    </div>
+    <div id="rankings-content"></div>
+  </div>
+</div>
+
+<!-- 이의제기 -->
+<div class="view" id="view-protests">
+  <div class="card">
+    <div class="card-title">⚠️ 이의제기 처리</div>
+    <div class="alert">
+      <span class="title">📋 처리 흐름</span>
+      ① 참가팀 지도자가 현장에서 이의제기 → 운영자가 시스템에 등록<br>
+      ② 판독부에서 영상 판독 → 결과 입력 (인정/기각)<br>
+      ③ 처리 결과가 자동으로 결과 페이지에 반영
+    </div>
+    <div class="btn-row" style="margin-bottom:14px">
+      <button class="btn primary" onclick="openProtestModal()">➕ 이의제기 등록</button>
+    </div>
+    <div id="protests-content"></div>
+  </div>
+</div>
+
+<!-- 동순위/재경기 -->
+<div class="view" id="view-rematch">
+  <div class="card">
+    <div class="card-title">🔄 동순위 알림 & 재경기 결과 입력</div>
+    <div class="alert info">
+      <span class="title">📋 처리 흐름</span>
+      ① 시스템이 1-3위 동순위 자동 감지<br>
+      ② 개인전(2인 포함): 공동 시상 (재경기 없음)<br>
+      ③ 3,4인전 + 단체전: 30초 재경기 → 결과 입력<br>
+      ④ 재경기 점수가 최종 순위에 반영
+    </div>
+    <div id="rematch-content"></div>
+  </div>
+</div>
+
+<!-- 수정 이력 -->
+<div class="view" id="view-logs">
+  <div class="card">
+    <div class="card-title">📜 점수 수정 이력 (자동 로그)</div>
+    <div id="logs-content"></div>
+  </div>
+</div>
+
+<!-- 점수 수정 모달 -->
+<div class="modal" id="modal-edit">
+  <div class="modal-content">
+    <div class="modal-header"><h2>✏️ 점수 수정</h2><button class="close-btn" onclick="closeModal('modal-edit')">×</button></div>
+    <div class="modal-body">
+      <div class="alert info" id="edit-info"></div>
+      <div class="field"><label>현재 점수</label><input type="number" id="edit-current" readonly></div>
+      <div class="field"><label>새 점수 <span class="req">*</span></label><input type="number" id="edit-new" placeholder="수정할 점수 입력"></div>
+      <div class="field"><label>수정 사유 <span class="req">*</span></label><textarea id="edit-reason" placeholder="예: 영상 판독 결과 67회로 정정"></textarea></div>
+      <div class="field"><label>처리자 <span class="req">*</span></label><input type="text" id="edit-editor" placeholder="이름 또는 직책"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-edit')">취소</button>
+      <button class="btn primary" onclick="confirmEdit()">💾 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 이의제기 모달 -->
+<div class="modal" id="modal-protest">
+  <div class="modal-content">
+    <div class="modal-header"><h2>⚠️ 이의제기 등록 / 판독 결과 입력</h2><button class="close-btn" onclick="closeModal('modal-protest')">×</button></div>
+    <div class="modal-body">
+      <div class="field"><label>히트번호 / 코트 <span class="req">*</span></label>
+        <div style="display:flex;gap:8px">
+          <select class="inp" id="protest-heat" onchange="updateProtestCourts()" style="flex:1"><option value="">히트 선택</option></select>
+          <select class="inp" id="protest-court" style="flex:1"><option value="">코트 선택</option></select>
+        </div>
+      </div>
+      <div class="field"><label>이의제기 팀 <span class="req">*</span></label><input type="text" id="protest-team" placeholder="예: 한솔JMC"></div>
+      <div class="field"><label>이의제기 사유 <span class="req">*</span></label><textarea id="protest-reason" placeholder="예: 25초 부근 1회 누락"></textarea></div>
+      <div class="field"><label>판독 결과 (영상 판독 후 입력)</label>
+        <select class="inp" id="protest-status">
+          <option value="reviewing">🔍 검토 중 (등록만)</option>
+          <option value="accepted">✅ 인정 - 점수 수정</option>
+          <option value="rejected">❌ 기각 - 원점수 유지</option>
+        </select>
+      </div>
+      <div class="field" id="protest-new-score-field" style="display:none"><label>수정 점수</label><input type="number" id="protest-new-score"></div>
+      <div class="field"><label>판독 의견</label><textarea id="protest-reviewer-note" placeholder="예: 영상 검토 결과 인정됨, 25-26초 사이 1회 누락 확인"></textarea></div>
+      <div class="field"><label>처리자</label><input type="text" id="protest-editor" placeholder="예: 판독부 김OO"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-protest')">취소</button>
+      <button class="btn primary" onclick="confirmProtest()">💾 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 재경기 모달 -->
+<div class="modal" id="modal-rematch">
+  <div class="modal-content">
+    <div class="modal-header"><h2>🔄 재경기 결과 입력</h2><button class="close-btn" onclick="closeModal('modal-rematch')">×</button></div>
+    <div class="modal-body">
+      <div class="alert" id="rematch-info" style="background:var(--bl-soft);border-color:#a5d8ff;border-left-color:var(--bl)"></div>
+      <div class="field"><label>재경기 점수 <span class="req">*</span></label><input type="number" id="rematch-score" placeholder="30초 재경기 결과"></div>
+      <div class="field"><label>재경기 사유</label><input type="text" id="rematch-reason" value="1위 동순위 재경기"></div>
+      <div class="field"><label>처리자 <span class="req">*</span></label><input type="text" id="rematch-editor" placeholder="이름 또는 직책"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-rematch')">취소</button>
+      <button class="btn primary" onclick="confirmRematch()">💾 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 실격 모달 -->
+<div class="modal" id="modal-dq">
+  <div class="modal-content">
+    <div class="modal-header"><h2>❌ 실격 처리</h2><button class="close-btn" onclick="closeModal('modal-dq')">×</button></div>
+    <div class="modal-body">
+      <div class="alert error" id="dq-info"></div>
+      <div class="field"><label>실격 사유 <span class="req">*</span></label><textarea id="dq-reason" placeholder="예: 부정 출발 3회, 줄 규격 위반 등"></textarea></div>
+      <div class="field"><label>처리자 <span class="req">*</span></label><input type="text" id="dq-editor" placeholder="이름 또는 직책"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-dq')">취소</button>
+      <button class="btn danger" onclick="confirmDQ()">❌ 실격 처리</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDOrKZDSNiA4sLnkNBiLVehE8xtrU-2JLY",
+  databaseURL: "https://mop-jumprope-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "mop-jumprope",
+  appId: "1:875740425909:web:59768e633b7a42733918fc"
+};
+const ROOM = new URLSearchParams(location.search).get('room') || 'room_001';
+
+let heatsData = {}, athletesData = {};
+let editTarget = null, rematchTarget = null, dqTarget = null;
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const db = firebase.database();
+document.getElementById('room-id').textContent = ROOM;
+
+db.ref(`${ROOM}/heats`).on('value', snap => {
+  heatsData = snap.val() || {};
+  document.getElementById('last-sync').textContent = new Date().toLocaleTimeString('ko-KR');
+  updateUI();
+});
+db.ref(`${ROOM}/athletes`).on('value', snap => {
+  athletesData = snap.val() || {};
+  updateUI();
+});
+
+function updateUI() {
+  updateDashboard();
+  populateFilters();
+  const active = document.querySelector('.tab.active')?.dataset.view;
+  if (active === 'scores') renderScores();
+  if (active === 'rankings') renderRankings();
+  if (active === 'protests') renderProtests();
+  if (active === 'rematch') renderRematch();
+  if (active === 'logs') renderLogs();
+}
+
+function updateDashboard() {
+  const heats = Object.values(heatsData);
+  let totalScores = 0, currentHeat = 0;
+  const issues = { protest: 0, dq: 0, edited: 0 };
+  heats.forEach(h => {
+    Object.values(h.courts || {}).forEach(c => {
+      if (c.score !== undefined && c.score !== null) totalScores++;
+      if (c.status === 'protest') issues.protest++;
+      if (c.status === 'disqualified') issues.dq++;
+      if (c.scoreEdited !== undefined) issues.edited++;
+    });
+  });
+  const sortedHeats = heats.slice().sort((a, b) => (a.no || 0) - (b.no || 0));
+  for (let i = sortedHeats.length - 1; i >= 0; i--) {
+    if (Object.values(sortedHeats[i].courts || {}).some(c => c.score !== undefined && c.score !== null)) {
+      currentHeat = sortedHeats[i].no || (i + 1); break;
+    }
+  }
+  document.getElementById('s-athletes').textContent = Object.keys(athletesData).length;
+  document.getElementById('s-heats').textContent = heats.length;
+  document.getElementById('s-scores').textContent = totalScores;
+  document.getElementById('s-progress').textContent = `${currentHeat}/${heats.length}`;
+  document.getElementById('badge-issues').textContent = issues.protest + issues.dq;
+  document.getElementById('badge-protests').textContent = issues.protest;
+  const ties = detectTies();
+  document.getElementById('badge-rematch').textContent = ties.length;
+  const alerts = document.getElementById('dashboard-alerts');
+  let html = '';
+  if (issues.protest > 0) html += `<div class="alert"><span class="title">⚠️ 미처리 이의제기 ${issues.protest}건</span>판독부 검토가 필요합니다. <button class="btn sm warn" onclick="switchTab('protests')" style="margin-top:6px">처리하러 가기 →</button></div>`;
+  if (ties.length > 0) html += `<div class="alert info"><span class="title">🔄 동순위 발견 ${ties.length}건</span>재경기 처리가 필요합니다. <button class="btn sm blue" onclick="switchTab('rematch')" style="margin-top:6px">확인하러 가기 →</button></div>`;
+  if (issues.edited > 0) html += `<div class="alert success"><span class="title">✏️ 수정된 점수 ${issues.edited}건</span>판독 결과가 반영되었습니다.</div>`;
+  alerts.innerHTML = html;
+}
+
+function populateFilters() {
+  const heatSel = document.getElementById('filter-heat');
+  const protHeatSel = document.getElementById('protest-heat');
+  const currentHeat = heatSel.value;
+  const opts = ['<option value="">전체</option>'];
+  const protOpts = ['<option value="">히트 선택</option>'];
+  Object.keys(heatsData).sort((a, b) => (heatsData[a].no || 0) - (heatsData[b].no || 0)).forEach(k => {
+    const h = heatsData[k];
+    const label = `HEAT ${h.no} · ${h.event_name || h.event} (${h.division || ''})`;
+    opts.push(`<option value="${k}">${label}</option>`);
+    protOpts.push(`<option value="${k}">${label}</option>`);
+  });
+  heatSel.innerHTML = opts.join('');
+  heatSel.value = currentHeat;
+  protHeatSel.innerHTML = protOpts.join('');
+  const eventSet = new Set();
+  Object.values(heatsData).forEach(h => { if (h.event) eventSet.add(`${h.event}|${h.event_name || h.event}`); });
+  const eventSel = document.getElementById('filter-event');
+  const ev = eventSel.value;
+  const eOpts = ['<option value="">전체</option>'];
+  Array.from(eventSet).sort().forEach(s => { const [code, name] = s.split('|'); eOpts.push(`<option value="${code}">${name}</option>`); });
+  eventSel.innerHTML = eOpts.join('');
+  eventSel.value = ev;
+}
+
+function switchTab(view) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('show', v.id === `view-${view}`));
+  if (view === 'scores') renderScores();
+  if (view === 'rankings') renderRankings();
+  if (view === 'protests') renderProtests();
+  if (view === 'rematch') renderRematch();
+  if (view === 'logs') renderLogs();
+}
+
+function renderScores() {
+  const tbody = document.getElementById('scores-tbody');
+  const fHeat = document.getElementById('filter-heat').value;
+  const fEvent = document.getElementById('filter-event').value;
+  const fStatus = document.getElementById('filter-status').value;
+  const fSearch = (document.getElementById('filter-search').value || '').toLowerCase().trim();
+  const rows = [];
+  Object.keys(heatsData).forEach(hk => {
+    if (fHeat && hk !== fHeat) return;
+    const h = heatsData[hk];
+    if (fEvent && h.event !== fEvent) return;
+    Object.keys(h.courts || {}).forEach(cid => {
+      const c = h.courts[cid];
+      const ath = c.athlete || {};
+      let status = 'normal';
+      if (c.status === 'disqualified') status = 'disqualified';
+      else if (c.status === 'protest') status = 'protest';
+      else if (c.status === 'rematch' || c.rematch) status = 'rematch';
+      else if (c.scoreEdited !== undefined) status = 'edited';
+      if (fStatus && status !== fStatus) return;
+      if (fSearch) {
+        const text = `${ath.bib || ''} ${ath.name || ''} ${ath.club || ''}`.toLowerCase();
+        if (!text.includes(fSearch)) return;
+      }
+      const finalScore = c.rematch?.resultScore ?? c.scoreEdited ?? c.score;
+      rows.push({ hk, cid, h, c, ath, status, finalScore });
+    });
+  });
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12"><div class="empty"><div class="ic">📭</div><div class="text">조건에 맞는 데이터 없음</div></div></td></tr>';
+    return;
+  }
+  rows.sort((a, b) => {
+    const an = a.h.no || 0, bn = b.h.no || 0;
+    if (an !== bn) return an - bn;
+    return String(a.cid).localeCompare(String(b.cid));
+  });
+  tbody.innerHTML = rows.map(r => {
+    const rowCls = r.status === 'disqualified' ? 'row-dq' : r.status === 'protest' ? 'row-protest' : r.status === 'rematch' ? 'row-rematch' : r.status === 'edited' ? 'row-edited' : '';
+    const statusBadge = {
+      normal: '<span class="badge badge-normal">정상</span>',
+      edited: '<span class="badge badge-edited">✏️ 수정</span>',
+      protest: '<span class="badge badge-protest">⚠️ 이의</span>',
+      rematch: '<span class="badge badge-rematch">🔄 재경기</span>',
+      disqualified: '<span class="badge badge-dq">❌ 실격</span>'
+    }[r.status];
+    const originalScore = r.c.score ?? '-';
+    let finalScoreHtml = `<span class="scr-final">${r.finalScore ?? '-'}</span>`;
+    if (r.status === 'rematch' && r.c.rematch) finalScoreHtml = `<span class="scr-final">${r.c.rematch.resultScore}<span class="subscript"> (재)</span></span>`;
+    else if (r.status === 'edited') finalScoreHtml = `<span class="scr-final">${r.c.scoreEdited}<span class="subscript"> (수정)</span></span>`;
+    return `<tr class="${rowCls}">
+      <td class="fm">${r.h.no || '-'}</td><td class="fm">${r.cid}</td>
+      <td class="fm"><strong>${r.ath.bib || '-'}</strong></td>
+      <td>${r.ath.name || '-'}</td><td>${r.ath.club || '-'}</td>
+      <td style="font-size:11px;color:var(--mu)">${r.h.division || '-'}</td>
+      <td style="font-size:11px;color:var(--mu)">${r.h.event_name || r.h.event || '-'}</td>
+      <td><span class="scr-orig">${originalScore}</span></td>
+      <td>${finalScoreHtml}</td>
+      <td>${statusBadge}</td>
+      <td style="font-size:11px;color:var(--mu)">${r.c.judgeName || '-'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn sm" onclick="openEditModal('${r.hk}','${r.cid}')" title="점수 수정">✏️</button>
+        <button class="btn sm warn" onclick="openProtestForCourt('${r.hk}','${r.cid}')" title="이의제기">⚠️</button>
+        <button class="btn sm blue" onclick="openRematchModal('${r.hk}','${r.cid}')" title="재경기">🔄</button>
+        <button class="btn sm danger" onclick="openDQModal('${r.hk}','${r.cid}')" title="실격">❌</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openEditModal(hk, cid) {
+  editTarget = { hk, cid };
+  const c = heatsData[hk].courts[cid];
+  const h = heatsData[hk];
+  const ath = c.athlete || {};
+  document.getElementById('edit-info').innerHTML = `<strong>HEAT ${h.no} · 코트 ${cid}</strong><br>#${ath.bib || '-'} ${ath.name || ''} <span style="color:var(--mu)">(${h.event_name} · ${h.division || ''})</span>`;
+  document.getElementById('edit-current').value = c.scoreEdited ?? c.score ?? '';
+  document.getElementById('edit-new').value = '';
+  document.getElementById('edit-reason').value = '';
+  document.getElementById('edit-editor').value = localStorage.getItem('mop-editor') || '';
+  document.getElementById('modal-edit').classList.add('show');
+  setTimeout(() => document.getElementById('edit-new').focus(), 100);
+}
+
+async function confirmEdit() {
+  const newScore = parseInt(document.getElementById('edit-new').value);
+  const reason = document.getElementById('edit-reason').value.trim();
+  const editor = document.getElementById('edit-editor').value.trim();
+  if (isNaN(newScore)) return toast('새 점수를 입력하세요', 'error');
+  if (!reason) return toast('수정 사유를 입력하세요', 'error');
+  if (!editor) return toast('처리자를 입력하세요', 'error');
+  localStorage.setItem('mop-editor', editor);
+  const { hk, cid } = editTarget;
+  const c = heatsData[hk].courts[cid];
+  const oldScore = c.scoreEdited ?? c.score ?? null;
+  const updates = {};
+  updates[`${ROOM}/heats/${hk}/courts/${cid}/scoreEdited`] = newScore;
+  const logEntry = { time: Date.now(), timeKR: new Date().toLocaleString('ko-KR'), type: 'edit', oldScore, newScore, reason, editor };
+  const editLog = c.editLog || [];
+  editLog.push(logEntry);
+  updates[`${ROOM}/heats/${hk}/courts/${cid}/editLog`] = editLog;
+  try {
+    await db.ref().update(updates);
+    toast('✅ 점수가 수정되었습니다', 'success');
+    closeModal('modal-edit');
+  } catch (e) { toast('❌ 저장 실패: ' + e.message, 'error'); }
+}
+
+function openProtestModal() {
+  document.getElementById('protest-heat').value = '';
+  document.getElementById('protest-court').innerHTML = '<option value="">코트 선택</option>';
+  document.getElementById('protest-team').value = '';
+  document.getElementById('protest-reason').value = '';
+  document.getElementById('protest-status').value = 'reviewing';
+  document.getElementById('protest-new-score-field').style.display = 'none';
+  document.getElementById('protest-new-score').value = '';
+  document.getElementById('protest-reviewer-note').value = '';
+  document.getElementById('protest-editor').value = localStorage.getItem('mop-editor') || '';
+  document.getElementById('modal-protest').classList.add('show');
+}
+
+function openProtestForCourt(hk, cid) {
+  openProtestModal();
+  document.getElementById('protest-heat').value = hk;
+  updateProtestCourts();
+  setTimeout(() => { document.getElementById('protest-court').value = cid; }, 100);
+}
+
+function updateProtestCourts() {
+  const hk = document.getElementById('protest-heat').value;
+  const sel = document.getElementById('protest-court');
+  if (!hk || !heatsData[hk]) { sel.innerHTML = '<option value="">코트 선택</option>'; return; }
+  const courts = heatsData[hk].courts || {};
+  const opts = ['<option value="">코트 선택</option>'];
+  Object.keys(courts).sort().forEach(cid => {
+    const ath = courts[cid].athlete || {};
+    opts.push(`<option value="${cid}">코트 ${cid} · #${ath.bib || '-'} ${ath.name || ''}</option>`);
+  });
+  sel.innerHTML = opts.join('');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('protest-status').addEventListener('change', e => {
+    document.getElementById('protest-new-score-field').style.display = e.target.value === 'accepted' ? 'block' : 'none';
+  });
+});
+
+async function confirmProtest() {
+  const hk = document.getElementById('protest-heat').value;
+  const cid = document.getElementById('protest-court').value;
+  const team = document.getElementById('protest-team').value.trim();
+  const reason = document.getElementById('protest-reason').value.trim();
+  const status = document.getElementById('protest-status').value;
+  const newScore = parseInt(document.getElementById('protest-new-score').value);
+  const reviewerNote = document.getElementById('protest-reviewer-note').value.trim();
+  const editor = document.getElementById('protest-editor').value.trim();
+  if (!hk || !cid) return toast('히트/코트를 선택하세요', 'error');
+  if (!team) return toast('이의제기 팀을 입력하세요', 'error');
+  if (!reason) return toast('사유를 입력하세요', 'error');
+  if (!editor) return toast('처리자를 입력하세요', 'error');
+  if (status === 'accepted' && isNaN(newScore)) return toast('수정 점수를 입력하세요', 'error');
+  localStorage.setItem('mop-editor', editor);
+  const c = heatsData[hk].courts[cid];
+  const protest = {
+    requestedBy: team, requestedAt: Date.now(),
+    requestedAtKR: new Date().toLocaleString('ko-KR'),
+    reason, status, reviewerNote: reviewerNote || null, reviewer: editor,
+    reviewedAt: status !== 'reviewing' ? Date.now() : null
+  };
+  const updates = {};
+  updates[`${ROOM}/heats/${hk}/courts/${cid}/protest`] = protest;
+  if (status === 'reviewing') updates[`${ROOM}/heats/${hk}/courts/${cid}/status`] = 'protest';
+  else if (status === 'accepted') {
+    updates[`${ROOM}/heats/${hk}/courts/${cid}/status`] = 'normal';
+    updates[`${ROOM}/heats/${hk}/courts/${cid}/scoreEdited`] = newScore;
+  } else if (status === 'rejected') {
+    updates[`${ROOM}/heats/${hk}/courts/${cid}/status`] = 'normal';
+  }
+  const logEntry = { time: Date.now(), timeKR: new Date().toLocaleString('ko-KR'), type: 'protest', team, reason, status, newScore: status === 'accepted' ? newScore : null, reviewerNote, editor };
+  const editLog = c.editLog || [];
+  editLog.push(logEntry);
+  updates[`${ROOM}/heats/${hk}/courts/${cid}/editLog`] = editLog;
+  try {
+    await db.ref().update(updates);
+    const msg = status === 'reviewing' ? '⚠️ 이의제기 등록' : status === 'accepted' ? '✅ 이의제기 인정 (점수 수정)' : '❌ 이의제기 기각';
+    toast(msg, 'success');
+    closeModal('modal-protest');
+  } catch (e) { toast('❌ 저장 실패: ' + e.message, 'error'); }
+}
+
+function renderProtests() {
+  const content = document.getElementById('protests-content');
+  const list = [];
+  Object.keys(heatsData).forEach(hk => {
+    Object.keys(heatsData[hk].courts || {}).forEach(cid => {
+      const c = heatsData[hk].courts[cid];
+      if (c.protest) list.push({ hk, cid, c, h: heatsData[hk] });
+    });
+  });
+  if (list.length === 0) {
+    content.innerHTML = '<div class="empty"><div class="ic">✅</div><div class="text">이의제기 없음</div></div>';
+    return;
+  }
+  list.sort((a, b) => (b.c.protest.requestedAt || 0) - (a.c.protest.requestedAt || 0));
+  content.innerHTML = list.map(item => {
+    const p = item.c.protest;
+    const ath = item.c.athlete || {};
+    const statusInfo = {
+      reviewing: { label: '🔍 검토 중', dot: 'amber', cls: 'reviewing' },
+      accepted: { label: '✅ 인정 (수정)', dot: 'green', cls: 'accepted' },
+      rejected: { label: '❌ 기각 (유지)', dot: 'red', cls: 'rejected' }
+    }[p.status] || { label: p.status, dot: 'amber', cls: 'reviewing' };
+    return `<div class="protest-card ${statusInfo.cls}">
+      <div class="pc-head">
+        <div>
+          <div class="pc-title"><span class="dot ${statusInfo.dot}"></span>HEAT ${item.h.no} · 코트 ${item.cid}</div>
+          <div class="pc-meta">${item.h.event_name} · ${item.h.division}</div>
+        </div>
+        <div class="badge badge-protest">${statusInfo.label}</div>
+      </div>
+      <div class="pc-body">
+        <div><strong>선수:</strong> #${ath.bib || '-'} ${ath.name || '-'} <span style="color:var(--mu)">(${ath.club || ''})</span></div>
+        <div><strong>이의제기 팀:</strong> ${p.requestedBy}</div>
+        <div><strong>사유:</strong> ${p.reason}</div>
+        <div style="color:var(--mu);font-size:11px;margin-top:4px">제기 시각: ${p.requestedAtKR}</div>
+        ${p.reviewerNote ? `<div class="pc-note"><strong>판독 의견:</strong> ${p.reviewerNote}<br><span style="color:var(--mu);font-size:11px">판독자: ${p.reviewer || '-'}</span></div>` : ''}
+      </div>
+      <div style="margin-top:12px;display:flex;gap:6px">
+        ${p.status === 'reviewing' ? `<button class="btn warn" onclick="openProtestForCourt('${item.hk}','${item.cid}')">📝 판독 결과 입력</button>` : ''}
+        <button class="btn sm" onclick="openProtestForCourt('${item.hk}','${item.cid}')">✏️ 수정</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function detectTies() {
+  const ties = [];
+  const groups = {};
+  Object.keys(heatsData).forEach(hk => {
+    const h = heatsData[hk];
+    Object.keys(h.courts || {}).forEach(cid => {
+      const c = h.courts[cid];
+      const ath = c.athlete || {};
+      const finalScore = c.rematch?.resultScore ?? c.scoreEdited ?? c.score;
+      if (finalScore === undefined || finalScore === null) return;
+      if (c.status === 'disqualified') return;
+      const key = `${h.event}__${h.division}`;
+      if (!groups[key]) groups[key] = { event: h.event_name, division: h.division, items: [] };
+      groups[key].items.push({ hk, cid, c, h, ath, finalScore: Number(finalScore) });
+    });
+  });
+  Object.keys(groups).forEach(key => {
+    const g = groups[key];
+    g.items.sort((a, b) => b.finalScore - a.finalScore);
+    const top3 = g.items.slice(0, 3);
+    const counts = {};
+    top3.forEach((it, idx) => {
+      if (!counts[it.finalScore]) counts[it.finalScore] = [];
+      counts[it.finalScore].push({ ...it, rank: idx + 1 });
+    });
+    if (top3.length === 3) {
+      const score3 = top3[2].finalScore;
+      g.items.slice(3).forEach((it, idx) => {
+        if (it.finalScore === score3) counts[score3].push({ ...it, rank: 4 + idx });
+      });
+    }
+    Object.keys(counts).forEach(score => {
+      if (counts[score].length >= 2) ties.push({ event: g.event, division: g.division, score: Number(score), athletes: counts[score] });
+    });
+  });
+  return ties;
+}
+
+function renderRematch() {
+  const content = document.getElementById('rematch-content');
+  const ties = detectTies();
+  if (ties.length === 0) {
+    content.innerHTML = '<div class="empty"><div class="ic">✅</div><div class="text">동순위 없음</div><div class="sub">모든 1-3위가 단독 순위입니다</div></div>';
+    return;
+  }
+  content.innerHTML = ties.map(t => `
+    <div class="tie-card">
+      <div class="tie-head">
+        <div class="tie-title"><span class="dot amber"></span>${t.event} · ${t.division}</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="tie-score">${t.score}점</span>
+          <span class="badge badge-rematch">${t.athletes.length}명 동순위</span>
+        </div>
+      </div>
+      <div class="tie-body">
+        ${t.athletes.map(a => {
+          const hasRematch = a.c.rematch?.resultScore !== undefined;
+          return `<div class="tie-row">
+            <div class="tie-info"><strong>${a.rank}위</strong> #${a.ath.bib || '-'} ${a.ath.name || '-'}<span class="sub">(${a.ath.club || ''}) · HEAT ${a.h.no} 코트 ${a.cid}</span></div>
+            <div>${hasRematch ? `<span class="badge badge-rematch">재경기: ${a.c.rematch.resultScore}점</span>` : `<button class="btn sm blue" onclick="openRematchModal('${a.hk}','${a.cid}')">🔄 재경기 결과 입력</button>`}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="tie-hint">💡 개인전(2인 포함)은 공동 시상, 3·4인전 + 단체전은 30초 재경기</div>
+    </div>
+  `).join('');
+}
+
+function openRematchModal(hk, cid) {
+  rematchTarget = { hk, cid };
+  const c = heatsData[hk].courts[cid];
+  const h = heatsData[hk];
+  const ath = c.athlete || {};
+  const currentScore = c.scoreEdited ?? c.score ?? '-';
+  document.getElementById('rematch-info').innerHTML = `<strong>HEAT ${h.no} · 코트 ${cid}</strong><br>#${ath.bib || '-'} ${ath.name || ''} <span style="color:var(--mu)">(${ath.club || ''})</span><br><span style="color:var(--mu);font-size:11px">${h.event_name} · ${h.division}</span><br><span style="margin-top:6px;display:inline-block">원점수: <strong style="color:var(--bl)">${currentScore}</strong></span>`;
+  document.getElementById('rematch-score').value = c.rematch?.resultScore ?? '';
+  document.getElementById('rematch-reason').value = c.rematch?.reason || '동순위 재경기';
+  document.getElementById('rematch-editor').value = localStorage.getItem('mop-editor') || '';
+  document.getElementById('modal-rematch').classList.add('show');
+  setTimeout(() => document.getElementById('rematch-score').focus(), 100);
+}
+
+async function confirmRematch() {
+  const score = parseInt(document.getElementById('rematch-score').value);
+  const reason = document.getElementById('rematch-reason').value.trim();
+  const editor = document.getElementById('rematch-editor').value.trim();
+  if (isNaN(score)) return toast('재경기 점수를 입력하세요', 'error');
+  if (!editor) return toast('처리자를 입력하세요', 'error');
+  localStorage.setItem('mop-editor', editor);
+  const { hk, cid } = rematchTarget;
+  const c = heatsData[hk].courts[cid];
+  const rematch = { triggeredAt: Date.now(), triggeredAtKR: new Date().toLocaleString('ko-KR'), reason, resultScore: score, editor };
+  const updates = {};
+  updates[`${ROOM}/heats/${hk}/courts/${cid}/rematch`] = rematch;
+  updates[`${ROOM}/heats/${hk}/courts/${cid}/status`] = 'rematch';
+  const logEntry = { time: Date.now(), timeKR: new Date().toLocaleString('ko-KR'), type: 'rematch', score, reason, editor };
+  const editLog = c.editLog || [];
+  editLog.push(logEntry);
+  updates[`${ROOM}/heats/${hk}/courts/${cid}/editLog`] = editLog;
+  try {
+    await db.ref().update(updates);
+    toast('✅ 재경기 결과 저장됨', 'success');
+    closeModal('modal-rematch');
+  } catch (e) { toast('❌ 저장 실패: ' + e.message, 'error'); }
+}
+
+function openDQModal(hk, cid) {
+  dqTarget = { hk, cid };
+  const c = heatsData[hk].courts[cid];
+  const h = heatsData[hk];
+  const ath = c.athlete || {};
+  document.getElementById('dq-info').innerHTML = `<strong>HEAT ${h.no} · 코트 ${cid}</strong><br>#${ath.bib || '-'} ${ath.name || ''} <span style="color:var(--mu)">(${ath.club || ''})</span><br><span style="color:var(--mu);font-size:11px">${h.event_name} · ${h.division}</span>`;
+  document.getElementById('dq-reason').value = '';
+  document.getElementById('dq-editor').value = localStorage.getItem('mop-editor') || '';
+  document.getElementById('modal-dq').classList.add('show');
+}
+
+async function confirmDQ() {
+  const reason = document.getElementById('dq-reason').value.trim();
+  const editor = document.getElementById('dq-editor').value.trim();
+  if (!reason) return toast('실격 사유를 입력하세요', 'error');
+  if (!editor) return toast('처리자를 입력하세요', 'error');
+  if (!confirm('실격 처리를 진행하시겠습니까? 이 선수는 순위에서 제외됩니다.')) return;
+  localStorage.setItem('mop-editor', editor);
+  const { hk, cid } = dqTarget;
+  const c = heatsData[hk].courts[cid];
+  const updates = {};
+  updates[`${ROOM}/heats/${hk}/courts/${cid}/status`] = 'disqualified';
+  updates[`${ROOM}/heats/${hk}/courts/${cid}/dqReason`] = reason;
+  updates[`${ROOM}/heats/${hk}/courts/${cid}/dqEditor`] = editor;
+  updates[`${ROOM}/heats/${hk}/courts/${cid}/dqAt`] = Date.now();
+  const logEntry = { time: Date.now(), timeKR: new Date().toLocaleString('ko-KR'), type: 'disqualify', reason, editor };
+  const editLog = c.editLog || [];
+  editLog.push(logEntry);
+  updates[`${ROOM}/heats/${hk}/courts/${cid}/editLog`] = editLog;
+  try {
+    await db.ref().update(updates);
+    toast('❌ 실격 처리 완료', 'success');
+    closeModal('modal-dq');
+  } catch (e) { toast('❌ 저장 실패: ' + e.message, 'error'); }
+}
+
+function calculateAllRankings() {
+  const groups = {};
+  Object.keys(heatsData).forEach(hk => {
+    const h = heatsData[hk];
+    Object.keys(h.courts || {}).forEach(cid => {
+      const c = h.courts[cid];
+      const ath = c.athlete || {};
+      if (c.status === 'disqualified') return;
+      const finalScore = c.rematch?.resultScore ?? c.scoreEdited ?? c.score;
+      if (finalScore === undefined || finalScore === null) return;
+      const key = `${h.event}__${h.division}`;
+      if (!groups[key]) groups[key] = { event: h.event_name, division: h.division, items: [] };
+      groups[key].items.push({ bib: ath.bib, name: ath.name, club: ath.club, score: Number(finalScore), status: c.status || 'normal', rematch: !!c.rematch, edited: c.scoreEdited !== undefined });
+    });
+  });
+  Object.values(groups).forEach(g => {
+    g.items.sort((a, b) => b.score - a.score);
+    g.items.forEach((it, idx) => it.rank = idx + 1);
+  });
+  return groups;
+}
+
+function renderRankings() {
+  const groups = calculateAllRankings();
+  const sel = document.getElementById('rank-group');
+  const currentVal = sel.value;
+  const opts = ['<option value="">선택...</option>'];
+  Object.keys(groups).sort().forEach(k => {
+    const g = groups[k];
+    opts.push(`<option value="${k}">${g.event} · ${g.division} (${g.items.length}명)</option>`);
+  });
+  sel.innerHTML = opts.join('');
+  sel.value = currentVal;
+  const content = document.getElementById('rankings-content');
+  if (!currentVal || !groups[currentVal]) {
+    content.innerHTML = '<div class="empty"><div class="ic">📊</div><div class="text">종목+부서를 선택하세요</div></div>';
+    return;
+  }
+  const g = groups[currentVal];
+  content.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th style="width:60px">순위</th><th style="width:80px">배번</th><th>이름</th><th>소속</th><th style="width:100px">점수</th><th>비고</th></tr></thead>
+    <tbody>${g.items.map(it => `<tr>
+      <td><span class="rank-pill ${it.rank<=3?'r'+it.rank:''}">${it.rank}</span></td>
+      <td class="fm"><strong>${it.bib || '-'}</strong></td>
+      <td>${it.name || '-'}</td>
+      <td>${it.club || '-'}</td>
+      <td><span class="scr-final">${it.score}</span></td>
+      <td style="display:flex;gap:4px">${it.rematch?'<span class="badge badge-rematch">재경기</span>':''}${it.edited?'<span class="badge badge-edited">수정</span>':''}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+function renderLogs() {
+  const content = document.getElementById('logs-content');
+  const allLogs = [];
+  Object.keys(heatsData).forEach(hk => {
+    Object.keys(heatsData[hk].courts || {}).forEach(cid => {
+      const c = heatsData[hk].courts[cid];
+      (c.editLog || []).forEach(log => { allLogs.push({ ...log, hk, cid, h: heatsData[hk], ath: c.athlete || {} }); });
+    });
+  });
+  if (allLogs.length === 0) {
+    content.innerHTML = '<div class="empty"><div class="ic">📜</div><div class="text">수정 이력 없음</div></div>';
+    return;
+  }
+  allLogs.sort((a, b) => (b.time || 0) - (a.time || 0));
+  content.innerHTML = allLogs.map(log => {
+    const typeMap = { edit: { icon: '✏️ 점수 수정', cls: '' }, protest: { icon: '⚠️ 이의제기', cls: 'log-protest' }, rematch: { icon: '🔄 재경기', cls: 'log-rematch' }, disqualify: { icon: '❌ 실격', cls: 'log-dq' } };
+    const typeInfo = typeMap[log.type] || { icon: log.type, cls: '' };
+    let detail = '';
+    if (log.type === 'edit') detail = `${log.oldScore} → <strong>${log.newScore}</strong> · 사유: ${log.reason}`;
+    else if (log.type === 'protest') {
+      const statusKR = { reviewing: '검토 중', accepted: '인정', rejected: '기각' }[log.status] || log.status;
+      detail = `${log.team} 제기 / ${statusKR}${log.newScore ? ' / 수정 ' + log.newScore : ''} · ${log.reason}`;
+    } else if (log.type === 'rematch') detail = `재경기 결과: <strong>${log.score}</strong> · ${log.reason}`;
+    else if (log.type === 'disqualify') detail = `실격 · ${log.reason}`;
+    return `<div class="log-item ${typeInfo.cls}">
+      <div class="time">${log.timeKR}</div>
+      <div class="action">${typeInfo.icon} · HEAT ${log.h.no} 코트 ${log.cid} <span style="color:var(--mu);font-weight:500">(#${log.ath.bib || '-'} ${log.ath.name || ''})</span></div>
+      <div class="detail">${detail}</div>
+      <div class="editor">처리: ${log.editor || '-'}</div>
+    </div>`;
+  }).join('');
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+function toast(msg, type = '') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+function manualRefresh() { location.reload(); }
+function recalculateAll() {
+  toast('🔄 데이터 재계산 중...');
+  setTimeout(() => { updateUI(); toast('✅ 재계산 완료', 'success'); }, 500);
+}
+
+document.querySelectorAll('.modal').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); });
+});
+
+console.log('[Aggregator] 화이트 테마 적용 완료');
+</script>
+
+</body>
+</html>
