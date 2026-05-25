@@ -8,6 +8,7 @@
 <title>심판 앱 — 모두의 플레이</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="flags.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
@@ -92,6 +93,9 @@ html,body{height:100dvh;overflow:hidden;background:var(--bg);color:var(--tx);fon
   border-top:2px solid rgba(0,229,255,.2);
   cursor:pointer;transition:all .08s;
   user-select:none;-webkit-user-select:none;
+  /* click 단일 이벤트만 사용 → touch-action:manipulation 으로 탭 300ms 지연만 제거.
+     (기존 touch-action:none + pointerdown 조합이 합성 이벤트와 충돌해 이중 카운트 유발) */
+  touch-action:manipulation;
   /* 텍스트 없음, 색상만으로 구분 */
 }
 #btn-plus1:active{background:rgba(0,229,255,.25);filter:brightness(1.2);}
@@ -110,6 +114,13 @@ html,body{height:100dvh;overflow:hidden;background:var(--bg);color:var(--tx);fon
 .ov-sub{font-size:14px;color:#718096;text-align:center;padding:0 20px;}
 .ov-btn{padding:14px 32px;border-radius:13px;border:none;font-size:16px;font-weight:700;cursor:pointer;background:var(--ac);color:#000;font-family:'Noto Sans KR',sans-serif;}
 
+/* READY / SET / GO 카운트다운 */
+@keyframes cdPop{from{transform:scale(.4);opacity:0}40%{transform:scale(1.15);opacity:1}to{transform:scale(1);opacity:1}}
+#countdown-overlay.show{display:flex !important;}
+#countdown-text.is-ready{color:#ffd60a;font-size:120px;animation:cdPop .35s ease-out}
+#countdown-text.is-set{color:#ff3d71;font-size:130px;animation:cdPop .3s ease-out}
+#countdown-text.is-go{color:#00ff88;font-size:170px;animation:cdPop .25s ease-out}
+
 /* 토스트 */
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(0,229,255,.15);border:1px solid rgba(0,229,255,.3);color:var(--ac);border-radius:20px;padding:10px 20px;font-size:13px;white-space:nowrap;z-index:50;animation:tst .3s ease;pointer-events:none;}
 @keyframes tst{from{opacity:0;transform:translateX(-50%) translateY(8px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
@@ -123,9 +134,10 @@ html,body{height:100dvh;overflow:hidden;background:var(--bg);color:var(--tx);fon
   <div class="big-title">⚖ 심판 앱</div>
   <div class="card">
     <div class="fld"><label>📡 Room ID</label>
-      <input class="inp" id="inp-room" type="text" placeholder="예: room_001" style="font-family:monospace"></div>
+      <input class="inp" id="inp-room" type="text" placeholder="예: room_001" style="font-family:monospace"
+        onchange="loadCourtOptions(this.value)" onblur="loadCourtOptions(this.value)"></div>
     <div class="fld"><label>🏟 담당 코트</label>
-      <input class="inp" id="inp-court" type="text" placeholder="예: A" oninput="this.value=this.value.toUpperCase()"></div>
+      <select class="inp" id="inp-court"><option value="">— Room ID 입력 후 선택 —</option></select></div>
     <div class="fld"><label>⚖ 심판 이름</label>
       <input class="inp" id="inp-judge" type="text" placeholder="홍길동"></div>
     <button class="big-btn btn-ac" onclick="startApp()">🚀 시작</button>
@@ -158,6 +170,18 @@ html,body{height:100dvh;overflow:hidden;background:var(--bg);color:var(--tx);fon
     <button class="noshow-btn" id="btn-noshow" type="button" onclick="toggleNoShow()" title="선수 부재 신호 — 운영자에게 즉시 전달">❌ 선수 부재</button>
   </div>
 
+  <!-- 선수 QR 스캔 + 수동 도착 확인 (QR 분실·고장·테스트 시 폴백) -->
+  <div style="display:flex;gap:6px;padding:6px 12px;background:rgba(167,139,250,.04);border-bottom:1px solid rgba(167,139,250,.15);flex-shrink:0">
+    <button onclick="openScan()" type="button"
+      style="flex:1;padding:9px;font-size:13px;background:rgba(167,139,250,.15);color:#c4b5fd;border:1.5px solid rgba(167,139,250,.4);border-radius:8px;font-weight:700;cursor:pointer">
+      📷 선수 QR 스캔
+    </button>
+    <button onclick="manualVerify()" type="button"
+      style="flex:0 0 auto;padding:9px 14px;font-size:12px;background:rgba(255,214,10,.1);color:#ffd60a;border:1.5px solid rgba(255,214,10,.35);border-radius:8px;font-weight:700;cursor:pointer">
+      ✋ 수동확인
+    </button>
+  </div>
+
   <div class="judge-body">
     <!-- 상단: 초기화 / 준비완료 / 기록제출 -->
     <div class="top-actions">
@@ -177,8 +201,8 @@ html,body{height:100dvh;overflow:hidden;background:var(--bg);color:var(--tx);fon
     </div>
 
     <!-- 하단 전체: +1 (텍스트 없음, 색상만) -->
-    <!-- pointerdown 단일 이벤트로 처리 — touchstart + click 동시 발화로 인한 이중 카운트 방지 -->
-    <button id="btn-plus1" type="button" onpointerdown="handleTap(event)"></button>
+    <!-- click 단일 이벤트만 사용 — −1/+10 버튼과 동일한 방식 → 이중 카운트 구조적으로 불가능 -->
+    <button id="btn-plus1" type="button" onclick="handleTap(event)"></button>
   </div>
 </div>
 
@@ -192,6 +216,21 @@ html,body{height:100dvh;overflow:hidden;background:var(--bg);color:var(--tx);fon
 
 <!-- 신호음 플래시 -->
 <div id="sig-flash"></div>
+
+<!-- 시작 카운트다운 (READY → SET → GO) — 게이트는 GO 시점에 열림 -->
+<div id="countdown-overlay" style="display:none;position:fixed;inset:0;z-index:250;align-items:center;justify-content:center;pointer-events:none;background:rgba(0,0,0,.45);backdrop-filter:blur(3px)">
+  <div id="countdown-text" style="font-family:'Bebas Neue',sans-serif;letter-spacing:.06em;text-shadow:0 0 40px currentColor"></div>
+</div>
+
+<!-- 선수 QR 스캔 모달 (세션 유지된 상태로 다음 선수 배번 QR 인식) -->
+<div id="scan-modal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.96);flex-direction:column">
+  <div style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;color:#fff;border-bottom:1px solid #1e2535">
+    <div style="font-weight:700;font-size:14px">📷 선수 QR 스캔</div>
+    <button onclick="closeScan()" type="button" style="background:none;border:1px solid #444;color:#fff;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">✕ 닫기</button>
+  </div>
+  <div id="scan-area" style="flex:1;min-height:0;background:#000"></div>
+  <div id="scan-hint" style="padding:12px 16px;text-align:center;color:#94a3b8;font-size:12px;border-top:1px solid #1e2535">선수 배번 카드의 QR을 화면에 비춰주세요</div>
+</div>
 
 <script>
 firebase.initializeApp({
@@ -224,6 +263,32 @@ let lastSignalTs=0;
 //    선수 QR 코드를 찍으면 자동으로 해당 선수가 배정된 코트(=현재 또는 다음 활성 히트)를 찾아서 setup.
 //    심판의 court 는 첫 진입 시 localStorage 에 저장된 값 사용 (없으면 setup 화면에서 입력).
 let pendingAthleteLookup=null;  // {bib, event, entry, name}
+let _desiredCourt='';           // URL/localStorage 에서 온 희망 코트 — 드롭다운 로드 후 자동 선택
+
+// 룸의 heats 를 1회 읽어 실제 존재하는 코트 키만 드롭다운에 채움.
+//   심판이 코트명을 직접 타이핑하면 운영보드 코트 키와 불일치(예: "1" vs "A") → 연동 끊김.
+//   드롭다운으로 강제하면 오타·불일치 원천 차단.
+function loadCourtOptions(room){
+  room=(room||'').trim();
+  if(!room)return;
+  const sel=document.getElementById('inp-court');
+  if(!sel)return;
+  db.ref(`${room}/heats`).once('value').then(s=>{
+    const heats=s.val()||{};
+    const set=new Set();
+    Object.values(heats).forEach(h=>{if(h&&h.courts)Object.keys(h.courts).forEach(k=>set.add(String(k).toUpperCase()));});
+    const courts=[...set].sort((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}));
+    const prev=(sel.value||_desiredCourt||'').toUpperCase();
+    sel.innerHTML='';
+    if(!courts.length){sel.appendChild(new Option('이 Room 에 코트 정보 없음 — Room ID 확인',''));return;}
+    sel.appendChild(new Option('— 담당 코트 선택 —',''));
+    courts.forEach(c=>sel.appendChild(new Option(`코트 ${c}`,c)));
+    if(prev&&courts.includes(prev))sel.value=prev;
+  }).catch(()=>{
+    sel.innerHTML='';sel.appendChild(new Option('코트 로드 실패 — Room ID 확인',''));
+  });
+}
+
 (function(){
   const p=new URLSearchParams(window.location.search);
   const room=p.get('room');
@@ -235,30 +300,32 @@ let pendingAthleteLookup=null;  // {bib, event, entry, name}
   const name=p.get('name');
 
   if(room)document.getElementById('inp-room').value=room;
-  if(court)document.getElementById('inp-court').value=court.toUpperCase();
+  if(court)_desiredCourt=court.toUpperCase();
   if(judge)document.getElementById('inp-judge').value=judge;
 
   // localStorage 폴백 — 같은 폰에서 두 번째 QR 부터는 코트·이름 기억
   if(!court){
     const lc=localStorage.getItem('mop_judge_court');
-    if(lc)document.getElementById('inp-court').value=lc;
+    if(lc)_desiredCourt=lc.toUpperCase();
   }
   if(!judge){
     const ln=localStorage.getItem('mop_judge_name');
     if(ln)document.getElementById('inp-judge').value=ln;
   }
 
+  // room 이 있으면 코트 드롭다운 채우기 (URL/localStorage 코트는 로드 후 자동 선택)
+  if(room)loadCourtOptions(room);
+
   // 선수 QR 스캔 케이스 — 진입 후 Firebase 에서 heat 자동 lookup
   if(bib&&event){
     pendingAthleteLookup={bib,event,entry:entry||'',name:name||''};
     // 코트 정보가 있으면 (URL 또는 localStorage) 즉시 시작
-    const courtFinal=document.getElementById('inp-court').value.trim();
-    if(room&&courtFinal)setTimeout(startApp,300);
+    if(room&&_desiredCourt)setTimeout(startApp,300);
     else{
-      // 코트만 입력하면 진행하도록 안내
+      // 코트만 선택하면 진행하도록 안내
       const banner=document.createElement('div');
       banner.style.cssText='background:#fbbf24;color:#000;padding:10px 14px;border-radius:8px;margin:10px 14px;font-size:13px;font-weight:700;text-align:center';
-      banner.textContent=`📱 선수 QR 인식: #${bib} ${name||''} (${event}). 코트를 입력하면 진입합니다.`;
+      banner.textContent=`📱 선수 QR 인식: #${bib} ${name||''} (${event}). 담당 코트를 선택하면 진입합니다.`;
       const setup=document.getElementById('s-setup');
       if(setup)setup.insertBefore(banner,setup.firstChild);
     }
@@ -269,9 +336,10 @@ let pendingAthleteLookup=null;  // {bib, event, entry, name}
 
 function startApp(){
   roomId=document.getElementById('inp-room').value.trim();
-  courtId=document.getElementById('inp-court').value.trim().toUpperCase();
+  // 드롭다운 미로드 시(자동 진입 등) URL/localStorage 코트로 폴백
+  courtId=(document.getElementById('inp-court').value||_desiredCourt||'').trim().toUpperCase();
   judgeName=document.getElementById('inp-judge').value.trim()||'심판';
-  if(!roomId||!courtId){alert('Room ID와 코트를 입력하세요');return;}
+  if(!roomId||!courtId){alert('Room ID 입력 후 담당 코트를 선택하세요');return;}
   localStorage.setItem('mop_judge_room',roomId);
   localStorage.setItem('mop_judge_court',courtId);
   localStorage.setItem('mop_judge_name',judgeName);
@@ -301,56 +369,176 @@ function connectFirebase(){
     if(!v||v.ts===lastSignalTs||Date.now()-v.ts>5000)return;
     lastSignalTs=v.ts;
     playSignal(v.type);
-    // 신호로 카운트 게이트 즉시 갱신 — heatStatus 가 finished 로 안 바뀌어도 비프와 동시에 차단됨
-    if(v.type==='start'){currentHeatStatus='racing';recomputeGate();}
-    else if(v.type==='end'){currentHeatStatus='finished';recomputeGate();}
+    // 시작 신호 시퀀스 — 두 모드:
+    //  • MP3 모드 (v.source='mp3'): MP3 자체에 ready·set 녹음돼 있음 → 비주얼 카운트다운 생략,
+    //    v.goOffsetMs (예: 8000ms = SRSS 1×30 의 GO 시점) 후에 GO! 표시 + 게이트 오픈.
+    //  • 합성음 모드 (no source): 기존 READY → SET → GO 오버레이 (비프 0/0.35/0.7s 와 동기).
+    if(v.type==='start'){
+      if(v.source==='mp3'){
+        const goMs=Number(v.goOffsetMs)||8000;
+        // 대기 중 안내 — 작은 텍스트로 음원 진행 표시 (사용자 시선 분산 최소화)
+        showCountdown(`MP3 ${Math.round(goMs/1000)}s`,'is-ready');
+        setTimeout(()=>{
+          showCountdown('GO!','is-go');
+          currentHeatStatus='racing';
+          recomputeGate();
+        },goMs);
+        setTimeout(hideCountdown,goMs+1000);
+      }else{
+        // 합성음 모드 (MP3 없는 종목): 비프와 동기된 카운트다운
+        showCountdown('READY','is-ready');
+        setTimeout(()=>showCountdown('SET','is-set'),350);
+        setTimeout(()=>{
+          showCountdown('GO!','is-go');
+          currentHeatStatus='racing';
+          recomputeGate();
+        },700);
+        setTimeout(hideCountdown,1700);
+      }
+    }else if(v.type==='end'){
+      currentHeatStatus='finished';
+      recomputeGate();
+      hideCountdown();
+    }
   });
 
   loadHeatData();
 
-  // 선수 QR 스캔 진입 케이스 → heats 에서 해당 (bib, event) 가 있는 heat 를 찾아 currentHeatNo 자동 설정.
-  // 같은 코트에 배정된 heat 우선, 없으면 가장 빠른 heat.
-  if(pendingAthleteLookup){
-    db.ref(`${roomId}/heats`).once('value').then(snap=>{
-      const heats=snap.val()||{};
-      const matches=[];
-      Object.entries(heats).forEach(([heatKey,h])=>{
-        if(!h||(h.event_code||h.event)!==pendingAthleteLookup.event)return;
-        const courts=h.courts||{};
-        Object.entries(courts).forEach(([cKey,cv])=>{
-          const ath=cv?.athlete;
-          if(ath&&String(ath.bib)===String(pendingAthleteLookup.bib)){
-            const heatNum=Number(heatKey.replace(/^heat_/,''))||h.no||0;
-            matches.push({heatKey,heatNum,courtKey:cKey,athlete:ath});
-          }
-        });
+  // 선수 QR 스캔 진입(URL 파라미터) 케이스 → 동일 로직을 runAthleteLookup() 로 위임 (세션 중 스캔과 같은 경로)
+  if(pendingAthleteLookup){runAthleteLookup(pendingAthleteLookup);pendingAthleteLookup=null;}
+}
+
+// ━━━ 선수 QR 스캔 → 진위 확인 또는 히트 자동 매칭 ━━━
+//   ① 현재 코트의 표시 선수와 bib 일치 → "도착 진위 확인" (athleteStatus='arrived', 준비 가능 상태)
+//   ② 다른 히트/코트의 선수 QR → 그 히트로 점프 (플로팅 심판/QR 기반 입장 흐름)
+function runAthleteLookup(lookup){
+  if(!lookup||!lookup.bib||!lookup.event)return;
+  if(!roomId){pendingAthleteLookup=lookup;return;} // 아직 startApp 전이면 보류
+
+  // ① 같은 코트의 표시 선수와 매치 → 도착 진위 확인
+  const cur=currentCourtAthlete();
+  const sameEvent=(currentHeat?.event_code||currentHeat?.event)===lookup.event;
+  if(cur&&sameEvent&&String(cur.bib)===String(lookup.bib)){
+    athleteStatus='arrived';
+    updateNoShowBtn();
+    updateReadyBtn();
+    db.ref(`${roomId}/monitoring/judges/${courtId}`).update({
+      athleteStatus:'arrived',
+      verifiedBy:'qr',
+      verifiedAt:Date.now(),
+      court:courtId,judgeName,ts:Date.now(),
+    }).catch(e=>console.warn('verify 동기화 실패',e));
+    showToast(`✓ 선수 도착 확인 — #${cur.bib} ${cur.name||''}`);
+    return;
+  }
+
+  // ② 다른 히트/코트 → heats 조회 후 점프
+  db.ref(`${roomId}/heats`).once('value').then(snap=>{
+    const heats=snap.val()||{};
+    const matches=[];
+    Object.entries(heats).forEach(([heatKey,h])=>{
+      if(!h||(h.event_code||h.event)!==lookup.event)return;
+      const courts=h.courts||{};
+      Object.entries(courts).forEach(([cKey,cv])=>{
+        const ath=cv?.athlete;
+        if(ath&&String(ath.bib)===String(lookup.bib)){
+          const heatNum=Number(heatKey.replace(/^heat_/,''))||h.no||0;
+          matches.push({heatKey,heatNum,courtKey:cKey,athlete:ath});
+        }
       });
-      if(matches.length===0){
-        showToast(`⚠ #${pendingAthleteLookup.bib} 의 ${pendingAthleteLookup.event} 히트를 찾을 수 없음`);
+    });
+    if(matches.length===0){
+      showToast(`⚠ #${lookup.bib} 의 ${lookup.event} 히트를 찾을 수 없음`);
+      return;
+    }
+    const sameCourt=matches.find(m=>String(m.courtKey).toUpperCase()===courtId.toUpperCase());
+    const pick=sameCourt||matches[0];
+    if(!sameCourt){
+      showToast(`📍 이 선수는 코트 ${pick.courtKey} 에 배정됨 (현재 코트 ${courtId})`);
+    }
+    if(pick.heatNum&&pick.heatNum!==currentHeatNo){currentHeatNo=pick.heatNum;}
+    loadHeatData(); // 같은 히트여도 최신 데이터 재로드
+    showToast(`✓ HEAT ${pick.heatNum} · 코트 ${pick.courtKey} · #${pick.athlete.bib} ${pick.athlete.name||''}`);
+  }).catch(e=>{
+    showToast('선수 정보 로드 실패: '+(e.message||'네트워크 확인'));
+  });
+}
+
+// ━━━ 수동 도착 확인 — QR 없을 때(배번카드 분실·카메라 고장·테스트) 폴백 ━━━
+//   confirm 안전장치, verifiedBy='manual' 로 기록 → 운영자·집계에서 'QR vs 수동' 구분 가능.
+function manualVerify(){
+  const cur=currentCourtAthlete();
+  if(!cur){showToast('⚠ 현재 코트에 배정된 선수 없음');return;}
+  if(athleteStatus==='arrived'){showToast(`이미 도착 확인됨 — #${cur.bib} ${cur.name||''}`);return;}
+  if(!confirm(`QR 없이 수동으로 도착 확인합니까?\n#${cur.bib} ${cur.name||''}${cur.club?' ('+cur.club+')':''}\n\n(운영 기록에 'manual' 로 표시됨)`))return;
+  athleteStatus='arrived';
+  updateNoShowBtn();
+  updateReadyBtn();
+  db.ref(`${roomId}/monitoring/judges/${courtId}`).update({
+    athleteStatus:'arrived',
+    verifiedBy:'manual',
+    verifiedAt:Date.now(),
+    court:courtId,judgeName,ts:Date.now(),
+  }).catch(e=>console.warn('수동 확인 동기화 실패',e));
+  showToast(`✓ 수동 도착 확인 — #${cur.bib} ${cur.name||''}`);
+}
+
+// ━━━ 세션 중 카메라 기반 QR 스캐너 (html5-qrcode) ━━━
+let _scanner=null;
+function openScan(){
+  if(!roomId){alert('먼저 시작 후 스캔하세요');return;}
+  const modal=document.getElementById('scan-modal');
+  const hint=document.getElementById('scan-hint');
+  modal.style.display='flex';
+  hint.textContent='카메라 시작 중...';
+  if(!window.Html5Qrcode){hint.textContent='⚠ QR 스캐너 라이브러리 로드 실패';return;}
+  // 기존 스캐너 정리
+  if(_scanner){try{_scanner.stop().then(()=>_scanner.clear());}catch(e){}_scanner=null;}
+  _scanner=new Html5Qrcode('scan-area');
+  _scanner.start(
+    {facingMode:'environment'},
+    {fps:10,qrbox:{width:280,height:280}},
+    onScanSuccess,
+    ()=>{} // 매 프레임 실패는 무시
+  ).then(()=>{hint.textContent='선수 배번 카드의 QR을 화면 가운데에 비춰주세요';})
+   .catch(e=>{hint.textContent='⚠ 카메라 오류: '+(e.message||e)+' — 권한/HTTPS 확인';});
+}
+function closeScan(){
+  if(_scanner){
+    try{_scanner.stop().then(()=>{try{_scanner.clear();}catch(_){}_scanner=null;});}
+    catch(e){_scanner=null;}
+  }
+  document.getElementById('scan-modal').style.display='none';
+}
+function onScanSuccess(text){
+  // 같은 프레임에서 여러 번 호출되는 것 방지
+  try{_scanner&&_scanner.pause(true);}catch(e){}
+  try{
+    const u=new URL(text);
+    const p=u.searchParams;
+    const bib=p.get('bib');const event=p.get('event');
+    if(!bib||!event)throw new Error('QR 형식 인식 불가 — bib/event 누락');
+    const room=p.get('room');
+    if(room&&room!==roomId){
+      if(!confirm(`다른 룸의 QR입니다 (스캔: ${room} / 현재: ${roomId}).\n현재 룸으로 처리하시겠습니까?`)){
+        setTimeout(()=>{try{_scanner&&_scanner.resume();}catch(_){}},300);
         return;
       }
-      // 심판의 court 와 같은 매치 우선
-      const sameCourt=matches.find(m=>String(m.courtKey).toUpperCase()===courtId.toUpperCase());
-      const pick=sameCourt||matches[0];
-      if(!sameCourt){
-        showToast(`📍 이 선수는 코트 ${pick.courtKey} 에 배정됨 (현재 코트: ${courtId})`);
-      }
-      // 히트 점프
-      if(pick.heatNum&&pick.heatNum!==currentHeatNo){
-        currentHeatNo=pick.heatNum;
-        loadHeatData();
-      }
-      pendingAthleteLookup=null;
-    }).catch(e=>{
-      showToast('선수 정보 로드 실패: '+(e.message||'네트워크 확인'));
-    });
+    }
+    const entry=p.get('entry')||'';const name=p.get('name')||'';
+    closeScan();
+    runAthleteLookup({bib,event,entry,name});
+  }catch(e){
+    document.getElementById('scan-hint').textContent='⚠ '+e.message+' — 다시 스캔';
+    setTimeout(()=>{try{_scanner&&_scanner.resume();}catch(_){}},1500);
   }
 }
 
 function resetJudgeState(){
-  // Firebase에서 이전 히트 ready/submitted/athleteStatus 상태 제거
+  // 히트 바뀌면 진위확인·준비·제출 다 초기화 — 새 선수는 다시 QR 스캔 필수
   db.ref(`${roomId}/monitoring/judges/${courtId}`).update({
-    ready:false,submitted:false,score:null,athleteStatus:'pending',ts:Date.now()
+    ready:false,submitted:false,score:null,athleteStatus:'pending',
+    verifiedBy:null,verifiedAt:null,ts:Date.now()
   }).catch(e=>console.warn('reset 실패',e));
   isReady=false;
   athleteStatus='pending';
@@ -396,7 +584,8 @@ function loadHeatData(){
 let currentHeatStatus='idle';
 let gateOpen=false;
 function recomputeGate(){
-  gateOpen=(currentHeatStatus==='racing');
+  // ?dev=1 (테스트 모드) 에서는 operator 시작 신호 없이도 +1 버튼 활성 — 터치 카운트 단독 테스트용
+  gateOpen=(currentHeatStatus==='racing')||TAP_DEBUG;
   const btn=document.getElementById('btn-plus1');
   if(!btn)return;
   if(gateOpen){
@@ -421,6 +610,13 @@ function updateHeatState(state){
   recomputeGate();
 }
 
+// 현재 코트에 배정된 선수 객체 가져오기 (대소문자 무시 매칭)
+function currentCourtAthlete(){
+  if(!currentHeat||!currentHeat.courts)return null;
+  const k=Object.keys(currentHeat.courts).find(x=>String(x).toUpperCase()===String(courtId).toUpperCase());
+  return k?currentHeat.courts[k]?.athlete||null:null;
+}
+
 // 카운팅 — gateOpen 인 동안만 +n 허용 (n<0 은 운영 보정용으로 항상 허용).
 function addCount(n){
   if(n>0&&!gateOpen){
@@ -439,43 +635,68 @@ function addCount(n){
   }
 }
 function clearCount(){count=0;document.getElementById('count-sm').textContent=0;}
-// 이중 카운트 방지:
-// 1) pointerdown 만 사용 (touchstart + click 동시 발화 회피)
-// 2) preventDefault + stopPropagation 으로 합성 click 차단
-// 3) 30ms 디바운스 — 캐패시티브 노이즈로 인한 연속 이벤트만 차단, 빠른 연타는 허용
+// ━━━ 이중 카운트 해결 ━━━
+//   [원인] +1 버튼만 onpointerdown 을 썼음. 터치 1회 시 브라우저는 pointerdown(touch) 외에
+//          호환용 합성 이벤트로 pointerdown(mouse) 을 한 번 더 발화 → 한 탭에 카운트 2회.
+//          (−1/+10 버튼은 처음부터 onclick 만 써서 이 문제가 없었음 — 그게 결정적 단서였음)
+//   [해결] +1 버튼도 onclick 단일 이벤트로 통일. click 은 마우스든 터치든 한 탭에 정확히
+//          1번만 발화 → 이중 카운트가 구조적으로 불가능.
+//   [안전장치] 60ms 디바운스 — 사람 손가락으론 도달 불가능한 간격이라 정상 연타엔 무해.
+//   [진단] URL 끝에 ?dev=1 → 화면 우상단에 매 이벤트 로그.
+const TAP_DEBUG=(new URLSearchParams(location.search).get('dev')==='1');
 let lastTap=0;
-function handleTap(e){
-  if(e){
-    e.preventDefault();
-    if(e.stopPropagation)e.stopPropagation();
-    // pointerType==='touch' 일 때만 발생할 수 있는 짧은 노이즈 — pointerId 로 추가 보호
-    if(e.pointerType==='touch'&&e.isPrimary===false)return;
+function _devLog(msg){
+  if(!TAP_DEBUG)return;
+  let el=document.getElementById('tap-dev-log');
+  if(!el){
+    el=document.createElement('div');el.id='tap-dev-log';
+    el.style.cssText='position:fixed;top:4px;right:4px;z-index:9999;background:rgba(0,0,0,.85);color:#0ff;font-family:monospace;font-size:10px;padding:5px 8px;border-radius:5px;max-height:30vh;overflow:auto;max-width:60vw;pointer-events:none';
+    document.body.appendChild(el);
   }
+  el.innerHTML=`${new Date().toISOString().slice(11,23)} ${msg}<br>`+el.innerHTML;
+  if(el.innerHTML.length>4000)el.innerHTML=el.innerHTML.slice(0,4000);
+}
+function handleTap(e){
+  if(e&&e.preventDefault)e.preventDefault();
+  _devLog(`tap ${e?e.type:'-'}`);
   const now=Date.now();
-  if(now-lastTap<30)return;
+  if(now-lastTap<60){_devLog(`  → blocked: debounce (${now-lastTap}ms)`);return;}
   lastTap=now;
+  _devLog('  → count!');
   addCount(1);
 }
 
-// 준비
+// 준비 — 정책: 선수 QR 진위 확인(athleteStatus='arrived')된 상태에서만 가능.
+//   no_show 면 토글 차단. pending(미확인) 이면 QR 스캔 유도.
 function toggleReady(){
-  // no-show 상태에서는 ready 토글 차단 — 부재 토글 먼저 해제해야 함
   if(athleteStatus==='no_show'){
     showToast('⚠ 선수 부재 상태입니다. 먼저 해제하세요.');
     return;
   }
+  if(athleteStatus!=='arrived'){
+    showToast('📷 선수 QR 스캔으로 진위 확인 후 준비 가능');
+    return;
+  }
   isReady=!isReady;updateReadyBtn();
-  // 입장 신호 (QR 진입 후 첫 ready → athleteStatus='arrived')
+  // athleteStatus 는 QR 진위확인으로만 'arrived' 됨 → 여기서 덮어쓰지 않음
   const update={ready:isReady,judgeName,court:courtId,ts:Date.now()};
-  if(isReady)update.athleteStatus='arrived';
   db.ref(`${roomId}/monitoring/judges/${courtId}`).update(update)
     .catch(e=>showToast('동기화 실패: '+(e.message||'네트워크 확인')));
   showToast(isReady?'✅ 준비 완료 전송':'⏸ 준비 취소');
 }
 function updateReadyBtn(){
   const btn=document.getElementById('btn-ready');
+  if(!btn)return;
+  // QR 미확인 상태에선 버튼 자체가 "QR 스캔 필요" 로 보이도록 + 톤 다운
+  if(athleteStatus!=='arrived'&&athleteStatus!=='no_show'){
+    btn.textContent='📷 QR 스캔 필요';
+    btn.classList.remove('on');
+    btn.style.opacity='.55';
+    return;
+  }
   btn.textContent=isReady?'✅ 준비됨':'✋ 준비 완료';
   btn.classList.toggle('on',isReady);
+  btn.style.opacity='1';
 }
 
 // 선수 부재 — 운영자에게 "이 코트 선수 안 옴" 신호.
@@ -491,6 +712,7 @@ function toggleNoShow(){
   }
   athleteStatus=next;
   updateNoShowBtn();
+  updateReadyBtn();  // no_show 토글 시 준비 버튼 라벨/활성 갱신
   db.ref(`${roomId}/monitoring/judges/${courtId}`).update({
     athleteStatus:next,
     ready:isReady,
@@ -563,6 +785,21 @@ async function submitScore(){
     _submitting=false;
     if(submitBtn){submitBtn.disabled=false;submitBtn.style.opacity=1;}
   }
+}
+
+// READY / SET / GO 카운트다운 오버레이
+function showCountdown(text,cls){
+  const ov=document.getElementById('countdown-overlay');
+  const tx=document.getElementById('countdown-text');
+  if(!ov||!tx)return;
+  ov.classList.add('show');
+  tx.textContent=text;
+  tx.className=cls||'';
+  void tx.offsetHeight; // 애니메이션 재시작 트리거
+}
+function hideCountdown(){
+  const ov=document.getElementById('countdown-overlay');
+  if(ov)ov.classList.remove('show');
 }
 
 // 신호음

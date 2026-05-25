@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>모두의 플레이 — 줄넘기 대회 시스템</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#050810; --sur:#0f1422; --sur2:#161b24; --bdr:#1e2535;
+  --ac:#00e5ff; --ac2:#ff3d71; --gn:#00ff88; --yw:#ffd60a; --pp:#a78bfa;
+  --tx:#e8eaf2; --mu:#4a5568;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{min-height:100dvh;background:var(--bg);color:var(--tx);font-family:'Noto Sans KR',sans-serif;
+  background:radial-gradient(ellipse at 50% 0%,#0a1628 0%,var(--bg) 60%);}
+main{max-width:980px;margin:0 auto;padding:40px 20px 80px;}
+header{text-align:center;margin-bottom:36px;}
+.brand{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:.45em;color:var(--mu);margin-bottom:8px;}
+h1{font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:.04em;color:var(--ac);line-height:1.0;}
+h1 .sub{display:block;font-family:'Noto Sans KR',sans-serif;font-size:16px;letter-spacing:0;color:rgba(255,255,255,.55);margin-top:6px;font-weight:400;}
+
+.room-bar{display:flex;align-items:center;justify-content:center;gap:10px;
+  background:var(--sur2);border:1px solid var(--bdr);border-radius:12px;
+  padding:10px 14px;margin:0 auto 28px;max-width:420px;}
+.room-bar label{font-size:11px;color:#94a3b8;letter-spacing:.12em;text-transform:uppercase;}
+.room-bar input{flex:1;background:transparent;border:none;outline:none;color:var(--tx);
+  font-family:'JetBrains Mono',monospace;font-size:16px;text-align:center;}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;}
+.card{display:block;background:var(--sur2);border:1.5px solid var(--bdr);border-radius:16px;
+  padding:18px 20px;text-decoration:none;color:var(--tx);transition:all .15s;cursor:pointer;}
+.card:hover{transform:translateY(-2px);border-color:var(--ac);background:rgba(0,229,255,.04);}
+.card:active{transform:translateY(0);}
+.card .ic{font-size:30px;line-height:1;margin-bottom:10px;display:inline-block;}
+.card .ti{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.04em;margin-bottom:4px;}
+.card .ds{font-size:12px;color:rgba(255,255,255,.5);line-height:1.5;}
+.card .who{display:inline-block;font-size:10px;letter-spacing:.1em;padding:2px 7px;border-radius:10px;
+  margin-top:8px;background:rgba(255,255,255,.05);color:#94a3b8;}
+.card.acc-op .ti{color:var(--ac);} .card.acc-jd .ti{color:var(--yw);}
+.card.acc-cm .ti{color:var(--ac2);} .card.acc-sp .ti{color:var(--pp);}
+.card.acc-vw .ti{color:var(--gn);} .card.acc-ag .ti{color:#67e8f9;}
+
+footer{text-align:center;margin-top:36px;font-size:11px;color:var(--mu);}
+footer code{font-family:'JetBrains Mono',monospace;background:var(--sur);padding:2px 6px;border-radius:4px;color:#94a3b8;}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="brand">MODU PLAY · ROPE SKIPPING</div>
+    <h1>모두의 플레이
+      <span class="sub">줄넘기 대회 운영 시스템</span>
+    </h1>
+  </header>
+
+  <div class="room-bar">
+    <label>ROOM ID</label>
+    <input type="text" id="room" value="room_003" oninput="syncLinks()" onblur="syncLinks()">
+  </div>
+
+  <div class="grid">
+    <a class="card acc-sp" id="lnk-setup" href="/mop_setup">
+      <div class="ic">⚙️</div>
+      <div class="ti">SETUP</div>
+      <div class="ds">대회·선수·히트 편성 / 배번카드 인쇄 / Firebase 저장</div>
+      <div class="who">PC</div>
+    </a>
+
+    <a class="card acc-op" id="lnk-operator" href="/operator">
+      <div class="ic">🎚</div>
+      <div class="ti">OPERATOR</div>
+      <div class="ds">대회 진행 · 소집·시작·종료 신호 · 코트 보드 모니터링</div>
+      <div class="who">PC</div>
+    </a>
+
+    <a class="card acc-jd" id="lnk-judge" href="/judge">
+      <div class="ic">⚖️</div>
+      <div class="ti">JUDGE</div>
+      <div class="ds">심판 앱 · 선수 QR 진위확인 · 카운트 · 기록 제출</div>
+      <div class="who">📱 폰</div>
+    </a>
+
+    <a class="card acc-cm" id="lnk-camera" href="/camera">
+      <div class="ic">📷</div>
+      <div class="ti">CAMERA</div>
+      <div class="ds">코트 라이브 영상 송출 · 삼각대 거치용</div>
+      <div class="who">📱 폰</div>
+    </a>
+
+    <a class="card acc-cm" id="lnk-jc" href="/judge_cam">
+      <div class="ic">📷⚖</div>
+      <div class="ti">JUDGE + CAM</div>
+      <div class="ds">Z플립 통합 (한 폰으로 심판 + 카메라)</div>
+      <div class="who">📱 Z플립</div>
+    </a>
+
+    <a class="card acc-vw" id="lnk-viewer" href="/viewer">
+      <div class="ic">📺</div>
+      <div class="ti">VIEWER</div>
+      <div class="ds">관객 전광판 · 12/4/풀스크린 레이아웃 · 실시간 카메라</div>
+      <div class="who">🖥 대형 화면</div>
+    </a>
+
+    <a class="card acc-ag" id="lnk-agg" href="/aggregator">
+      <div class="ic">📊</div>
+      <div class="ti">AGGREGATOR</div>
+      <div class="ds">기록 집계 · 순위 · 결과 내보내기</div>
+      <div class="who">PC</div>
+    </a>
+  </div>
+
+  <footer>
+    Cloudflare Pages 호스팅 · 데이터: Firebase RTDB (asia-southeast1)<br>
+    빠른 접속: 본 페이지를 폰 홈화면에 추가하면 즉시 진입 가능
+  </footer>
+</main>
+
+<script>
+// 진입한 URL 에 ?room= 있으면 사용, 없으면 localStorage, 그것도 없으면 기본값 'room_003'
+(function init(){
+  const p=new URLSearchParams(location.search);
+  const fromUrl=p.get('room');
+  const fromLs=localStorage.getItem('mop_landing_room');
+  const r=fromUrl||fromLs||'room_003';
+  document.getElementById('room').value=r;
+  syncLinks();
+})();
+function syncLinks(){
+  const r=(document.getElementById('room').value||'room_003').trim();
+  localStorage.setItem('mop_landing_room',r);
+  // 각 카드 링크에 ?room= 부여 (mop_setup·aggregator 는 room 없어도 OK 지만 일관성 위해 포함)
+  document.getElementById('lnk-setup').href    = `/mop_setup?room=${encodeURIComponent(r)}`;
+  document.getElementById('lnk-operator').href = `/operator?room=${encodeURIComponent(r)}`;
+  document.getElementById('lnk-judge').href    = `/judge?room=${encodeURIComponent(r)}`;
+  document.getElementById('lnk-camera').href   = `/camera?room=${encodeURIComponent(r)}`;
+  document.getElementById('lnk-jc').href       = `/judge_cam?room=${encodeURIComponent(r)}`;
+  document.getElementById('lnk-viewer').href   = `/viewer?room=${encodeURIComponent(r)}`;
+  document.getElementById('lnk-agg').href      = `/aggregator?room=${encodeURIComponent(r)}`;
+}
+</script>
+</body>
+</html>

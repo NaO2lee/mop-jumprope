@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>경기 음원 미리듣기 — 모두의 플레이</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#050810;--sur:#0f1422;--sur2:#161b24;--bdr:#1e2535;--ac:#00e5ff;--ac2:#ff3d71;--gn:#00ff88;--yw:#ffd60a;--tx:#e8eaf2;--mu:#4a5568;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{min-height:100dvh;background:var(--bg);color:var(--tx);font-family:'Noto Sans KR',sans-serif;background:radial-gradient(ellipse at 50% 0%,#0a1628 0%,var(--bg) 60%);}
+main{max-width:920px;margin:0 auto;padding:36px 18px 80px;}
+header{margin-bottom:24px;}
+.crumb{font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:.35em;color:var(--mu);margin-bottom:6px;}
+h1{font-family:'Bebas Neue',sans-serif;font-size:38px;letter-spacing:.04em;color:var(--ac);line-height:1;}
+.sub{font-size:13px;color:rgba(255,255,255,.55);margin-top:8px;line-height:1.6;}
+.sub code{font-family:'JetBrains Mono',monospace;background:var(--sur);padding:2px 6px;border-radius:4px;color:#94a3b8;font-size:12px;}
+
+.grid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:18px;}
+.row{display:grid;grid-template-columns:90px 1fr;gap:12px;align-items:center;
+  background:var(--sur2);border:1px solid var(--bdr);border-radius:12px;padding:14px 16px;}
+.code{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--yw);letter-spacing:.05em;line-height:1;}
+.code .ko{display:block;font-family:'Noto Sans KR',sans-serif;font-size:10px;color:#94a3b8;font-weight:400;letter-spacing:0;margin-top:3px;}
+.detail{display:flex;flex-direction:column;gap:8px;min-width:0;}
+.file{font-size:12px;color:rgba(255,255,255,.45);font-family:'JetBrains Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dur{display:inline-block;font-size:10px;letter-spacing:.1em;padding:1px 6px;border-radius:4px;background:rgba(0,229,255,.1);color:var(--ac);}
+audio{width:100%;height:38px;outline:none;}
+audio::-webkit-media-controls-panel{background:#1a1f2e;}
+
+.note{margin-top:24px;padding:14px 18px;background:rgba(255,214,10,.05);border:1px solid rgba(255,214,10,.25);border-radius:10px;font-size:13px;line-height:1.7;color:#fef9c3;}
+.note b{color:var(--yw);}
+.back{display:inline-block;margin-top:20px;padding:8px 14px;background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;
+  font-size:12px;color:rgba(255,255,255,.7);text-decoration:none;transition:all .15s;}
+.back:hover{border-color:var(--ac);color:var(--ac);}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="crumb">MODU PLAY · SOUND PREVIEW</div>
+    <h1>경기 음원 미리듣기</h1>
+    <div class="sub">각 종목별 MP3 를 재생하면서 <b>"GO" 신호가 몇 초 시점에 들리는지</b> 확인해줘. 그 시간을 알면 심판 카운트 게이트가 정확히 그 시점에 열리도록 맞출 수 있어.</div>
+  </header>
+
+  <div class="grid">
+    <div class="row">
+      <div class="code">SRSS<span class="ko">1×30초 스피드</span></div>
+      <div class="detail">
+        <div class="file">Single Rope Speed 1X30.mp3 <span class="dur">~30s</span></div>
+        <audio controls preload="none" src="Single Rope Speed 1X30.mp3"></audio>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="code">SRSE<span class="ko">3분 인듀어런스</span></div>
+      <div class="detail">
+        <div class="file">Single Rope Speed 1X180.mp3 <span class="dur">~3min</span></div>
+        <audio controls preload="none" src="Single Rope Speed 1X180.mp3"></audio>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="code">SRSR<span class="ko">2×30초 릴레이</span></div>
+      <div class="detail">
+        <div class="file">Single Rope Speed 2X30.mp3 <span class="dur">~1min</span></div>
+        <audio controls preload="none" src="Single Rope Speed 2X30.mp3"></audio>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="code">SRSR<span class="ko">4×30초 릴레이</span></div>
+      <div class="detail">
+        <div class="file">Single Rope Speed 4X30.mp3 <span class="dur">~2min</span></div>
+        <audio controls preload="none" src="Single Rope Speed 4X30.mp3"></audio>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="code">LR-8M<span class="ko">8자 마라톤 1×120</span></div>
+      <div class="detail">
+        <div class="file">Single Rope Speed 1X120_8자마라톤.mp3 <span class="dur">~2min</span></div>
+        <audio controls preload="none" src="Single Rope Speed 1X120_8자마라톤.mp3"></audio>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="code">DDSS<span class="ko">더블더치 1×60</span></div>
+      <div class="detail">
+        <div class="file">Double Dutch Speed 1X60.mp3 <span class="dur">~1min</span></div>
+        <audio controls preload="none" src="Double Dutch Speed 1X60.mp3"></audio>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="code">DDSR<span class="ko">더블더치 2×60 릴레이</span></div>
+      <div class="detail">
+        <div class="file">Double Dutch Speed 2X60.mp3 <span class="dur">~2min</span></div>
+        <audio controls preload="none" src="Double Dutch Speed 2X60.mp3"></audio>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="code">DDRE<span class="ko">더블더치 3×40 팀</span></div>
+      <div class="detail">
+        <div class="file">Double Dutch Speed 3X40.mp3 <span class="dur">~2min</span></div>
+        <audio controls preload="none" src="Double Dutch Speed 3X40.mp3"></audio>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="code">DD<span class="ko">더블더치 1×120</span></div>
+      <div class="detail">
+        <div class="file">Double Sutch Speed 1X120.mp3 <span class="dur">~2min</span></div>
+        <audio controls preload="none" src="Double Sutch Speed 1X120.mp3"></audio>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="code">DDSC<span class="ko">스피드 컨테스트 30초</span></div>
+      <div class="detail">
+        <div class="file">DDSC_30sSpeed.mp3 <span class="dur">~30s</span></div>
+        <audio controls preload="none" src="DDSC_30sSpeed.mp3"></audio>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="code">DDTF<span class="ko">트라이아드 프리스타일</span></div>
+      <div class="detail">
+        <div class="file">Double Dutch Triad Freestyle.mp3 <span class="dur">~1:15</span></div>
+        <audio controls preload="none" src="Double Dutch Triad Freestyle.mp3"></audio>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="code">FREE<span class="ko">프리스타일 공용</span></div>
+      <div class="detail">
+        <div class="file">Freestyle Event.mp3 <span class="dur">~1min</span></div>
+        <audio controls preload="none" src="Freestyle Event.mp3"></audio>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>확인 방법:</b><br>
+    ① 재생 → 처음 "Ready... Set... GO!" (또는 출발 비프) 부분을 들음<br>
+    ② 재생바의 빨간 진행선을 그 GO 순간에 멈춤 → 그 시점의 초 단위 시간을 기억<br>
+    ③ 알려주면 그 시간에 맞춰 심판 +1 게이트가 열리도록 코드 조정<br><br>
+    또는 — 모든 MP3 의 GO 시점이 비슷하다면 (예: 모두 시작 후 약 3초) <b>고정 값으로 게이트 오프셋</b>을 두면 끝.
+  </div>
+
+  <a class="back" href="/">← 메인으로</a>
+</main>
+</body>
+</html>

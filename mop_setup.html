@@ -2850,6 +2850,7 @@ exports.qrToImageData = function qrToImageData (imgData, qr, opts) {
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="flags.js"></script>
+<script src="countries.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 <style>
 :root{
@@ -2981,6 +2982,8 @@ select.inp{cursor:pointer}
 .div-mv.off{opacity:.15;cursor:default}
 .div-del{cursor:pointer;color:var(--ac2);opacity:.7;font-size:14px;line-height:1;padding:1px 5px;border-radius:4px;transition:all .12s}
 .div-del:hover{opacity:1;background:var(--ac2-soft)}
+.div-edit{cursor:pointer;color:var(--yw);opacity:.7;font-size:12px;line-height:1;padding:2px 5px;border-radius:4px;transition:all .12s}
+.div-edit:hover{opacity:1;background:var(--yw-soft,rgba(245,158,11,.12))}
 
 /* relay */
 .relay-sec{margin-top:10px;border:1px solid var(--yw);border-radius:9px;padding:10px;background:var(--yw-soft)}
@@ -3132,61 +3135,71 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
   .card{border:none!important;padding:0!important;background:transparent!important;box-shadow:none!important}
   .view{padding:0!important}
 
-  /* ── 배번카드: A4 가로, 2×2 (화면 레이아웃 그대로) ── */
+  /* ── 배번카드: A4 세로, 1열 전폭 (흑백 인쇄 친화) ── */
   .bib-cards{
     display:grid!important;
-    grid-template-columns:1fr 1fr!important;
-    gap:3mm!important;
+    grid-template-columns:1fr!important;
+    gap:4mm!important;
     padding:0!important;
     width:100%!important;
+    background:#fff!important;
   }
   .bib-card{
     width:100%!important;
     box-sizing:border-box!important;
-    border:0.5px dashed #bbb!important;
-    padding:4mm 3mm!important;
+    border:1px solid #000!important;
+    background:#fff!important;
+    padding:5mm 6mm!important;
     break-inside:avoid!important;
     page-break-inside:avoid!important;
     overflow:hidden!important;
-    /* 화면과 동일: 3행 구조 유지 */
     display:grid!important;
     grid-template-rows:auto auto auto!important;
     grid-template-columns:unset!important;
-    gap:3mm!important;
+    gap:4mm!important;
     min-height:unset!important;
+    color:#000!important;
   }
-  /* topRow / botRow: 5칸 가로 그리드 (화면과 동일) */
+  /* QR 행: 3칸 가로 그리드 — [QR/QR/QR] */
   .bib-card>.bib-row{
     display:grid!important;
-    grid-template-columns:repeat(5,1fr)!important;
+    grid-template-columns:repeat(3,1fr)!important;
     flex-direction:unset!important;
-    gap:2px!important;
+    gap:4mm!important;
   }
-  /* center: 가로 flex (화면과 동일) */
+  /* center: 가로 flex */
   .bib-card>.bib-center{
     display:flex!important;
     flex-direction:row!important;
     justify-content:center!important;
     align-items:center!important;
-    gap:5mm!important;
-    border-top:1px solid #eee!important;
-    border-bottom:1px solid #eee!important;
+    gap:8mm!important;
+    border-top:1px solid #000!important;
+    border-bottom:1px solid #000!important;
     border-left:none!important;border-right:none!important;
-    padding:2mm 0!important;
+    padding:3mm 0!important;
+    background:#fff!important;
   }
   .bib-slot{
     display:flex!important;flex-direction:column!important;
     align-items:center!important;justify-content:flex-start!important;
-    padding:1mm!important;min-height:unset!important;
+    padding:2mm!important;min-height:unset!important;
+    background:#fff!important;
+    border:1px solid #000!important;
   }
-  .bib-qr{width:14mm!important;height:14mm!important;margin:1px auto!important}
+  .bib-slot.empty{background:#fff!important;opacity:.3!important;border-style:dashed!important}
+  .bib-qr{
+    width:28mm!important;height:28mm!important;margin:1mm auto!important;
+    border:1px solid #000!important;background:#fff!important;padding:1mm!important;
+  }
+  .bib-qr.empty{background:#fff!important;border-style:dashed!important;color:#999!important}
   .bib-qr canvas,.bib-qr img{width:100%!important;height:100%!important;display:block!important}
-  .bib-evname{font-size:6pt!important;text-align:center!important;margin-top:1px!important}
-  .bib-entry{font-size:7pt!important;text-align:center!important;font-weight:700!important}
-  .bib-name{font-size:11pt!important;font-weight:800!important;line-height:1.2!important}
-  .bib-club{font-size:7pt!important;margin-top:1mm!important}
-  .bib-bib-tag{font-size:9pt!important}
-  .bib-flag img{width:14mm!important;height:10.5mm!important;border-radius:1mm!important}
+  .bib-evname{font-size:9pt!important;text-align:center!important;margin-top:2mm!important;color:#000!important;font-weight:700!important}
+  .bib-entry{font-size:10pt!important;text-align:center!important;font-weight:700!important;color:#000!important;margin-bottom:1mm!important}
+  .bib-name{font-size:16pt!important;font-weight:800!important;line-height:1.2!important;color:#000!important}
+  .bib-club{font-size:10pt!important;margin-top:2mm!important;color:#000!important;border-bottom:1px dotted #000!important}
+  .bib-bib-tag{font-size:13pt!important;color:#000!important;font-weight:700!important}
+  .bib-flag img{width:18mm!important;height:13.5mm!important;border-radius:1mm!important;border:1px solid #000!important}
 
   /* ── 히트 목록/코트뷰 인쇄 ── */
   #heat-sidebar,#heat-search-bar,.no-print{display:none!important}
@@ -3201,7 +3214,7 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
   .heat-block{break-inside:avoid;page-break-inside:avoid;margin-bottom:8px}
   mark{background:#ffe066!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 
-  @page{size:A4 landscape;margin:6mm}
+  @page{size:A4 portrait;margin:8mm}
 }
 </style>
 </head>
@@ -3213,6 +3226,11 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
       <span class="fb-dot" id="fb-dot"></span>
       <span id="fb-txt" style="color:var(--ac2)">Firebase</span>
     </span>
+    <!-- 역할 페이지 바로가기 (현재 Room ID 자동 부여) -->
+    <button class="btn sm" onclick="openRolePage('operator')" title="운영자 화면 (별도 탭)">🎚 운영</button>
+    <button class="btn sm" onclick="openRolePage('judge')" title="심판 화면">⚖ 심판</button>
+    <button class="btn sm" onclick="openRolePage('camera')" title="카메라 송출">📷 카메라</button>
+    <button class="btn sm" onclick="openRolePage('viewer')" title="전광판 뷰어">📺 전광판</button>
     <button class="lang-btn" id="lang-btn" onclick="toggleLang()">KOR</button>
     <button class="btn sm se" onclick="openCfg()">⚙ 설정</button>
   </div>
@@ -3234,7 +3252,7 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
     <!-- 기본 정보 -->
     <div class="card">
       <div class="ct">🏆 대회 기본 정보</div>
-      <div class="fld"><label>대회명</label><input class="inp" id="sch-comp" placeholder="2026 Korea Open Jump Rope Championship" oninput="saveCfgAuto()"></div>
+      <div class="fld"><label>대회명</label><input class="inp" id="sch-comp" placeholder="2026 Korea Open Jump Rope Championship" oninput="saveCfgAuto();syncCfgToModal()"></div>
       <div class="row3">
         <div class="fld"><label>시작일</label><input class="inp" id="sch-date" type="date" oninput="saveCfgAuto();renderDayAssign()"></div>
         <div class="fld"><label>종료일</label><input class="inp" id="sch-date-end" type="date" oninput="saveCfgAuto();renderDayAssign()"></div>
@@ -3243,7 +3261,7 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
       <div class="row3">
         <div class="fld"><label>시작 시간</label><input class="inp" id="sch-start" type="time" value="09:00" oninput="saveCfgAuto()"></div>
         <div class="fld"><label>주최 / 주관</label><input class="inp" id="sch-org" placeholder="KRSA / 서울시줄넘기협회" oninput="saveCfgAuto()"></div>
-        <div class="fld"><label>Firebase Room ID</label><input class="inp fm" id="cfg-room" value="room_001" oninput="saveCfgAuto()"></div>
+        <div class="fld"><label>Firebase Room ID</label><input class="inp fm" id="cfg-room" value="room_001" oninput="saveCfgAuto();syncCfgToModal()"></div>
       </div>
       <div class="fld"><label>대회 소개 (선택)</label><textarea class="inp" id="sch-desc" rows="2" placeholder="대회 소개 문구..." style="resize:vertical;font-family:inherit"></textarea></div>
 
@@ -3313,6 +3331,14 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
           <button class="btn sm se" onclick="downloadTemplate()" id="btn-tmpl">⬇ 양식</button>
           <button class="btn sm se" onclick="showFormatGuide()">❓ 안내</button>
         </div>
+        <!-- 업로드 이력 -->
+        <div id="upload-history" style="margin-top:10px;display:none">
+          <div style="font-size:11px;color:var(--mu);font-weight:700;margin-bottom:5px;display:flex;align-items:center;justify-content:space-between">
+            <span>📜 업로드 이력</span>
+            <span id="upload-history-clear" onclick="clearUploadHistory()" style="cursor:pointer;color:var(--ac2);font-weight:600">전체 비우기</span>
+          </div>
+          <div id="upload-history-list" style="display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto"></div>
+        </div>
       </div>
 
       <!-- 참가부 관리 -->
@@ -3368,7 +3394,7 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
             <label id="lbl-birth">생년월일 (YYMMDD)</label>
             <input class="inp fm" id="a-birth" placeholder="예: 790426" maxlength="6" oninput="this.value=this.value.replace(/\D/g,'')">
           </div>
-          <div class="fld"><label id="lbl-country">국가</label><input class="inp" id="a-country" placeholder="KOR" maxlength="3" oninput="this.value=this.value.toUpperCase()"></div>
+          <div class="fld"><label id="lbl-country">국가</label><select class="inp" id="a-country"></select></div>
         </div>
         <div class="fld"><label id="lbl-club">소속</label><input class="inp" id="a-club" placeholder="서울점프단"></div>
         <div class="fld">
@@ -3466,6 +3492,9 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
 
 <!-- ══════ TAB 2: 히트편성 ══════ -->
 <div class="view" id="view-heats">
+  <div id="entry-status-bar-heats" class="no-print" style="display:flex;align-items:center;gap:6px;padding:10px 14px;background:#fff;border:1px solid var(--bdr);border-radius:10px;margin-bottom:10px;flex-wrap:wrap;box-shadow:var(--shadow)">
+    <!-- 진행 상태바: renderStatusBar() 가 채워줌 -->
+  </div>
   <div style="display:grid;grid-template-columns:280px 1fr;gap:12px">
     <div id="heat-sidebar" class="no-print">
       <div class="card">
@@ -3473,8 +3502,8 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
         <div class="fld"><label id="lbl-h-ev">종목</label><select class="inp" id="heat-event" onchange="updateHeatDivs()"></select></div>
         <div class="fld"><label id="lbl-h-div">참가부</label><select class="inp" id="heat-division"></select></div>
         <div class="fld">
-          <label id="lbl-h-ct">코트 수</label>
-          <input class="inp fm" id="heat-courts" type="number" value="4" min="1" max="50" placeholder="예: 24">
+          <label id="lbl-h-ct" title="한 히트에 동시에 경기하는 선수 수. 코트 레이아웃의 표시와는 별개입니다.">히트당 코트 수 <span style="font-size:10px;color:var(--mu);font-weight:400">(한 히트당 동시 경기 인원)</span></label>
+          <input class="inp fm" id="heat-courts" type="number" value="4" min="1" max="50" placeholder="예: 4" title="히트 생성 시 한 히트에 들어가는 선수 수">
         </div>
         <div class="fld">
           <label>코트 ID 형식</label>
@@ -3512,23 +3541,20 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
           <!-- 스테이션 모드 -->
           <div id="layout-station-opts">
             <div class="row2">
-              <div class="fld"><label style="font-size:11px">스테이션 수</label>
+              <div class="fld"><label style="font-size:11px" title="현장 전체 코트 개수 (각 코트 안에 스테이션이 여러 개)">코트 수</label>
                 <input class="inp fm" id="layout-stations" type="number" value="6" min="1" max="20"
                   oninput="courtLayout.stations=parseInt(this.value)||6;renderCourtView()"></div>
-              <div class="fld"><label style="font-size:11px">코트/스테이션</label>
+              <div class="fld"><label style="font-size:11px" title="한 코트 안에 들어가는 스테이션 수 (실제 경기 자리)">코트 내 스테이션 수</label>
                 <input class="inp fm" id="layout-cps" type="number" value="4" min="1" max="16"
                   oninput="courtLayout.cps=parseInt(this.value)||4;renderCourtView()"></div>
             </div>
             <div class="row2">
-              <div class="fld"><label style="font-size:11px">스테이션 내 열</label>
+              <div class="fld"><label style="font-size:11px" title="한 코트 안 스테이션 행 수 (배치)">스테이션 행</label>
+                <input class="inp fm" id="layout-srows" type="number" value="2" min="1" max="8"
+                  oninput="courtLayout.stationRows=parseInt(this.value)||2;renderCourtView()"></div>
+              <div class="fld"><label style="font-size:11px" title="한 코트 안 스테이션 열 수 (배치)">스테이션 열</label>
                 <input class="inp fm" id="layout-scols" type="number" value="2" min="1" max="8"
                   oninput="courtLayout.stationCols=parseInt(this.value)||2;renderCourtView()"></div>
-              <div class="fld"><label style="font-size:11px">좌우 구분</label>
-                <select class="inp fm" id="layout-sides" style="font-size:12px"
-                  onchange="courtLayout.sides=parseInt(this.value);renderCourtView()">
-                  <option value="2">양측 (좌/우)</option>
-                  <option value="1">단측</option>
-                </select></div>
             </div>
           </div>
           <!-- 그리드 모드 -->
@@ -3545,7 +3571,7 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
         </div>
         <!-- 히트 확정 영역 -->
         <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bdr)">
-          <button class="btn pr" onclick="confirmHeats()" style="width:100%" id="btn-confirm-heat">🏁 히트 확정</button>
+          <button class="btn pr" onclick="confirmHeats()" style="width:100%" id="btn-confirm-heat" title="현재 히트표를 잠금. 이후 추가되는 선수는 150-1 형식으로 부여">🏁 히트 확정 <span style="font-size:10px;font-weight:400;opacity:.8">(로컬 잠금)</span></button>
           <div style="margin-top:5px;font-size:11px;color:var(--mu);line-height:1.5">
             확정 후 추가 히트는 <span class="fm" style="color:var(--yw)">150-1</span> 형식으로 자동 부여
           </div>
@@ -3560,9 +3586,9 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
         </div>
       </div>
       <div class="btn-row" style="margin-top:7px">
-        <button class="btn su" onclick="saveHeatsToFirebase()" id="btn-h-fb">☁ Firebase</button>
-        <button class="btn se" onclick="reconfirmHeats()" style="font-size:11px">↺ 재확정</button>
-        <button class="btn sm da" onclick="clearHeats()">🗑</button>
+        <button class="btn su" onclick="saveHeatsToFirebase()" id="btn-h-fb" title="히트표 데이터를 클라우드(Firebase RTDB)로 업로드 — operator/judge 가 같은 룸 id 로 접속하면 즉시 동기화">☁ 클라우드 저장 (Firebase)</button>
+        <button class="btn se" onclick="reconfirmHeats()" style="font-size:11px" title="히트 확정 후 새로 추가된 히트도 포함해서 다시 잠그기">↺ 재확정</button>
+        <button class="btn sm da" onclick="clearHeats()" title="모든 히트 삭제 (확인 다이얼로그 있음)">🗑</button>
       </div>
     </div>
     <div id="heat-flex-container" style="display:flex;flex-direction:column;height:calc(100vh - 120px);min-height:400px">
@@ -3775,9 +3801,9 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
 <div class="modal-bg" id="cfg-modal" style="display:none">
   <div class="modal">
     <div class="modal-title">⚙ 설정<span class="modal-close" onclick="closeCfg()">✕</span></div>
-    <div class="fld"><label>Firebase Room ID</label><input class="inp" id="cfg-room" value="room_001" style="font-family:monospace"></div>
+    <div class="fld"><label>Firebase Room ID</label><input class="inp" id="cfg-room-modal" value="room_001" style="font-family:monospace" oninput="syncCfgFromModal('roomId',this.value)"></div>
     <div class="fld"><label>Google Sheets Webhook URL</label><input class="inp" id="cfg-webhook" style="font-size:12px;font-family:monospace"></div>
-    <div class="fld" style="margin-bottom:12px"><label id="lbl-cfg-comp">대회명</label><input class="inp" id="cfg-comp"></div>
+    <div class="fld" style="margin-bottom:12px"><label id="lbl-cfg-comp">대회명</label><input class="inp" id="cfg-comp" oninput="syncCfgFromModal('competition',this.value)"></div>
     <button class="btn pr" onclick="saveCfg()" style="width:100%">저장</button>
   </div>
 </div>
@@ -3792,7 +3818,7 @@ input[type=checkbox]{accent-color:var(--ac);width:16px;height:16px;cursor:pointe
     </div>
     <div class="row2">
       <div class="fld"><label>생년월일 (YYMMDD)</label><input class="inp fm" id="e-birth" placeholder="790426" maxlength="6" oninput="this.value=this.value.replace(/\D/g,'')"></div>
-      <div class="fld"><label>국가</label><input class="inp" id="e-country" maxlength="3" oninput="this.value=this.value.toUpperCase()"></div>
+      <div class="fld"><label>국가</label><select class="inp" id="e-country"></select></div>
     </div>
     <div class="fld"><label>소속</label><input class="inp" id="e-club"></div>
     <div class="fld"><label>참가부</label><select class="inp" id="e-division"></select></div>
@@ -4031,7 +4057,14 @@ window.onload=()=>{
   cfg=JSON.parse(localStorage.getItem('mop_cfg')||'{}');cfg.roomId=cfg.roomId||'room_001';
   document.getElementById('lang-btn').textContent=lang==='ko'?'KOR':'ENG';
   if(cfg.webhook){document.getElementById('cfg-webhook').value=cfg.webhook;document.getElementById('sheets-webhook').value=cfg.webhook;}
-  if(cfg.roomId)document.getElementById('cfg-room').value=cfg.roomId;
+  if(cfg.roomId){
+    const rEl=document.getElementById('cfg-room');if(rEl)rEl.value=cfg.roomId;
+    const rmEl=document.getElementById('cfg-room-modal');if(rmEl)rmEl.value=cfg.roomId;
+  }
+  if(cfg.competition){
+    const cEl=document.getElementById('sch-comp');if(cEl)cEl.value=cfg.competition;
+    const cmEl=document.getElementById('cfg-comp');if(cmEl)cmEl.value=cfg.competition;
+  }
   // 저장된 프리셋 모드 + 디비전 복원
   presetMode=localStorage.getItem('mop_preset')||'krsa';
   if(!['krsa','ijru','custom'].includes(presetMode))presetMode='krsa';
@@ -4062,10 +4095,18 @@ window.onload=()=>{
   setCompetitionMode(cmode);
   renderStatusBar();
   setPivotType(0);
+  renderUploadHistory();
 };
 
 /* ── LANG ── */
 function toggleLang(){lang=lang==='ko'?'en':'ko';localStorage.setItem('mop_lang',lang);document.getElementById('lang-btn').textContent=lang==='ko'?'KOR':'ENG';applyLang();}
+
+// 헤더 우측 바로가기: 역할별 페이지를 별도 탭으로 — 현재 Room ID 자동 전달
+function openRolePage(role){
+  const r=(document.getElementById('cfg-room')?.value||document.getElementById('cfg-room-modal')?.value||cfg.roomId||'room_001').trim();
+  const base=location.origin+location.pathname.replace(/[^\/]*$/,'');
+  window.open(`${base}${role}.html?room=${encodeURIComponent(r)}`,'_blank','noopener');
+}
 const LBL={
   ko:{upload:'📁 파일 업로드',divmgr:'🏷 참가부 관리',addath:'✏ 선수 직접 추가',search:'🔍 검색 & 저장',
     name:'이름',gender:'성별',birth:'생년월일 (YYMMDD)',country:'국가',club:'소속',divsel:'참가부',events:'참가 종목',
@@ -4249,11 +4290,12 @@ function renderDivList(){
     const lbl=`${lang==='ko'?d.ko:d.en}${ageLbl}`;
     const upBtn  = i>0 ? `<span class="div-mv" onclick="moveDivision(${i},-1)" title="위로">▲</span>` : '<span class="div-mv off">▲</span>';
     const dnBtn  = i<divisions.length-1 ? `<span class="div-mv" onclick="moveDivision(${i},1)" title="아래로">▼</span>` : '<span class="div-mv off">▼</span>';
+    const editBtn= `<span class="div-edit" onclick="editDivision(${i})" title="편집">✎</span>`;
     const delBtn = `<span class="div-del" onclick="rmDiv(${i})" title="삭제">×</span>`;
     return `<span class="div-tag">
       <span class="div-order fm">${i+1}</span>
       ${lbl}
-      <span class="div-ctrl">${upBtn}${dnBtn}${delBtn}</span>
+      <span class="div-ctrl">${upBtn}${dnBtn}${editBtn}${delBtn}</span>
     </span>`;
   }).join('');
 }
@@ -4272,9 +4314,76 @@ function addDivision(){
   renderDivList();updateAllSelects();
 }
 function rmDiv(i){
+  const d=divisions[i];if(!d)return;
+  // 이 참가부에 등록된 참가자가 있으면 경고
+  const usedCnt=athletes.filter(a=>a.division===d.ko).length;
+  const ko=lang==='ko';
+  const msg=usedCnt>0
+    ?(ko?`"${d.ko}" 참가부를 삭제할까요?\n\n⚠ 이 참가부에 ${usedCnt}명의 참가자가 등록돼 있습니다.\n삭제해도 참가자는 남지만 참가부 표시가 비어집니다.`:`Delete "${d.ko}"?\n\n⚠ ${usedCnt} athletes belong to this division.`)
+    :(ko?`"${d.ko}" 참가부를 삭제할까요?`:`Delete "${d.ko}"?`);
+  if(!confirm(msg))return;
   divisions.splice(i,1);
   localStorage.setItem('mop_divisions',JSON.stringify(divisions));
   renderDivList();updateAllSelects();
+}
+function editDivision(i){
+  const d=divisions[i];if(!d)return;
+  document.getElementById('div-edit-modal-bg')?.remove();
+  const bg=document.createElement('div');
+  bg.id='div-edit-modal-bg';
+  bg.style.cssText='position:fixed;inset:0;background:rgba(15,20,40,.55);backdrop-filter:blur(5px);z-index:600;display:flex;align-items:center;justify-content:center;padding:16px';
+  bg.innerHTML=`<div style="background:#fff;border-radius:14px;padding:22px;width:100%;max-width:440px;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,.15);border:2px solid var(--ac)">
+    <div style="font-size:17px;font-weight:800;color:var(--tx)">✎ 참가부 편집</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu)">
+        한글명
+        <input id="div-edit-ko" class="inp" value="${(d.ko||'').replace(/"/g,'&quot;')}">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu)">
+        영문명
+        <input id="div-edit-en" class="inp" value="${(d.en||'').replace(/"/g,'&quot;')}">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu)">
+        연령 (한글)
+        <input id="div-edit-age" class="inp" value="${(d.age||'').replace(/"/g,'&quot;')}" placeholder="예: 11–12 / ≥18">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu)">
+        연령 (영문)
+        <input id="div-edit-ageEn" class="inp" value="${(d.ageEn||'').replace(/"/g,'&quot;')}" placeholder="Age 11–12">
+      </label>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;padding-top:6px;border-top:1px solid var(--bdr)">
+      <button id="div-edit-cancel" style="padding:8px 18px;border:1.5px solid var(--bdr);border-radius:7px;background:#fff;cursor:pointer;font-size:13px;font-weight:600">취소</button>
+      <button id="div-edit-save" style="padding:8px 18px;border:none;border-radius:7px;background:var(--ac);color:#fff;cursor:pointer;font-size:13px;font-weight:700">저장</button>
+    </div></div>`;
+  document.body.appendChild(bg);
+  bg.querySelector('#div-edit-cancel').onclick=()=>bg.remove();
+  bg.onclick=ev=>{if(ev.target===bg)bg.remove();};
+  bg.querySelector('#div-edit-save').onclick=()=>{
+    const ko=document.getElementById('div-edit-ko').value.trim();
+    if(!ko){toast(lang==='ko'?'한글명 필수':'Korean name required',true);return;}
+    // 다른 항목에서 중복 검사
+    if(divisions.some((x,idx)=>idx!==i&&x.ko===ko)){
+      toast(lang==='ko'?'이미 존재하는 한글명':'Korean name already exists',true);return;
+    }
+    const oldKo=divisions[i].ko;
+    divisions[i]={
+      ko,
+      en:document.getElementById('div-edit-en').value.trim()||ko,
+      age:document.getElementById('div-edit-age').value.trim(),
+      ageEn:document.getElementById('div-edit-ageEn').value.trim(),
+    };
+    // 참가자가 이 참가부에 등록돼 있으면 division 키도 같이 갱신
+    if(oldKo!==ko){
+      let updated=0;
+      athletes.forEach(a=>{if(a.division===oldKo){a.division=ko;updated++;}});
+      if(updated)toast(lang==='ko'?`참가자 ${updated}명의 참가부도 갱신됨`:`${updated} athletes updated`);
+    }
+    localStorage.setItem('mop_divisions',JSON.stringify(divisions));
+    lsave();renderDivList();updateAllSelects();renderAll();
+    bg.remove();
+    toast(lang==='ko'?'✓ 참가부 편집 완료':'✓ Division updated');
+  };
 }
 function moveDivision(i,delta){
   const j=i+delta;
@@ -4300,6 +4409,8 @@ function resetDivisionOrder(){
 function updateAllSelects(){
   const opts=divisions.map(d=>`<option value="${d.ko}">${divLabel(d.ko)}</option>`).join('');
   ['a-division','e-division','relay-division'].forEach(id=>{const el=document.getElementById(id);if(el){const c=el.value;el.innerHTML=opts;el.value=c;}});
+  ['a-country','e-country'].forEach(id=>{const el=document.getElementById(id);if(el)renderCountrySelect(el,el.value||'KOR',lang);});
+  renderRelayMbrs();
   updateFilterOpts();updateHeatEvOpts();renderSchEvList();
 }
 function updateFilterOpts(){
@@ -4534,7 +4645,7 @@ function addAthleteManual(){
   autoAssignTeams();
   assignBibs();renderAll();lsave();
   document.getElementById('a-name').value='';document.getElementById('a-birth').value='';
-  document.getElementById('a-country').value='';document.getElementById('a-club').value='';
+  renderCountrySelect(document.getElementById('a-country'),'KOR',lang);document.getElementById('a-club').value='';
   addEvSelected=[];renderEvTags('add');
   toast(lang==='ko'?`${name} 추가됨`:`${name} added`);
 }
@@ -4543,17 +4654,28 @@ function addAthleteManual(){
 function toggleRelay(){const on=document.getElementById('relay-chk').checked;document.getElementById('relay-body').style.display=on?'block':'none';if(on&&!relayMbrs.length)buildRelayInputs(4);}
 function buildRelayInputs(n){relayMbrs=Array.from({length:n},()=>({name:'',country:'KOR',club:''}));renderRelayMbrs();}
 function renderRelayMbrs(){
-  document.getElementById('relay-members').innerHTML=relayMbrs.map((m,i)=>`
+  const host=document.getElementById('relay-members');
+  if(!host)return;
+  host.innerHTML=relayMbrs.map((m,i)=>`
     <div class="rel-row">
       <div class="fm" style="font-size:13px;color:var(--yw)">${relayTeamNo}-${i+1}</div>
       <input class="inp inp-sm" placeholder="${lang==='ko'?'이름':'Name'}" value="${m.name}" oninput="relayMbrs[${i}].name=this.value">
-      <input class="inp inp-sm" placeholder="KOR" maxlength="3" value="${m.country}" oninput="relayMbrs[${i}].country=this.value.toUpperCase()">
+      <select class="inp inp-sm" data-rel-country="${i}"></select>
       <input class="inp inp-sm" placeholder="${lang==='ko'?'소속':'Club'}" value="${m.club}" oninput="relayMbrs[${i}].club=this.value">
       <button class="btn sm da" onclick="rmRelayMbr(${i})">×</button>
     </div>`).join('');
+  host.querySelectorAll('select[data-rel-country]').forEach(el=>{
+    const i=+el.getAttribute('data-rel-country');
+    renderCountrySelect(el,relayMbrs[i]?.country||'KOR',lang);
+    el.onchange=()=>{relayMbrs[i].country=el.value.toUpperCase();};
+  });
 }
 function addRelayMember(){relayMbrs.push({name:'',country:'KOR',club:''});renderRelayMbrs();}
-function rmRelayMbr(i){relayMbrs.splice(i,1);renderRelayMbrs();}
+function rmRelayMbr(i){
+  const m=relayMbrs[i];const nm=(m?.name||'').trim();
+  if(nm&&!confirm(lang==='ko'?`팀원 "${nm}" 삭제할까요?`:`Remove "${nm}"?`))return;
+  relayMbrs.splice(i,1);renderRelayMbrs();
+}
 function addRelayTeam(){
   const evCode=document.getElementById('relay-event').value;
   const div=document.getElementById('relay-division').value;
@@ -4606,6 +4728,39 @@ function handleDrop(e){e.preventDefault();document.getElementById('dropzone').cl
 function handleFile(inp){if(inp.files.length)_enqueueFiles(inp.files);inp.value='';}
 /* ── 업로드 파일 이력 ── */
 let uploadedFiles=JSON.parse(localStorage.getItem('mop_uploaded_files')||'[]');
+
+function renderUploadHistory(){
+  const wrap=document.getElementById('upload-history');
+  const list=document.getElementById('upload-history-list');
+  if(!wrap||!list)return;
+  if(!uploadedFiles.length){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  list.innerHTML=uploadedFiles.map((f,i)=>{
+    const dt=new Date(f.at);
+    const dtStr=dt.toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(/\.\s/g,'.').replace(/\.$/,'');
+    const sizeKB=Math.max(1,Math.round((f.size||0)/1024));
+    return `<div style="display:flex;align-items:center;gap:6px;padding:5px 7px;background:var(--sur3);border:1px solid var(--bdr);border-radius:6px;font-size:11px">
+      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx);font-weight:600" title="${f.name}">${f.name}</span>
+      <span style="color:var(--mu);font-family:'JetBrains Mono',monospace">${sizeKB}KB · ${f.count||0}명</span>
+      <span style="color:var(--mu2);font-size:10px">${dtStr}</span>
+      <span onclick="removeUploadHistory(${i})" style="cursor:pointer;color:var(--ac2);padding:0 4px;font-weight:700" title="이 이력 삭제">×</span>
+    </div>`;
+  }).join('');
+}
+function removeUploadHistory(i){
+  const f=uploadedFiles[i];if(!f)return;
+  if(!confirm(lang==='ko'?`이 업로드 이력을 삭제할까요?\n\n${f.name}\n(참가자 명단은 그대로 유지됩니다)`:`Remove this upload history?\n\n${f.name}\n(Athletes remain.)`))return;
+  uploadedFiles.splice(i,1);
+  localStorage.setItem('mop_uploaded_files',JSON.stringify(uploadedFiles));
+  renderUploadHistory();
+}
+function clearUploadHistory(){
+  if(!uploadedFiles.length)return;
+  if(!confirm(lang==='ko'?'업로드 이력을 전부 비울까요?\n(참가자 명단은 그대로 유지됩니다)':'Clear upload history?\n(Athletes remain.)'))return;
+  uploadedFiles=[];
+  localStorage.removeItem('mop_uploaded_files');
+  renderUploadHistory();
+}
 
 /* ── 검증 모달 ── */
 function showImportModal({title,subtitle,errors,onConfirm,confirmLabel,onCancel}){
@@ -4724,7 +4879,52 @@ function findTeamCol(row,ev){
   return null;
 }
 
+function showReuploadModal({existing,incoming,onReplace,onAppend,onCancel}){
+  document.getElementById('import-modal-bg')?.remove();
+  const bg=document.createElement('div');
+  bg.id='import-modal-bg';
+  bg.style.cssText='position:fixed;inset:0;background:rgba(15,20,40,.55);backdrop-filter:blur(5px);z-index:600;display:flex;align-items:center;justify-content:center;padding:16px';
+  bg.innerHTML=`<div style="background:#fff;border-radius:14px;padding:22px;width:100%;max-width:460px;display:flex;flex-direction:column;gap:14px;box-shadow:0 8px 32px rgba(0,0,0,.15);border:2px solid var(--yw)">
+    <div style="font-size:17px;font-weight:800;color:var(--tx)">📋 기존 명단이 있어요</div>
+    <div style="font-size:13px;color:var(--tx2);line-height:1.7">
+      현재 <strong>${existing}명</strong>이 등록돼 있고, 새로 올린 파일에는 <strong>${incoming}명</strong>이 있어요.<br>
+      어떻게 처리할까요?
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button id="ru-replace" style="padding:11px 14px;border:1.5px solid var(--ac2);border-radius:8px;background:#fff;color:var(--ac2);cursor:pointer;font-size:13px;font-weight:700;text-align:left">
+        🗑 덮어쓰기 — 기존 ${existing}명 모두 삭제하고 새 ${incoming}명만 등록
+      </button>
+      <button id="ru-append" style="padding:11px 14px;border:1.5px solid var(--ac);border-radius:8px;background:#fff;color:var(--ac);cursor:pointer;font-size:13px;font-weight:700;text-align:left">
+        ➕ 추가 — 기존 ${existing}명 그대로 두고 새 ${incoming}명 합치기 (총 ${existing+incoming}명)
+      </button>
+      <button id="ru-cancel" style="padding:9px 14px;border:1px solid var(--bdr);border-radius:8px;background:#fff;color:var(--mu);cursor:pointer;font-size:13px;font-weight:600">
+        취소
+      </button>
+    </div></div>`;
+  document.body.appendChild(bg);
+  bg.querySelector('#ru-replace').onclick=()=>{bg.remove();onReplace?.();};
+  bg.querySelector('#ru-append').onclick=()=>{bg.remove();onAppend?.();};
+  bg.querySelector('#ru-cancel').onclick=()=>{bg.remove();onCancel?.();};
+  bg.onclick=ev=>{if(ev.target===bg){bg.remove();onCancel?.();}};
+}
+
 function validateAndImport(rows,fileName,fileSize,done=null){
+  // 기존 명단이 있으면 덮어쓰기/추가 선택 게이트
+  if(athletes.length>0){
+    const incoming=rows.filter(r=>String(fc(r,COLMAP.name)||'').trim()).length;
+    showReuploadModal({
+      existing:athletes.length,
+      incoming,
+      onReplace:()=>{athletes=[];lsave();renderAll();_validateAndImportCore(rows,fileName,fileSize,done);},
+      onAppend:()=>_validateAndImportCore(rows,fileName,fileSize,done),
+      onCancel:()=>done?.(),
+    });
+    return;
+  }
+  _validateAndImportCore(rows,fileName,fileSize,done);
+}
+
+function _validateAndImportCore(rows,fileName,fileSize,done=null){
   /* 2. 필수 필드 검증 */
   const errors=[];
   rows.forEach((row,idx)=>{
@@ -4801,6 +5001,7 @@ function doImportRows(rows,fileName,fileSize,done=null){
     uploadedFiles.unshift({name:fileName,size:fileSize,at:new Date().toISOString(),count:added});
     if(uploadedFiles.length>30)uploadedFiles=uploadedFiles.slice(0,30);
     localStorage.setItem('mop_uploaded_files',JSON.stringify(uploadedFiles));
+    renderUploadHistory();
   }
   autoAssignTeams();
   assignBibs();renderAll();lsave();
@@ -5125,8 +5326,8 @@ function showFormatGuide(){
 /* ── 렌더 ── */
 /* ── 상태 바 렌더 ── */
 function renderStatusBar(){
-  const el=document.getElementById('entry-status-bar');
-  if(!el)return;
+  const els=['entry-status-bar','entry-status-bar-heats'].map(id=>document.getElementById(id)).filter(Boolean);
+  if(!els.length)return;
   const ko=lang==='ko';
 
   // 단계 정의
@@ -5202,7 +5403,7 @@ function renderStatusBar(){
   }
 
   html+=`</div></div>`;
-  el.innerHTML=html;
+  els.forEach(e=>{e.innerHTML=html;});
 }
 
 function renderAll(){renderTable();updateStats();renderPivot();updateFilterOpts();updateHeatEvOpts();updateHeatCnt();renderSchEvList();renderStatusBar();}
@@ -5486,7 +5687,7 @@ function openEdit(idx){
   document.getElementById('e-name').value=a.name||'';
   document.getElementById('e-gender').value=a.gender||'M';
   document.getElementById('e-birth').value=a.birthdate||'';
-  document.getElementById('e-country').value=a.country||'';
+  renderCountrySelect(document.getElementById('e-country'),a.country||'KOR',lang);
   document.getElementById('e-club').value=a.club||'';
   document.getElementById('e-division').value=a.division||'';
   // events[] + teams{} → ev tag 배열 [{code,team} | string]
@@ -6187,6 +6388,9 @@ function setCourtMode(mode){
    3. 유령 엔트리: 히트에 있지만 명단에 없는 bib
    4. 종목 불일치: 히트 종목과 선수 출전 종목이 다름
 */
+// dev 모드 검증 로그 누적 (URL 에 ?dev=1 또는 localStorage mop_dev=1 일 때 노출)
+const DEV_MODE=(new URLSearchParams(location.search).get('dev')==='1')||localStorage.getItem('mop_dev')==='1';
+const _validateLog=[];
 function validateEntries(){
   const issues=[];
 
@@ -6271,13 +6475,23 @@ function validateEntries(){
   const errors=issues.filter(i=>i.severity==='error');
   const warns=issues.filter(i=>i.severity==='warn');
 
+  // 실행 시각 — 결과가 동일해도 매번 새 timestamp 가 찍혀서 "방금 실행됨" 이 보임
+  const ranAt=new Date();
+  const ranAtStr=ranAt.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+'.'+String(ranAt.getMilliseconds()).padStart(3,'0');
+  _validateLog.unshift({at:ranAt.toISOString(),ranAtStr,errors:issues.filter(i=>i.severity==='error').length,warns:issues.filter(i=>i.severity==='warn').length,total:issues.length,athletes:athletes.length,heats:heats.length,courtMode:courtLayout?.mode||'-',stations:courtLayout?.stations||'-',cps:courtLayout?.cps||'-'});
+  if(_validateLog.length>20)_validateLog.length=20;
+  console.log('[validateEntries]',ranAtStr,{issues:issues.length,errors:issues.filter(i=>i.severity==='error').length,warns:issues.filter(i=>i.severity==='warn').length,athletes:athletes.length,heats:heats.length,layout:courtLayout});
+
+  const devLog=DEV_MODE?`<div style="margin-top:6px;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--mu2);background:var(--sur3);padding:5px 8px;border-radius:5px;max-height:120px;overflow:auto">${_validateLog.map(l=>`${l.ranAtStr} · ath ${l.athletes} · heat ${l.heats} · ${l.courtMode} ${l.stations}×${l.cps} · err ${l.errors} warn ${l.warns}`).join('<br>')}</div>`:'';
+
   if(!issues.length){
     el.innerHTML=`<div style="padding:12px 14px;background:var(--gn-soft);border:1px solid var(--gn);border-radius:8px;color:var(--gn);font-weight:700;font-size:13px">
       ✅ 검증 통과 — 엔트리와 히트표가 일치합니다.
       <div style="font-weight:400;font-size:12px;margin-top:3px;color:var(--mu)">
         ${athletes.length}명 · ${athletes.reduce((s,a)=>s+(a.events||[]).length,0)}엔트리 · ${heats.length}히트 모두 정상
       </div>
-    </div>`;
+      <div style="font-weight:400;font-size:10px;margin-top:4px;color:var(--mu2);font-family:'JetBrains Mono',monospace">실행: ${ranAtStr}</div>
+    </div>${devLog}`;
     return;
   }
 
@@ -6288,6 +6502,7 @@ function validateEntries(){
     <div style="padding:10px 12px;background:${errors.length?'var(--ac2-soft)':'var(--yw-soft)'};border:1px solid ${errors.length?'var(--ac2)':'var(--yw)'};border-radius:8px;margin-bottom:8px">
       <div style="font-size:13px;font-weight:700;margin-bottom:4px">${summary}</div>
       <div style="font-size:11px;color:var(--mu)">히트표와 엔트리 사이의 불일치를 확인하세요.</div>
+      <div style="font-size:10px;color:var(--mu2);margin-top:3px;font-family:'JetBrains Mono',monospace">실행: ${ranAtStr}</div>
     </div>
     ${errors.length?`<div style="margin-bottom:6px"><div style="font-size:12px;font-weight:700;color:var(--ac2);margin-bottom:4px">❌ 오류 (즉시 수정 필요)</div>
       ${errors.map(i=>`<div style="font-size:12px;padding:5px 10px;background:#fff;border-left:3px solid var(--ac2);margin-bottom:3px;border-radius:0 6px 6px 0">${i.msg}</div>`).join('')}
@@ -6297,6 +6512,7 @@ function validateEntries(){
         ${warns.map(i=>`<div style="font-size:12px;padding:5px 10px;background:#fff;border-left:3px solid var(--yw);margin-bottom:3px;border-radius:0 6px 6px 0">${i.msg}</div>`).join('')}
       </div>
     </div>`:''}
+    ${devLog}
   `;
 
   toast(lang==='ko'
@@ -6501,17 +6717,17 @@ function generateBibCards(){
         qrEl.appendChild(canvas);
         // QR 데이터 = judge.html 진입 URL.
         // 휴대폰 카메라/QR 스캐너에서 자동으로 브라우저가 열리도록 절대 URL 로 구성.
-        // base = mop_setup.html 이 호스팅된 곳에서 judge.html 로 옮긴 경로 (보통 같은 디렉토리).
+        // ⚡ 슬림화: name·entry 는 Firebase heat 데이터에서 자동으로 채워짐 → URL 에서 제외해
+        //   한글 인코딩으로 길어지는 걸 막고 QR 밀도 ↓ (폰 카메라 인식률 ↑).
+        // 폰트크기·여백·EC 레벨 조정으로 작은 인쇄에서도 잘 스캔되도록.
         const _base=`${location.origin}${location.pathname.replace(/[^\/]*$/,'')}judge.html`;
         const _qs=new URLSearchParams({
           room:cfg.roomId||'room_001',
           bib:a.bib||'',
           event:ev.code||'',
-          entry:String(entryNo||''),
-          name:a.name||'',
         });
         const qrData=`${_base}?${_qs.toString()}`;
-        QRCode.toCanvas(canvas, qrData, {width:72,margin:0,color:{dark:'#000',light:'#fff'}})
+        QRCode.toCanvas(canvas, qrData, {width:108,margin:1,color:{dark:'#000',light:'#fff'},errorCorrectionLevel:'M'})
           .then(()=>qrOk++)
           .catch(e=>{qrFail++;console.warn('QR실패',a.bib,ev.code,e);});
       });
@@ -6826,24 +7042,45 @@ function generateSchedule(){
 }
 
 /* ── Firebase ── */
+// Firebase RTDB 는 undefined 키가 들어가면 즉시 거부함.
+// 재귀로 undefined → 제거 (객체) 또는 null (배열). 빈 문자열·0·false 는 그대로 보존.
+function sanitizeForFb(v){
+  if(v===undefined)return null;
+  if(v===null)return null;
+  if(typeof v==='function')return null;
+  if(Array.isArray(v))return v.map(x=>{const s=sanitizeForFb(x);return s===undefined?null:s;});
+  if(typeof v==='object'){
+    const out={};
+    for(const k of Object.keys(v)){
+      if(v[k]===undefined)continue;
+      const s=sanitizeForFb(v[k]);
+      if(s!==undefined)out[k]=s;
+    }
+    return out;
+  }
+  return v;
+}
+
 async function saveToFirebase(){
   if(!athletes.length){toast('No athletes',true);return;}
   toast(lang==='ko'?'저장 중...':'Saving...');
   try{
-    const m={};athletes.forEach(a=>{m[a.bib]={...a,birthdate_iso:a.birthdate?parseYYMMDD(a.birthdate):''}});
-    await db.ref(`${cfg.roomId}/athletes`).set(m);
-    await db.ref(`${cfg.roomId}/meta`).update({
-      competition:cfg.competition,
+    const m={};athletes.forEach(a=>{m[a.bib]={...a,birthdate_iso:a.birthdate?(parseYYMMDD(a.birthdate)||''):''}});
+    await db.ref(`${cfg.roomId}/athletes`).set(sanitizeForFb(m));
+    const meta=sanitizeForFb({
+      // 화면에 보이는 입력칸을 1순위로 읽음 (cfg.competition 상태가 어긋나도 WYSIWYG 보장)
+      competition:document.getElementById('sch-comp')?.value||document.getElementById('cfg-comp')?.value||cfg.competition||'',
       date:document.getElementById('sch-date')?.value||'',
       venue:document.getElementById('sch-venue')?.value||'',
-      mode:competitionMode,
-      stationLayout:courtLayout,
-      courtMode:courtMode,
+      mode:competitionMode||'ijru',
+      stationLayout:typeof courtLayout!=='undefined'?courtLayout:null,
+      courtMode:typeof courtMode!=='undefined'?courtMode:null,
       athletes_count:athletes.length,
       updated_at:new Date().toISOString()
     });
+    await db.ref(`${cfg.roomId}/meta`).update(meta);
     toast(lang==='ko'?`✓ ${athletes.length}명 + 메타정보 저장됨`:`✓ ${athletes.length} saved`);
-  }catch(e){toast('오류: '+e.message,true);}
+  }catch(e){console.error('[Firebase save] failed:',e);toast('오류: '+e.message,true);}
 }
 async function saveHeatsToFirebase(){
   if(!heats.length){toast(lang==='ko'?'히트 없음':'No heats',true);return;}
@@ -6851,12 +7088,27 @@ async function saveHeatsToFirebase(){
   try{
     const m={};
     heats.forEach(h=>{
-      m[`heat_${h.heatNo}`]={no:h.heatNo,event:h.event,event_name:evLabel(EVENTS.find(e=>e.code===h.event)||{})||h.event,division:h.division,status:'idle',
-        courts:Object.fromEntries(h.courts.map(c=>[c.courtId,{athlete:c.athletes?{bib:c.athletes[0]?.bib,name:c.athletes[0]?.name,club:c.athletes[0]?.club,teamKey:c.athletes[0]?.teamKey||''}:null,status:'idle'}])),};
+      m[`heat_${h.heatNo}`]={
+        no:h.heatNo,
+        event:h.event||'',
+        event_name:evLabel(EVENTS.find(e=>e.code===h.event)||{})||h.event||'',
+        division:h.division||'',
+        status:'idle',
+        courts:Object.fromEntries((h.courts||[]).map(c=>[c.courtId,{
+          athlete:c.athletes&&c.athletes[0]?{
+            bib:c.athletes[0].bib||'',
+            name:c.athletes[0].name||'',
+            club:c.athletes[0].club||'',
+            country:c.athletes[0].country||'',
+            teamKey:c.athletes[0].teamKey||'',
+          }:null,
+          status:'idle'
+        }])),
+      };
     });
-    await db.ref(`${cfg.roomId}/heats`).set(m);
+    await db.ref(`${cfg.roomId}/heats`).set(sanitizeForFb(m));
     toast(lang==='ko'?`✓ ${heats.length}히트 저장됨`:`✓ ${heats.length} heats`);
-  }catch(e){toast('오류: '+e.message,true);}
+  }catch(e){console.error('[Firebase save heats] failed:',e);toast('오류: '+e.message,true);}
 }
 async function loadFromFirebase(){
   toast(lang==='ko'?'불러오는 중...':'Loading...');
@@ -6865,6 +7117,19 @@ async function loadFromFirebase(){
     if(as.exists()){athletes=Object.values(as.val()||{});assignBibs();renderAll();lsave();}
     const hs=await db.ref(`${cfg.roomId}/heats`).get();
     if(hs.exists()){heats=Object.values(hs.val()||{}).map(h=>({heatNo:h.no,event:h.event,division:h.division,courts:Object.entries(h.courts||{}).map(([id,c])=>({courtId:id,athletes:c.athlete?[c.athlete]:[]}))})).sort((a,b)=>a.heatNo-b.heatNo);renderHeatList();updateHeatCnt();}
+    // 메타정보(대회명·장소·날짜)도 복원 — 다른 기기/새 브라우저에서 룸 불러왔을 때 입력칸에 반영
+    const ms=await db.ref(`${cfg.roomId}/meta`).get();
+    if(ms.exists()){
+      const meta=ms.val()||{};
+      if(meta.competition!==undefined){
+        cfg.competition=meta.competition;
+        const cEl=document.getElementById('sch-comp');if(cEl)cEl.value=meta.competition;
+        const cmEl=document.getElementById('cfg-comp');if(cmEl)cmEl.value=meta.competition;
+      }
+      if(meta.venue!==undefined){const vEl=document.getElementById('sch-venue');if(vEl)vEl.value=meta.venue;}
+      if(meta.date!==undefined){const dEl=document.getElementById('sch-date');if(dEl)dEl.value=meta.date;}
+      localStorage.setItem('mop_cfg',JSON.stringify(cfg));
+    }
     toast(lang==='ko'?'✓ 불러오기 완료':'✓ Loaded');
   }catch(e){toast('오류: '+e.message,true);}
 }
@@ -7233,6 +7498,7 @@ function assignAllEventsToDay(date){
   renderDayAssign();
 }
 function clearDayEvents(date){
+  if(!confirm(lang==='ko'?`${date} 의 종목 배정을 모두 비울까요?`:`Clear all event assignments for ${date}?`))return;
   dayEventAssign[date]=[];
   renderDayAssign();
 }
@@ -7258,24 +7524,58 @@ function renderInfoSummary(){
 function saveCfgAuto(){
   const r=document.getElementById('cfg-room')?.value;
   if(r)cfg.roomId=r;
+  const c=document.getElementById('sch-comp')?.value;
+  if(c!==undefined)cfg.competition=c;
   localStorage.setItem('mop_cfg',JSON.stringify(cfg));
   // 일정탭 헤더 업데이트
   const infoEl=document.getElementById('sch-info-display');
   if(infoEl){
-    const comp=document.getElementById('sch-comp')?.value;
+    const comp=cfg.competition||'';
     const date=document.getElementById('sch-date')?.value;
     const venue=document.getElementById('sch-venue')?.value;
     if(comp||date||venue)infoEl.textContent=`${comp||'—'} · ${date||''} · ${venue||''}`;
   }
 }
-function openCfg(){document.getElementById('cfg-modal').style.display='flex';}
+// 일정탭 → 설정 모달 동기화 (모달이 열려있지 않아도 다음 open 시 값이 정확하도록 미리 갱신)
+function syncCfgToModal(){
+  const rm=document.getElementById('cfg-room-modal');
+  if(rm)rm.value=cfg.roomId||'room_001';
+  const cm=document.getElementById('cfg-comp');
+  if(cm)cm.value=cfg.competition||'';
+}
+// 설정 모달 → 일정탭 동기화 + cfg state 갱신
+function syncCfgFromModal(field,val){
+  if(field==='roomId'){
+    cfg.roomId=val||'room_001';
+    const rEl=document.getElementById('cfg-room');if(rEl)rEl.value=cfg.roomId;
+  }else if(field==='competition'){
+    cfg.competition=val||'';
+    const cEl=document.getElementById('sch-comp');if(cEl)cEl.value=cfg.competition;
+  }
+  localStorage.setItem('mop_cfg',JSON.stringify(cfg));
+  saveCfgAuto();
+}
+function openCfg(){
+  // 열기 직전 cfg state 의 최신 값을 모달 input 들에 주입
+  const rm=document.getElementById('cfg-room-modal');
+  if(rm)rm.value=cfg.roomId||'room_001';
+  const cm=document.getElementById('cfg-comp');
+  if(cm)cm.value=cfg.competition||'';
+  const wh=document.getElementById('cfg-webhook');
+  if(wh)wh.value=cfg.webhook||'';
+  document.getElementById('cfg-modal').style.display='flex';
+}
 function closeCfg(){document.getElementById('cfg-modal').style.display='none';}
 function saveCfg(){
-  cfg.roomId=document.getElementById('cfg-room').value||'room_001';
-  cfg.webhook=document.getElementById('cfg-webhook').value;
-  cfg.competition=document.getElementById('cfg-comp').value;
+  cfg.roomId=document.getElementById('cfg-room-modal').value||'room_001';
+  cfg.webhook=document.getElementById('cfg-webhook').value||'';
+  cfg.competition=document.getElementById('cfg-comp').value||'';
+  // 일정탭 input 들도 갱신
+  const rEl=document.getElementById('cfg-room');if(rEl)rEl.value=cfg.roomId;
+  const cEl=document.getElementById('sch-comp');if(cEl)cEl.value=cfg.competition;
   localStorage.setItem('mop_cfg',JSON.stringify(cfg));
   if(cfg.webhook)document.getElementById('sheets-webhook').value=cfg.webhook;
+  saveCfgAuto();
   closeCfg();toast(lang==='ko'?'저장됨':'Saved');
 }
 function lsave(){localStorage.setItem('mop_athletes',JSON.stringify(athletes));}
